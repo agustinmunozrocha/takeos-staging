@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TakeOS · Mockup — Derechos del titular (Ley 21.719)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: dark;
+  --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --bg-page:#1a1a19; --bg-surface:#222221; --bg-surface-soft:#1e1e1d;
+  --bg-card:#262624; --bg-elevated:#2e2e2b;
+
+  --ink-primary:#FDFEED; --ink-secondary:#d3d6cb; --ink-muted:#a0a399; --ink-faint:#71736a;
+  --ink-onAccent:#FDFEED;
+
+  --accent:#B03A2F; --accent-deep:#d05a4d; --accent-soft:#6e3a33; --accent-bg:#2c1d1b;
+
+  --state-prep:#9aab74; --state-sale:#c79a5e; --state-prod:#6fa3b5;
+
+  --rule:#34342f; --rule-strong:#45453f; --rule-soft:#2a2a26;
+
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.35);
+  --shadow-md:0 4px 14px rgba(0,0,0,0.45);
+  --shadow-lg:0 14px 36px rgba(0,0,0,0.55);
+
+  --radius-sm:6px; --radius-md:10px; --radius-lg:16px; --radius-xl:24px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:24px; --space-6:32px; --space-7:48px; --space-8:64px;
+}
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{ font-family:var(--font-sans); background:var(--bg-page); color:var(--ink-primary); -webkit-font-smoothing:antialiased; line-height:1.45; }
+button{ font-family:inherit; }
+ul{ margin:0; padding:0; list-style:none; }
+
+/* Componentes base (calcados de TakeOS) */
+.input, .select{
+  width:100%; font-family:inherit; font-size:13px; color:var(--ink-primary);
+  background:var(--bg-surface); border:1px solid var(--rule); border-radius:var(--radius-sm);
+  padding:9px 11px; transition:border-color .12s ease, background .12s ease;
+}
+.input:focus, .select:focus{ outline:none; border-color:var(--accent); background:var(--bg-elevated); }
+.input::placeholder{ color:var(--ink-faint); }
+.input.err{ border-color:var(--accent-deep); }
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  font-family:inherit; font-size:13px; font-weight:500; padding:10px 16px;
+  border-radius:var(--radius-sm); border:1px solid var(--rule-strong);
+  background:var(--bg-surface); color:var(--ink-secondary); cursor:pointer; transition:all .12s ease;
+}
+.btn:hover{ background:var(--bg-surface-soft); border-color:var(--ink-faint); }
+.btn-primary{ background:var(--accent); color:var(--ink-onAccent); border-color:var(--accent); }
+.btn-primary:hover{ background:var(--accent-deep); border-color:var(--accent-deep); transform:translateY(-1px); box-shadow:var(--shadow-md); }
+.btn-ghost{ border-color:transparent; background:transparent; color:var(--ink-muted); }
+.btn-ghost:hover{ background:var(--bg-surface-soft); color:var(--ink-secondary); }
+.btn-danger{ background:var(--accent); color:var(--ink-onAccent); border-color:var(--accent); }
+.btn-danger:hover{ background:var(--accent-deep); border-color:var(--accent-deep); }
+.btn:disabled, .btn[disabled]{ opacity:.4; cursor:not-allowed; filter:saturate(.35); }
+.btn:disabled:hover{ transform:none; box-shadow:none; }
+.btn-block{ width:100%; }
+.btn-lg{ padding:13px 20px; font-size:14px; }
+
+:focus-visible{ outline:2px solid var(--accent-deep); outline-offset:2px; }
+
+/* Cromo de mockup */
+.chrome{
+  position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap;
+  padding:10px 18px; background:var(--bg-surface-soft); border-bottom:1px solid var(--rule);
+}
+.chrome .tag{ font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); border:1px solid var(--rule); border-radius:999px; padding:4px 10px; }
+.chrome .grow{ flex:1; }
+
+/* Layout */
+.stage{ max-width:760px; margin:0 auto; padding:var(--space-6) var(--space-4) 120px; }
+.acct-head{ display:flex; align-items:center; gap:12px; margin-bottom:var(--space-5); }
+.acct-head .avatar{ width:40px; height:40px; border-radius:50%; background:var(--accent-soft); color:var(--ink-primary); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:600; }
+.acct-head .who b{ font-size:15px; font-weight:600; display:block; }
+.acct-head .who span{ font-size:12px; color:var(--ink-muted); }
+
+.page-title{ margin:0 0 4px; font-size:24px; font-weight:700; letter-spacing:-.01em; }
+.page-sub{ color:var(--ink-muted); font-size:14px; margin:0 0 var(--space-5); }
+
+.legal-note{
+  font-size:12px; color:var(--state-sale); background:var(--accent-bg);
+  border:1px dashed var(--accent-soft); border-radius:var(--radius-sm);
+  padding:10px 13px; margin-bottom:var(--space-5);
+}
+.legal-note b{ color:var(--state-sale); }
+
+/* Hub de derechos */
+.rights{ display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); }
+.right-card{
+  background:var(--bg-card); border:1px solid var(--rule); border-radius:var(--radius-md);
+  padding:var(--space-5); cursor:pointer; transition:border-color .12s, transform .12s;
+  display:flex; flex-direction:column; gap:10px; text-align:left;
+}
+.right-card:hover{ border-color:var(--rule-strong); transform:translateY(-2px); }
+.right-card .ico{ font-size:22px; }
+.right-card .rt{ font-size:15px; font-weight:600; }
+.right-card .rd{ font-size:12px; color:var(--ink-muted); flex:1; }
+.right-tag{
+  align-self:flex-start; font-size:9px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-secondary); border:1px solid var(--rule-strong); border-radius:999px; padding:3px 9px;
+}
+.right-tag.warn{ color:var(--state-sale); border-color:#5a4a2a; }
+.right-tag.danger{ color:var(--accent-deep); border-color:var(--accent-soft); }
+
+/* Tarjeta / flujo */
+.card{ background:var(--bg-card); border:1px solid var(--rule); border-radius:var(--radius-lg); padding:var(--space-6); }
+.card h3{ margin:0 0 4px; font-size:19px; font-weight:600; }
+.card .sub{ color:var(--ink-muted); font-size:13px; margin:0 0 var(--space-5); }
+.flow-back{ background:transparent; border:1px solid var(--rule); border-radius:var(--radius-sm); padding:7px 13px; font-size:12px; color:var(--ink-secondary); cursor:pointer; margin-bottom:var(--space-4); }
+.flow-back:hover{ background:var(--bg-surface-soft); }
+
+.bullets{ display:flex; flex-direction:column; gap:9px; margin:var(--space-4) 0; }
+.bullets li{ font-size:13px; color:var(--ink-secondary); display:flex; gap:9px; align-items:flex-start; }
+.bullets li::before{ content:"›"; color:var(--accent-deep); font-weight:700; }
+
+.actions{ display:flex; gap:var(--space-3); margin-top:var(--space-5); flex-wrap:wrap; }
+.actions .grow{ flex:1; }
+
+.field{ margin-bottom:var(--space-4); }
+.field label{ display:block; font-size:12px; color:var(--ink-secondary); margin-bottom:6px; font-weight:500; }
+.field .hint{ font-size:11px; color:var(--ink-faint); margin-top:5px; }
+.field .msg-err{ font-size:11px; color:var(--accent-deep); margin-top:5px; display:none; }
+.field.show-err .msg-err{ display:block; }
+
+/* Lista de consentimientos (productoras) */
+.consent-row{
+  display:flex; align-items:center; gap:14px; padding:var(--space-4);
+  border:1px solid var(--rule); border-radius:var(--radius-md); background:var(--bg-surface-soft); margin-bottom:11px;
+}
+.consent-row .org-ico{ width:38px; height:38px; border-radius:var(--radius-sm); background:var(--bg-elevated); display:flex; align-items:center; justify-content:center; font-size:16px; flex:0 0 38px; }
+.consent-row .meta{ flex:1; min-width:0; }
+.consent-row .meta b{ font-size:14px; font-weight:600; display:block; }
+.consent-row .meta span{ font-size:12px; color:var(--ink-muted); }
+.consent-row.revoked{ opacity:.7; }
+.badge-soft{ font-size:10px; letter-spacing:.04em; text-transform:uppercase; padding:3px 9px; border-radius:999px; border:1px solid var(--rule-strong); color:var(--ink-muted); }
+.badge-soft.rev{ color:var(--accent-deep); border-color:var(--accent-soft); }
+.badge-soft.own{ color:var(--state-prep); border-color:#43521f; }
+
+/* Switch */
+.switch-row{ display:flex; align-items:flex-start; gap:14px; padding:14px 0; border-bottom:1px solid var(--rule-soft); }
+.switch-row:last-child{ border-bottom:none; }
+.switch-row .sinfo{ flex:1; }
+.switch-row .sinfo b{ font-size:13px; font-weight:600; display:block; }
+.switch-row .sinfo span{ font-size:12px; color:var(--ink-muted); }
+.switch{ position:relative; width:42px; height:24px; flex:0 0 42px; cursor:pointer; }
+.switch input{ position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; }
+.switch .track{ position:absolute; inset:0; background:var(--bg-elevated); border:1px solid var(--rule-strong); border-radius:999px; transition:all .15s; }
+.switch .knob{ position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:var(--ink-muted); transition:all .15s; }
+.switch input:checked + .track{ background:var(--accent); border-color:var(--accent); }
+.switch input:checked + .track + .knob{ left:21px; background:var(--ink-onAccent); }
+.switch input:disabled{ cursor:not-allowed; }
+.switch.locked .track{ background:var(--accent-soft); border-color:var(--accent-soft); }
+.switch.locked .knob{ left:21px; background:var(--ink-primary); }
+
+/* Zona de peligro (eliminar cuenta) */
+.danger-box{ border:1px solid var(--accent-soft); border-radius:var(--radius-md); background:var(--accent-bg); padding:var(--space-5); }
+.danger-box h4{ margin:0 0 6px; font-size:15px; color:var(--accent-deep); }
+.blocker{ display:flex; gap:13px; align-items:flex-start; border:1px solid var(--rule-strong); border-radius:var(--radius-md); padding:var(--space-4); background:var(--bg-surface-soft); margin-bottom:var(--space-4); }
+.blocker .bi{ font-size:20px; }
+.blocker .bt{ font-size:14px; font-weight:600; }
+.blocker .bd{ font-size:12px; color:var(--ink-muted); margin-top:3px; }
+.check-row{ display:flex; align-items:flex-start; gap:11px; margin:var(--space-4) 0; cursor:pointer; }
+.check-row input{ width:18px; height:18px; margin-top:1px; accent-color:var(--accent); cursor:pointer; }
+.check-row span{ font-size:13px; color:var(--ink-secondary); }
+.type-confirm{ margin-top:var(--space-4); }
+.type-confirm label{ display:block; font-size:12px; color:var(--ink-secondary); margin-bottom:6px; }
+
+/* Estado / resultado */
+.result{ text-align:center; padding:var(--space-5) 0; }
+.result .ring{ width:64px; height:64px; border-radius:50%; margin:0 auto var(--space-4); background:var(--accent-bg); border:2px solid var(--accent); display:flex; align-items:center; justify-content:center; color:var(--accent-deep); font-size:28px; }
+.result h4{ font-size:18px; margin:0 0 8px; }
+.result p{ color:var(--ink-secondary); font-size:13px; margin:0 auto; max-width:420px; }
+
+.spinner{ width:36px; height:36px; border-radius:50%; border:3px solid var(--rule-strong); border-top-color:var(--accent); margin:0 auto var(--space-4); animation:spin .8s linear infinite; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+
+.scheduled{ border:1px solid var(--accent-soft); background:var(--accent-bg); border-radius:var(--radius-md); padding:var(--space-5); text-align:center; }
+.scheduled .si{ font-size:26px; }
+.scheduled h4{ margin:8px 0 6px; font-size:16px; }
+.scheduled p{ font-size:13px; color:var(--ink-secondary); margin:0 0 var(--space-4); }
+
+/* Banner de cookies */
+.cookie-banner{
+  position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+  width:min(680px, calc(100vw - 28px)); z-index:50;
+  background:var(--bg-elevated); border:1px solid var(--rule-strong); border-radius:var(--radius-md);
+  box-shadow:var(--shadow-lg); padding:var(--space-4) var(--space-5);
+  display:flex; align-items:center; gap:var(--space-4); flex-wrap:wrap;
+}
+.cookie-banner .ct{ flex:1; min-width:220px; font-size:13px; color:var(--ink-secondary); }
+.cookie-banner .ct b{ color:var(--ink-primary); }
+.cookie-banner .cbtns{ display:flex; gap:8px; flex-wrap:wrap; }
+
+/* Toast */
+.toast{
+  position:fixed; left:50%; bottom:90px; transform:translateX(-50%) translateY(10px);
+  background:var(--bg-elevated); border:1px solid var(--rule-strong); border-radius:var(--radius-sm);
+  padding:10px 16px; font-size:13px; color:var(--ink-primary); box-shadow:var(--shadow-lg);
+  opacity:0; pointer-events:none; transition:all .2s; z-index:80;
+}
+.toast.on{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* Drawer de notas */
+.notes-drawer{
+  position:fixed; top:0; right:0; height:100%; width:min(440px,92vw); z-index:60;
+  background:var(--bg-surface); border-left:1px solid var(--rule-strong); box-shadow:var(--shadow-lg);
+  transform:translateX(100%); transition:transform .22s ease; display:flex; flex-direction:column;
+}
+.notes-drawer.open{ transform:translateX(0); }
+.notes-h{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--rule); }
+.notes-h b{ font-size:14px; }
+.notes-h button{ background:transparent; border:none; color:var(--ink-faint); cursor:pointer; font-size:20px; }
+.notes-body{ padding:18px; overflow:auto; }
+.note{ border:1px solid var(--rule); border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:11px; background:var(--bg-surface-soft); }
+.note .ns{ font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--accent-deep); font-weight:600; margin-bottom:5px; }
+.note .nm{ font-size:12px; color:var(--ink-secondary); }
+.note code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:var(--ink-primary); background:var(--bg-card); padding:1px 5px; border-radius:4px; }
+.note .pend{ display:inline-block; font-size:10px; color:var(--state-sale); border:1px solid #5a4a2a; border-radius:999px; padding:2px 7px; margin-top:7px; }
+.scrim{ position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:55; }
+
+@media (max-width:680px){
+  .rights{ grid-template-columns:1fr; }
+}
+@media (prefers-reduced-motion: reduce){
+  *{ transition:none !important; animation:none !important; }
+  .spinner{ animation:none !important; border-top-color:var(--accent); }
+}
+</style>
+</head>
+<body>
+
+<div class="chrome">
+  <span class="tag">Mockup · no conectado a backend</span>
+  <span class="tag">Derechos del titular · Ley 21.719</span>
+  <span class="grow"></span>
+  <button class="btn btn-ghost" onclick="mostrarBanner()">🍪 Mostrar banner</button>
+  <button class="btn btn-ghost" onclick="reiniciar()">↺ Reiniciar</button>
+  <button class="btn" onclick="toggleNotas()">ⓘ Notas de integración</button>
+</div>
+
+<div id="app"></div>
+
+<div id="banner-cont"></div>
+<div class="toast" id="toast"></div>
+
+<div class="scrim" id="scrim" style="display:none" onclick="toggleNotas()"></div>
+<aside class="notes-drawer" id="notas">
+  <div class="notes-h"><b>Costuras de integración</b><button onclick="toggleNotas()" aria-label="Cerrar">×</button></div>
+  <div class="notes-body" id="notas-body"></div>
+</aside>
+
+<script>
+/* ===================================================================
+   TakeOS — Mockup de los cinco flujos de derechos del titular (Ley 21.719)
+   HTML único · JS vanilla · estado en memoria · sin backend.
+   Centro de privacidad y datos dentro del panel personal (identidad global
+   por usuario, no por productora). Cada flujo anota su costura de integración.
+
+   Los cinco derechos (Roadmap Gate C · PRD §16 · ADR-012/020):
+   1. Exportación / portabilidad   2. Revocación de consentimiento
+   3. Borrado / supresión de cuenta   4. Verificación de edad (si aplica)
+   5. Aviso de cookies / analítica
+   =================================================================== */
+
+let estado;
+function estadoInicial(){
+  return {
+    persona: { nombre:'Camila', apellido:'Soto', mail:'camila.soto@correo.cl', nacimiento:'', edadVerificada:false },
+    // Productoras que tienen una copia de los datos por consentimiento (patrón snapshot, ADR-020).
+    productoras: [
+      { id:'aurora', nombre:'Productora Aurora', proyecto:'Marea Negra', consentido:'12-03-2026', estado:'activo', propia:false },
+      { id:'sur', nombre:'Filmes del Sur', proyecto:'Spot Andes', consentido:'02-05-2026', estado:'activo', propia:false },
+      { id:'bosque', nombre:'Bosque Films', proyecto:null, consentido:'—', estado:'activo', propia:true, unicoAdmin:true }
+    ],
+    cookies: { decidido:false, esenciales:true, analitica:false, marketing:false },
+    exportEstado: 'idle',          // idle | generando | listo
+    revocando: null,               // id de productora en confirmación de revocación
+    adminResuelto: false,          // si ya resolvió ser único admin de Bosque Films
+    transfiriendo: false,          // pantalla de transferir administración
+    cuentaEstado: 'activa'         // activa | programada
+  };
+}
+
+let vista = 'hub';   // hub | export | consentimientos | eliminar | edad | cookies
+const app = document.getElementById('app');
+
+function ir(v){ vista = v; render(); window.scrollTo(0,0); }
+function reiniciar(){ estado = estadoInicial(); vista = 'hub'; render(); window.scrollTo(0,0); pintarBanner(); }
+
+function render(){
+  switch(vista){
+    case 'hub':            vistaHub(); break;
+    case 'export':         vistaExport(); break;
+    case 'consentimientos':vistaConsentimientos(); break;
+    case 'eliminar':       vistaEliminar(); break;
+    case 'edad':           vistaEdad(); break;
+    case 'cookies':        vistaCookies(); break;
+    default:               vistaHub();
+  }
+  pintarBanner();
+}
+
+function encabezadoCuenta(){
+  const ini = (estado.persona.nombre[0]||'C') + (estado.persona.apellido[0]||'S');
+  return `
+    <div class="acct-head">
+      <div class="avatar">${ini.toUpperCase()}</div>
+      <div class="who"><b>${estado.persona.nombre} ${estado.persona.apellido}</b><span>${estado.persona.mail}</span></div>
+    </div>`;
+}
+
+/* ===================================================================
+   HUB — Centro de privacidad y datos
+   =================================================================== */
+function vistaHub(){
+  app.innerHTML = `
+    <div class="stage">
+      ${encabezadoCuenta()}
+      <h1 class="page-title">Privacidad y datos</h1>
+      <p class="page-sub">Tus derechos sobre tus datos personales, según la Ley 21.719 de protección de datos.</p>
+      <div class="legal-note">Los textos legales de esta sección son provisionales y solo demuestran el flujo. El área legal define la versión definitiva antes de salir en vivo.</div>
+
+      <div class="rights">
+        <button class="right-card" onclick="ir('export')">
+          <div class="ico">⬇️</div>
+          <div class="rt">Descargar mis datos</div>
+          <div class="rd">Pide una copia de todos tus datos personales en un formato portable.</div>
+          <span class="right-tag">Acceso · Portabilidad</span>
+        </button>
+
+        <button class="right-card" onclick="ir('consentimientos')">
+          <div class="ico">🏢</div>
+          <div class="rt">Productoras con acceso a tus datos</div>
+          <div class="rd">Revisa quién tiene tus datos y revoca tu consentimiento cuando quieras.</div>
+          <span class="right-tag">Revocación</span>
+        </button>
+
+        <button class="right-card" onclick="ir('edad')">
+          <div class="ico">🪪</div>
+          <div class="rt">Verificación de edad</div>
+          <div class="rd">Confirma que eres mayor de edad para usar TakeOS.</div>
+          <span class="right-tag warn">Si aplica</span>
+        </button>
+
+        <button class="right-card" onclick="ir('cookies')">
+          <div class="ico">🍪</div>
+          <div class="rt">Cookies y analítica</div>
+          <div class="rd">Decide qué datos de navegación permites recolectar.</div>
+          <span class="right-tag">Consentimiento</span>
+        </button>
+
+        <button class="right-card" onclick="ir('eliminar')" style="grid-column:1/-1">
+          <div class="ico">🗑️</div>
+          <div class="rt">Eliminar mi cuenta</div>
+          <div class="rd">Elimina tu cuenta de TakeOS y suprime tus datos personales. Esta acción es irreversible.</div>
+          <span class="right-tag danger">Supresión</span>
+        </button>
+      </div>
+    </div>`;
+}
+
+/* ===================================================================
+   1 · EXPORTACIÓN / PORTABILIDAD
+   Costura: el backend genera el export y entrega un archivo firmado;
+   la solicitud queda en audit_log. Formato portable (Ley 21.719).
+   =================================================================== */
+function vistaExport(){
+  let cuerpo = '';
+  if(estado.exportEstado === 'idle'){
+    cuerpo = `
+      <h3>Descargar mis datos</h3>
+      <p class="sub">Pide una copia completa de tus datos personales. Es tu derecho de acceso y portabilidad.</p>
+      <div style="font-size:12px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Tu copia incluye</div>
+      <ul class="bullets">
+        <li>Tu perfil personal y datos de contacto</li>
+        <li>Tus datos bancarios registrados</li>
+        <li>Las productoras donde participas y tu rol en cada una</li>
+        <li>Los consentimientos que has otorgado, con su fecha</li>
+        <li>Un resumen de tu actividad en el sistema</li>
+      </ul>
+      <p style="font-size:12px;color:var(--ink-muted)">Se entrega en un formato legible y portable (JSON y CSV).</p>
+      <div class="actions">
+        <button class="btn btn-primary grow btn-lg" onclick="solicitarExport()">Solicitar mi copia</button>
+      </div>`;
+  } else if(estado.exportEstado === 'generando'){
+    cuerpo = `
+      <h3>Descargar mis datos</h3>
+      <div class="result"><div class="spinner"></div><h4>Estamos reuniendo tus datos</h4><p>Esto puede tardar unos segundos.</p></div>`;
+  } else {
+    cuerpo = `
+      <h3>Descargar mis datos</h3>
+      <div class="result">
+        <div class="ring">✓</div>
+        <h4>Tu copia está lista</h4>
+        <p>Descarga el archivo con todos tus datos personales en formato portable.</p>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary grow btn-lg" onclick="toast('Descarga simulada · sin backend')">Descargar copia (.json)</button>
+        <button class="btn" onclick="estado.exportEstado='idle';render()">Pedir de nuevo</button>
+      </div>`;
+  }
+  app.innerHTML = `<div class="stage">${encabezadoCuenta()}<button class="flow-back" onclick="ir('hub')">← Privacidad y datos</button><div class="card">${cuerpo}</div></div>`;
+}
+function solicitarExport(){
+  estado.exportEstado = 'generando'; render();
+  setTimeout(()=>{ estado.exportEstado = 'listo'; render(); }, 1300);
+}
+
+/* ===================================================================
+   2 · REVOCACIÓN DE CONSENTIMIENTO DE INCORPORACIÓN
+   Costura: registra revoked_at en data_consents (ADR-020; el registro NO se borra);
+   la membresía pasa a 'inactivo'; la productora pierde acceso; queda en audit_log.
+   =================================================================== */
+function vistaConsentimientos(){
+  if(estado.revocando){ vistaRevocarConfirm(); return; }
+  const filas = estado.productoras.map(p => {
+    if(p.propia){
+      return `
+        <div class="consent-row">
+          <div class="org-ico">👑</div>
+          <div class="meta"><b>${p.nombre}</b><span>Tu productora · eres administradora</span></div>
+          <span class="badge-soft own">Tu productora</span>
+        </div>`;
+    }
+    if(p.estado === 'revocado'){
+      return `
+        <div class="consent-row revoked">
+          <div class="org-ico">🏢</div>
+          <div class="meta"><b>${p.nombre}</b><span>Consentimiento revocado el ${p.revocadoEl}</span></div>
+          <span class="badge-soft rev">Revocado</span>
+        </div>`;
+    }
+    return `
+      <div class="consent-row">
+        <div class="org-ico">🏢</div>
+        <div class="meta"><b>${p.nombre}</b><span>Participas en "${p.proyecto}" · consentido el ${p.consentido}</span></div>
+        <button class="btn" onclick="estado.revocando='${p.id}';render()">Revocar</button>
+      </div>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="stage">
+      ${encabezadoCuenta()}
+      <button class="flow-back" onclick="ir('hub')">← Privacidad y datos</button>
+      <div class="card">
+        <h3>Productoras con acceso a tus datos</h3>
+        <p class="sub">Estas productoras tienen una copia de tus datos porque diste tu consentimiento al incorporarte. Puedes revocarlo cuando quieras.</p>
+        ${filas}
+      </div>
+    </div>`;
+}
+function vistaRevocarConfirm(){
+  const p = estado.productoras.find(x => x.id === estado.revocando);
+  app.innerHTML = `
+    <div class="stage">
+      ${encabezadoCuenta()}
+      <button class="flow-back" onclick="estado.revocando=null;render()">← Volver</button>
+      <div class="card">
+        <h3>Revocar consentimiento en ${p.nombre}</h3>
+        <p class="sub">Antes de continuar, ten en cuenta lo que pasa:</p>
+        <ul class="bullets">
+          <li>${p.nombre} dejará de tener acceso a tus datos.</li>
+          <li>Perderás acceso al proyecto "${p.proyecto}" donde participas con ellos.</li>
+          <li>Queda registrado como consentimiento revocado, con la fecha. La copia que ya tienen se conserva de forma datada como evidencia legal hasta que la productora la suprima.</li>
+        </ul>
+        <div class="actions">
+          <button class="btn grow" onclick="estado.revocando=null;render()">Cancelar</button>
+          <button class="btn btn-danger grow" onclick="confirmarRevocar('${p.id}')">Revocar consentimiento</button>
+        </div>
+      </div>
+    </div>`;
+}
+function confirmarRevocar(id){
+  const p = estado.productoras.find(x => x.id === id);
+  p.estado = 'revocado';
+  p.revocadoEl = fechaHoy();
+  estado.revocando = null;
+  render();
+  toast('Consentimiento revocado en ' + p.nombre);
+}
+
+/* ===================================================================
+   3 · BORRADO / SUPRESIÓN DE CUENTA
+   Respeta la invariante: una productora nunca puede quedar sin administrador.
+   Costura: borrado/supresión real (decisión: anonimizar vs. hard delete);
+   conserva evidencia legal datada (data_consents, audit_log); audit_log.
+   =================================================================== */
+function vistaEliminar(){
+  if(estado.cuentaEstado === 'programada'){ vistaCuentaProgramada(); return; }
+  if(estado.transfiriendo){ vistaTransferirAdmin(); return; }
+
+  const productoraBloqueante = estado.productoras.find(p => p.propia && p.unicoAdmin && !estado.adminResuelto);
+
+  let cuerpo;
+  if(productoraBloqueante){
+    cuerpo = `
+      <h3>Eliminar mi cuenta</h3>
+      <p class="sub">Hay algo que resolver antes de poder eliminar tu cuenta.</p>
+      <div class="blocker">
+        <div class="bi">⚠️</div>
+        <div>
+          <div class="bt">Eres la única administradora de ${productoraBloqueante.nombre}</div>
+          <div class="bd">Una productora no puede quedar sin administrador. Transfiere la administración a otra persona o elimina la productora antes de seguir.</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary grow" onclick="estado.transfiriendo=true;render()">Transferir la administración</button>
+        <button class="btn grow" onclick="toast('Eliminar la productora es otro flujo (no incluido en este mockup)')">Eliminar ${productoraBloqueante.nombre}</button>
+      </div>`;
+  } else {
+    cuerpo = `
+      <h3>Eliminar mi cuenta</h3>
+      <p class="sub">Esta acción es irreversible. Léela con calma.</p>
+      <div class="danger-box">
+        <h4>Qué pasa cuando eliminas tu cuenta</h4>
+        <ul class="bullets">
+          <li>Se elimina tu perfil global y se suprimen tus datos personales: perfil, contacto y datos bancarios.</li>
+          <li>Pierdes acceso a todas las productoras y proyectos donde participas.</li>
+          <li>Por exigencia de la Ley 21.719, los registros de consentimiento y de auditoría se conservan de forma datada y anonimizada como evidencia. No contienen tus datos en texto plano.</li>
+        </ul>
+        <label class="check-row">
+          <input type="checkbox" id="chk-del" onchange="evalDelDisabled()">
+          <span>Entiendo que esta acción es irreversible.</span>
+        </label>
+        <div class="type-confirm">
+          <label>Para confirmar, escribe <b>ELIMINAR</b></label>
+          <input class="input" id="txt-del" placeholder="ELIMINAR" oninput="evalDelDisabled()">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn grow" onclick="ir('hub')">Cancelar</button>
+        <button class="btn btn-danger grow" id="btn-del" disabled onclick="eliminarCuenta()">Eliminar mi cuenta</button>
+      </div>`;
+  }
+  app.innerHTML = `<div class="stage">${encabezadoCuenta()}<button class="flow-back" onclick="ir('hub')">← Privacidad y datos</button><div class="card">${cuerpo}</div></div>`;
+}
+function evalDelDisabled(){
+  const chk = document.getElementById('chk-del');
+  const txt = document.getElementById('txt-del');
+  const btn = document.getElementById('btn-del');
+  if(!chk || !txt || !btn) return;
+  btn.disabled = !(chk.checked && txt.value.trim().toUpperCase() === 'ELIMINAR');
+}
+function eliminarCuenta(){
+  estado.cuentaEstado = 'programada';
+  render();
+}
+function vistaTransferirAdmin(){
+  app.innerHTML = `
+    <div class="stage">
+      ${encabezadoCuenta()}
+      <button class="flow-back" onclick="estado.transfiriendo=false;render()">← Volver</button>
+      <div class="card">
+        <h3>Transferir la administración de Bosque Films</h3>
+        <p class="sub">Elige a quién dejas como administrador. La productora seguirá teniendo administrador cuando elimines tu cuenta.</p>
+        <div class="consent-row">
+          <div class="org-ico">👤</div>
+          <div class="meta"><b>Diego Fuentes</b><span>Ejecutivo · interno de Bosque Films</span></div>
+          <button class="btn btn-primary" onclick="transferirAdmin()">Dejar como administrador</button>
+        </div>
+        <p style="font-size:12px;color:var(--ink-faint);margin-top:14px">En el software real aquí aparece la lista de miembros internos de la productora.</p>
+      </div>
+    </div>`;
+}
+function transferirAdmin(){
+  estado.adminResuelto = true;
+  estado.transfiriendo = false;
+  render();
+  toast('Administración transferida a Diego Fuentes');
+}
+function vistaCuentaProgramada(){
+  app.innerHTML = `
+    <div class="stage">
+      ${encabezadoCuenta()}
+      <div class="card">
+        <div class="scheduled">
+          <div class="si">🗓️</div>
+          <h4>Tu cuenta quedó programada para eliminación</h4>
+          <p>Se eliminará el ${fechaEnDias(30)}. Hasta esa fecha puedes cancelar y recuperar tu cuenta.</p>
+          <button class="btn" onclick="cancelarEliminacion()">Cancelar eliminación</button>
+        </div>
+        <p style="font-size:12px;color:var(--ink-faint);margin-top:14px;text-align:center">El período de gracia de 30 días es una sugerencia de diseño. Su duración (o si existe) es una decisión de producto y legal.</p>
+      </div>
+    </div>`;
+}
+function cancelarEliminacion(){
+  estado.cuentaEstado = 'activa';
+  ir('hub');
+  toast('Eliminación cancelada. Tu cuenta sigue activa.');
+}
+
+/* ===================================================================
+   4 · VERIFICACIÓN DE EDAD (si aplica)
+   Costura: gate de edad (Ley 21.719, datos de menores). Decisión pendiente:
+   si aplica al titular de cuenta y en qué momento (alta vs. ahora).
+   =================================================================== */
+function vistaEdad(){
+  let cuerpo;
+  if(estado.persona.edadVerificada){
+    cuerpo = `
+      <h3>Verificación de edad</h3>
+      <div class="result"><div class="ring">✓</div><h4>Edad verificada</h4><p>Confirmaste que eres mayor de 18 años.</p></div>
+      <div class="actions"><button class="btn grow" onclick="ir('hub')">Volver</button></div>`;
+  } else {
+    cuerpo = `
+      <h3>Verificación de edad</h3>
+      <div class="legal-note"><b>Si aplica.</b> Los titulares de cuenta de TakeOS son profesionales adultos, así que este paso podría no aplicar o reducirse a una declaración. Es una decisión de producto y legal.</div>
+      <div class="field" id="f-nac">
+        <label for="i-nac">Fecha de nacimiento</label>
+        <input class="input" id="i-nac" type="date" value="${estado.persona.nacimiento}">
+        <div class="msg-err">Debes ser mayor de 18 años para usar TakeOS.</div>
+      </div>
+      <label class="check-row">
+        <input type="checkbox" id="chk-edad">
+        <span>Declaro que soy mayor de 18 años.</span>
+      </label>
+      <div class="actions">
+        <button class="btn grow" onclick="ir('hub')">Cancelar</button>
+        <button class="btn btn-primary grow" onclick="confirmarEdad()">Confirmar</button>
+      </div>`;
+  }
+  app.innerHTML = `<div class="stage">${encabezadoCuenta()}<button class="flow-back" onclick="ir('hub')">← Privacidad y datos</button><div class="card">${cuerpo}</div></div>`;
+}
+function confirmarEdad(){
+  const nac = document.getElementById('i-nac').value;
+  const decl = document.getElementById('chk-edad').checked;
+  const f = document.getElementById('f-nac');
+  const mayor = nac && esMayorDe(nac, 18);
+  if(!mayor || !decl){
+    f.classList.toggle('show-err', !mayor);
+    if(!decl && mayor) toast('Marca la declaración para continuar');
+    return;
+  }
+  estado.persona.nacimiento = nac;
+  estado.persona.edadVerificada = true;
+  render();
+  toast('Edad verificada');
+}
+
+/* ===================================================================
+   5 · COOKIES Y ANALÍTICA
+   Costura: registra el consentimiento de cookies versionado; aviso requerido
+   por ley; las preferencias se persisten en el servidor (no en localStorage).
+   =================================================================== */
+function vistaCookies(){
+  const c = estado.cookies;
+  app.innerHTML = `
+    <div class="stage">
+      ${encabezadoCuenta()}
+      <button class="flow-back" onclick="ir('hub')">← Privacidad y datos</button>
+      <div class="card">
+        <h3>Cookies y analítica</h3>
+        <p class="sub">Decide qué datos de navegación permites. Puedes cambiarlo cuando quieras.</p>
+
+        <div class="switch-row">
+          <div class="sinfo"><b>Esenciales</b><span>Necesarias para que el sitio funcione. Siempre activas.</span></div>
+          <label class="switch locked"><input type="checkbox" checked disabled><span class="track"></span><span class="knob"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="sinfo"><b>Analítica</b><span>Nos ayuda a entender cómo se usa el sistema para mejorarlo.</span></div>
+          <label class="switch"><input type="checkbox" id="ck-ana" ${c.analitica?'checked':''}><span class="track"></span><span class="knob"></span></label>
+        </div>
+        <div class="switch-row">
+          <div class="sinfo"><b>Marketing</b><span>Para mostrarte comunicaciones relevantes sobre el producto.</span></div>
+          <label class="switch"><input type="checkbox" id="ck-mkt" ${c.marketing?'checked':''}><span class="track"></span><span class="knob"></span></label>
+        </div>
+
+        <div class="actions">
+          <button class="btn grow" onclick="guardarCookies('rechazar')">Rechazar opcionales</button>
+          <button class="btn grow" onclick="guardarCookies('aceptar')">Aceptar todas</button>
+          <button class="btn btn-primary grow" onclick="guardarCookies('guardar')">Guardar preferencias</button>
+        </div>
+      </div>
+    </div>`;
+}
+function guardarCookies(modo){
+  const c = estado.cookies;
+  if(modo === 'aceptar'){ c.analitica = true; c.marketing = true; }
+  else if(modo === 'rechazar'){ c.analitica = false; c.marketing = false; }
+  else {
+    c.analitica = document.getElementById('ck-ana') ? document.getElementById('ck-ana').checked : c.analitica;
+    c.marketing = document.getElementById('ck-mkt') ? document.getElementById('ck-mkt').checked : c.marketing;
+  }
+  c.decidido = true;
+  render();
+  toast('Preferencias guardadas');
+}
+
+/* Banner de cookies (aviso en primera visita) */
+function pintarBanner(){
+  const cont = document.getElementById('banner-cont');
+  if(estado.cookies.decidido){ cont.innerHTML = ''; return; }
+  cont.innerHTML = `
+    <div class="cookie-banner">
+      <div class="ct"><b>Usamos cookies.</b> Las esenciales hacen funcionar el sitio. Las de analítica y marketing son opcionales y dependen de tu consentimiento.</div>
+      <div class="cbtns">
+        <button class="btn" onclick="bannerSolo()">Solo esenciales</button>
+        <button class="btn" onclick="ir('cookies')">Configurar</button>
+        <button class="btn btn-primary" onclick="bannerTodas()">Aceptar todas</button>
+      </div>
+    </div>`;
+}
+function bannerTodas(){ estado.cookies.analitica = true; estado.cookies.marketing = true; estado.cookies.decidido = true; pintarBanner(); toast('Cookies aceptadas'); }
+function bannerSolo(){ estado.cookies.analitica = false; estado.cookies.marketing = false; estado.cookies.decidido = true; pintarBanner(); toast('Solo cookies esenciales'); }
+function mostrarBanner(){ estado.cookies.decidido = false; pintarBanner(); }
+
+/* ===================================================================
+   Utilidades
+   =================================================================== */
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(()=> t.classList.remove('on'), 2200);
+}
+function fechaHoy(){
+  const d = new Date();
+  return String(d.getDate()).padStart(2,'0') + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + d.getFullYear();
+}
+function fechaEnDias(n){
+  const d = new Date(); d.setDate(d.getDate()+n);
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return d.getDate() + ' de ' + meses[d.getMonth()] + ' de ' + d.getFullYear();
+}
+function esMayorDe(fechaISO, edad){
+  const f = new Date(fechaISO); if(isNaN(f)) return false;
+  const hoy = new Date();
+  let e = hoy.getFullYear() - f.getFullYear();
+  const m = hoy.getMonth() - f.getMonth();
+  if(m < 0 || (m === 0 && hoy.getDate() < f.getDate())) e--;
+  return e >= edad;
+}
+
+/* ===================================================================
+   Notas de integración
+   =================================================================== */
+const NOTAS = [
+  { s:'General', m:'La identidad es <b>global por usuario</b> (un login), no por productora. Por eso estos derechos viven en el panel personal, no dentro de una productora. Los textos legales son provisionales (instrumentos en borrador, sin aprobar).' },
+  { s:'1 · Exportación / portabilidad', m:'El backend reúne los datos del titular y entrega un archivo firmado en formato portable (JSON/CSV). La solicitud queda en <code>audit_log</code>. Derecho de acceso + portabilidad.' },
+  { s:'2 · Revocación de consentimiento', m:'Registra <code>revoked_at</code> en <code>data_consents</code> (ADR-020: append-only, el registro NO se borra). La membresía pasa a <code>inactivo</code> (ADR-004). La productora pierde acceso; queda en <code>audit_log</code>.', pend:'RPC de revocación pendiente (espeja consentir_invitacion)' },
+  { s:'3 · Borrado / supresión de cuenta', m:'Respeta la invariante: <b>una productora nunca queda sin administrador</b> (guard de único admin). Borrado/supresión en backend; conserva evidencia legal datada y anonimizada (data_consents, audit_log).', pend:'Decisión: anonimizar vs. hard delete · período de gracia' },
+  { s:'4 · Verificación de edad', m:'Gate de edad (Ley 21.719, datos de menores). Marcado "si aplica" porque los titulares de cuenta son profesionales adultos.', pend:'Decisión: si aplica al titular y en qué momento (alta vs. ahora)' },
+  { s:'5 · Cookies y analítica', m:'Aviso requerido por ley en primera visita. Registra el consentimiento de cookies versionado; las preferencias se persisten en el servidor (no en localStorage).' }
+];
+function toggleNotas(){
+  const d = document.getElementById('notas');
+  const s = document.getElementById('scrim');
+  const abierto = d.classList.toggle('open');
+  s.style.display = abierto ? 'block' : 'none';
+  if(abierto){
+    document.getElementById('notas-body').innerHTML = NOTAS.map(n => `
+      <div class="note">
+        <div class="ns">${n.s}</div>
+        <div class="nm">${n.m}</div>
+        ${n.pend?`<span class="pend">⏳ ${n.pend}</span>`:''}
+      </div>`).join('');
+  }
+}
+
+/* Arranque */
+estado = estadoInicial();
+render();
+</script>
+</body>
+</html>
