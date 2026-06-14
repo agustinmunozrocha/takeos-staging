@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TakeOS · Que el caos no te cueste el producto, el margen ni la paz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-page:#1a1a19; --bg-surface:#222221; --bg-surface-soft:#1e1e1d; --bg-card:#262624; --bg-elevated:#2e2e2b;
+    --ink-primary:#FDFEED; --ink-secondary:#d3d6cb; --ink-muted:#a0a399; --ink-faint:#71736a; --ink-onAccent:#fff;
+    --accent:#B03A2F; --accent-deep:#d05a4d; --accent-soft:#6e3a33; --accent-bg:#2c1d1b;
+    --green:#6fbf73; --green-deep:#8ed18f; --green-soft:#3f5e44; --green-bg:#1b271d;
+    --state-sale:#c79a5e;
+    --rule:#34342f; --rule-strong:#45453f; --rule-soft:#2a2a26;
+    --radius-sm:6px; --radius-md:10px; --radius-lg:16px; --radius-xl:24px;
+    --positive:#6fbf73; --negative:#e07a6f; --warning:#d9a441;
+    --font:'Poppins',system-ui,-apple-system,sans-serif;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 14px rgba(0,0,0,.35); --shadow-lg:0 12px 40px rgba(0,0,0,.5);
+    --maxw:1080px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;scroll-padding-top:66px;}
+  body{background:var(--bg-page);color:var(--ink-primary);font-family:var(--font);line-height:1.55;-webkit-font-smoothing:antialiased;}
+  a{color:inherit;text-decoration:none;}
+  .container{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+  .eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:11.5px;color:var(--ink-faint);font-weight:600;}
+
+  /* NAV */
+  .lp-nav{position:sticky;top:0;z-index:60;background:rgba(21,17,15,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--rule);}
+  .lp-nav .inner{max-width:var(--maxw);margin:0 auto;padding:13px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .brand{display:flex;align-items:center;gap:11px;}
+  .brand .mk{width:34px;height:34px;border-radius:9px;background:var(--accent);display:grid;place-items:center;flex-shrink:0;box-shadow:var(--shadow-sm);}
+  .brand .wm{font-size:18px;font-weight:700;letter-spacing:-.01em;}
+  .brand .by{font-size:10.5px;color:var(--ink-faint);font-weight:500;display:block;line-height:1;margin-top:2px;letter-spacing:.04em;}
+  .lp-nav nav{display:flex;align-items:center;gap:26px;}
+  .lp-nav nav a{font-size:13.5px;font-weight:500;color:var(--ink-secondary);transition:.15s;}
+  .lp-nav nav a:hover{color:var(--ink-primary);}
+  .btn{font-family:var(--font);font-weight:600;font-size:14px;border-radius:var(--radius-sm);padding:11px 20px;cursor:pointer;border:1px solid transparent;transition:.15s;display:inline-flex;align-items:center;gap:8px;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary:hover{background:var(--accent-deep);transform:translateY(-1px);}
+  .btn-secondary{background:transparent;color:var(--ink-secondary);border-color:var(--rule-strong);}
+  .btn-secondary:hover{color:var(--ink-primary);border-color:var(--ink-muted);}
+  .btn-lg{padding:14px 26px;font-size:15px;}
+  @media(max-width:720px){.lp-nav nav .navlink{display:none;}}
+
+  /* HERO */
+  .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--rule);scroll-snap-align:start;}
+  .hero .myc{position:absolute;inset:0;width:100%;height:100%;opacity:.5;pointer-events:none;}
+  .hero .glow{position:absolute;top:-30%;left:50%;transform:translateX(-50%);width:900px;height:600px;background:radial-gradient(ellipse at center, rgba(176,58,47,.16), transparent 62%);pointer-events:none;}
+  .hero .inner{position:relative;max-width:var(--maxw);margin:0 auto;padding:100px 24px 96px;text-align:center;}
+  .hero h1{font-size:clamp(34px,5.4vw,62px);font-weight:800;line-height:1.04;letter-spacing:-.02em;margin:20px auto 0;max-width:17ch;}
+  .hero h1 em{font-style:normal;color:var(--accent-deep);}
+  .hero .lede{color:var(--ink-secondary);font-size:clamp(16px,2vw,19px);max-width:52ch;margin:22px auto 0;line-height:1.6;}
+  .hero .cta-row{display:flex;gap:13px;justify-content:center;flex-wrap:wrap;margin-top:34px;}
+  .hero .micro{font-size:12.5px;color:var(--ink-faint);margin-top:18px;}
+
+  /* SECTIONS */
+  .section{padding:90px 0;border-bottom:1px solid var(--rule);scroll-snap-align:start;}
+  .section.tight{padding:72px 0;}
+  .sec-head{max-width:56ch;}
+  .sec-head.center{margin:0 auto;text-align:center;}
+  .sec-head h2{font-size:clamp(26px,3.4vw,40px);font-weight:700;line-height:1.1;letter-spacing:-.015em;margin:10px 0 0;}
+  .sec-head p{color:var(--ink-secondary);font-size:16px;margin-top:13px;line-height:1.6;}
+
+  /* PAINS · chaos */
+  .chaos{position:relative;height:520px;margin:46px 0 8px;}
+  .scrap-pos{position:absolute;animation-timing-function:ease-in-out;animation-iteration-count:infinite;animation-direction:alternate;will-change:transform;}
+  .scrap{background:var(--bg-card);border:1px solid var(--accent-soft);border-radius:10px;padding:15px 17px;max-width:248px;font-size:14px;font-weight:500;color:var(--ink-secondary);box-shadow:var(--shadow-md);line-height:1.4;}
+  .scrap.hot{background:var(--accent-bg);border-color:var(--accent);color:#e9cdc8;}
+  .scrap.alarm{animation:alarm 1.5s ease-in-out infinite;}
+  .scrap .blip{display:block;width:7px;height:7px;border-radius:999px;background:var(--negative);box-shadow:0 0 9px var(--negative);margin-bottom:10px;}
+  @keyframes driftA{0%{transform:translate(0,0) rotate(-1deg)}100%{transform:translate(36px,-30px) rotate(2.5deg)}}
+  @keyframes driftB{0%{transform:translate(0,0) rotate(1deg)}100%{transform:translate(-32px,26px) rotate(-2.5deg)}}
+  @keyframes driftC{0%{transform:translate(0,0) rotate(-2deg)}100%{transform:translate(28px,34px) rotate(1.5deg)}}
+  @keyframes alarm{0%,100%{box-shadow:var(--shadow-md);border-color:var(--accent-soft);}50%{box-shadow:0 0 0 1px var(--accent-deep),0 0 24px rgba(208,90,77,.6);border-color:var(--accent-deep);}}
+  .pain-close{margin-top:34px;text-align:center;font-size:clamp(20px,2.8vw,28px);font-weight:600;line-height:1.35;letter-spacing:-.01em;max-width:22ch;margin-left:auto;margin-right:auto;}
+  .pain-close b{color:var(--accent-deep);font-weight:700;}
+
+  /* VALUE · green */
+  .value-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:46px;}
+  .value{background:var(--bg-card);border:1px solid var(--rule);border-radius:var(--radius-md);padding:24px;box-shadow:var(--shadow-sm);transition:transform .15s,border-color .15s;}
+  .value:hover{border-color:var(--green-soft);transform:translateY(-2px);}
+  .value .ico{width:44px;height:44px;border-radius:11px;background:var(--green-bg);border:1px solid var(--green-soft);display:grid;place-items:center;margin-bottom:16px;}
+  .value h3{font-size:16px;font-weight:700;margin-bottom:7px;letter-spacing:-.01em;}
+  .value h3 .tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--state-sale);border:1px solid rgba(199,154,94,.35);border-radius:5px;padding:2px 7px;margin-left:6px;vertical-align:middle;white-space:nowrap;}
+  .value p{font-size:14px;color:var(--ink-secondary);line-height:1.55;}
+
+  /* BEFORE / AFTER */
+  .ba{display:grid;grid-template-columns:1fr auto 1fr;gap:0;margin-top:48px;border:1px solid var(--rule);border-radius:var(--radius-lg);overflow:hidden;}
+  .ba .col{padding:30px;background:var(--bg-surface-soft);}
+  .ba .lab{font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;margin-bottom:16px;}
+  .ba .before .lab{color:var(--negative);}
+  .ba .after .lab{color:var(--green);}
+  .ba ul{list-style:none;display:flex;flex-direction:column;gap:12px;}
+  .ba li{font-size:14px;line-height:1.5;padding-left:24px;position:relative;color:var(--ink-secondary);}
+  .ba .before li::before{content:'×';position:absolute;left:0;color:var(--negative);font-weight:700;}
+  .ba .after li::before{content:'✓';position:absolute;left:0;color:var(--green);font-weight:700;}
+  .ba .arrow{display:grid;place-items:center;background:var(--bg-elevated);color:var(--ink-faint);font-size:20px;padding:0 16px;}
+  @media(max-width:720px){.ba{grid-template-columns:1fr;}.ba .arrow{padding:12px;transform:rotate(90deg);}.ba .before{border-bottom:1px solid var(--rule);}}
+
+  /* TRUST */
+  .trust{background:linear-gradient(180deg,var(--bg-surface),var(--bg-surface-soft));}
+  .trust-card{background:var(--bg-card);border:1px solid var(--accent-soft);border-radius:var(--radius-lg);padding:clamp(28px,4vw,46px);box-shadow:var(--shadow-md);}
+  .trust-card .lockico{width:50px;height:50px;border-radius:13px;background:var(--accent);display:grid;place-items:center;margin-bottom:20px;box-shadow:var(--shadow-sm);}
+  .trust-card h2{font-size:clamp(24px,3.2vw,34px);font-weight:700;letter-spacing:-.015em;line-height:1.12;}
+  .trust-card .sub{color:var(--ink-secondary);font-size:16px;margin-top:14px;max-width:58ch;line-height:1.6;}
+  .trust-points{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px;margin-top:30px;}
+  .tp{display:flex;gap:14px;}
+  .tp .n{width:30px;height:30px;border-radius:8px;background:var(--accent-bg);border:1px solid var(--accent-soft);display:grid;place-items:center;color:var(--accent-deep);flex-shrink:0;}
+  .tp h4{font-size:14.5px;font-weight:700;margin-bottom:4px;}
+  .tp p{font-size:13.5px;color:var(--ink-muted);line-height:1.55;}
+  .inlink{color:var(--accent-deep);font-weight:600;white-space:nowrap;}
+  .inlink:hover{text-decoration:underline;}
+  @media(max-width:720px){.trust-points{grid-template-columns:1fr;}}
+
+  .faq{margin-top:44px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .faq .q{background:var(--bg-surface-soft);border:1px solid var(--rule);border-radius:var(--radius-md);padding:20px;}
+  .faq .q h4{font-size:14.5px;font-weight:700;margin-bottom:8px;}
+  .faq .q p{font-size:13.5px;color:var(--ink-secondary);line-height:1.55;}
+
+  /* QUOTES */
+  .preview-flag{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:var(--warning);background:rgba(217,164,65,.08);border:1px solid rgba(217,164,65,.3);border-radius:999px;padding:5px 13px;margin-top:16px;}
+  .quotes{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:36px;}
+  .quote{background:var(--bg-card);border:1px solid var(--rule);border-radius:var(--radius-md);padding:24px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;}
+  .quote .stars{color:var(--state-sale);font-size:14px;letter-spacing:2px;margin-bottom:14px;}
+  .quote blockquote{font-size:14.5px;color:var(--ink-secondary);line-height:1.6;flex:1;}
+  .quote .who{display:flex;align-items:center;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid var(--rule-soft);}
+  .quote .av{width:38px;height:38px;border-radius:999px;background:var(--green-soft);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700;flex-shrink:0;}
+  .quote .who b{font-size:13.5px;font-weight:700;display:block;}
+  .quote .who span{font-size:12px;color:var(--ink-faint);}
+
+  /* PRICING */
+  .pricing{background:var(--bg-surface-soft);}
+  .ptoggle-row{display:flex;justify-content:center;margin-top:34px;}
+  .price-toggle{display:inline-flex;align-items:center;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:999px;padding:4px;gap:4px;}
+  .price-toggle button{font-family:var(--font);font-size:13px;font-weight:600;color:var(--ink-secondary);background:transparent;border:none;border-radius:999px;padding:10px 20px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s;}
+  .price-toggle button.on{background:var(--accent);color:#fff;}
+  .price-toggle .save{font-size:10px;font-weight:700;background:var(--state-sale);color:#1a1a19;border-radius:5px;padding:2px 7px;letter-spacing:.02em;}
+
+  .plans{display:grid;grid-template-columns:.85fr 1fr 1fr;gap:18px;margin-top:34px;align-items:stretch;}
+  .plan{border:1.5px solid var(--rule-strong);border-radius:var(--radius-lg);padding:28px 26px;background:var(--bg-card);position:relative;display:flex;flex-direction:column;}
+  .plan.feature{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),var(--shadow-md);}
+  .plan .badge-promo{position:absolute;top:-12px;left:26px;background:var(--state-sale);color:#1a1a19;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 11px;border-radius:6px;}
+  .plan.hero-pill::after{content:'Recomendado';position:absolute;top:-12px;right:26px;background:var(--accent);color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 11px;border-radius:6px;}
+  .plan .pname{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-primary);}
+  .plan .psub{font-size:12.5px;color:var(--ink-faint);margin:6px 0 16px;min-height:34px;}
+  .plan .price-old{font-size:14px;color:var(--ink-faint);min-height:20px;}
+  .plan .price-old s{text-decoration:line-through;}
+  .plan .price{font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1;margin:2px 0 4px;}
+  .plan .price small{font-size:13px;font-weight:500;color:var(--ink-faint);letter-spacing:0;}
+  .plan .billnote{font-size:11.5px;color:var(--accent-deep);font-weight:600;min-height:16px;margin-top:2px;}
+  .plan .billnote.muted{color:var(--ink-faint);font-weight:500;}
+  .plan ul{list-style:none;margin:20px 0 24px;font-size:13.5px;color:var(--ink-secondary);flex:1;}
+  .plan li{padding:6px 0 6px 24px;position:relative;line-height:1.45;}
+  .plan li::before{content:'✓';position:absolute;left:0;color:var(--positive);font-weight:700;}
+  .plan li.off{color:var(--ink-faint);}
+  .plan li.off::before{content:'—';color:var(--ink-faint);}
+  .plan .btn{width:100%;justify-content:center;}
+  .pfine{text-align:center;font-size:12.5px;color:var(--ink-faint);margin-top:22px;}
+
+  /* FOOTER */
+  .footer{padding:50px 0 60px;}
+  .footer .inner{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap;}
+  .footer .by{font-size:13px;color:var(--ink-muted);max-width:42ch;line-height:1.6;margin-top:14px;}
+  .footer .disclaimer{font-size:11.5px;color:var(--ink-faint);border:1px dashed var(--rule-strong);border-radius:var(--radius-sm);padding:12px 15px;max-width:46ch;line-height:1.5;}
+
+  /* reveal + stagger */
+  .reveal{opacity:1;}
+  @media (prefers-reduced-motion: no-preference){
+    .reveal{opacity:0;transform:translateY(26px);transition:opacity .95s cubic-bezier(.2,.7,.2,1),transform .95s cubic-bezier(.2,.7,.2,1);}
+    .reveal.in{opacity:1;transform:none;}
+    .value-grid .value:nth-child(2),.quotes .quote:nth-child(2),.faq .q:nth-child(2),.trust-points .tp:nth-child(2){transition-delay:.12s;}
+    .value-grid .value:nth-child(3),.quotes .quote:nth-child(3),.faq .q:nth-child(3),.trust-points .tp:nth-child(3){transition-delay:.24s;}
+    .value-grid .value:nth-child(4),.trust-points .tp:nth-child(4){transition-delay:.36s;}
+    .value-grid .value:nth-child(5){transition-delay:.48s;}
+    .value-grid .value:nth-child(6){transition-delay:.60s;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    .scrap-pos{animation:none!important;}
+    .scrap.alarm{animation:none!important;}
+  }
+
+  @media(max-width:880px){
+    .value-grid,.faq,.quotes{grid-template-columns:1fr 1fr;}
+    .plans{grid-template-columns:1fr;}
+  }
+  @media(max-width:680px){
+    .value-grid,.faq,.quotes{grid-template-columns:1fr;}
+    .section{padding:66px 0;}
+    .hero .inner{padding:76px 24px 70px;}
+    .chaos{position:static;height:auto;display:flex;flex-direction:column;gap:14px;align-items:center;}
+    .scrap-pos{position:static!important;animation:none!important;}
+    .scrap{max-width:88%;}
+  }
+  :focus-visible{outline:2px solid var(--accent-deep);outline-offset:3px;border-radius:4px;}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="lp-nav">
+  <div class="inner">
+    <a class="brand" href="#top" aria-label="TakeOS, inicio">
+      <span class="mk" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="7" r="2.1" fill="#fff"/><circle cx="18" cy="6" r="1.7" fill="#fff"/><circle cx="12" cy="13" r="2.4" fill="#fff"/><circle cx="7" cy="18" r="1.7" fill="#fff"/><circle cx="18" cy="17" r="2" fill="#fff"/><path d="M6 7L12 13M18 6L12 13M12 13L7 18M12 13L18 17" stroke="#fff" stroke-width="1.1" stroke-opacity=".75"/></svg>
+      </span>
+      <span><span class="wm">TakeOS</span><span class="by">by Primate Films</span></span>
+    </a>
+    <nav>
+      <a class="navlink" href="#dolores">El problema</a>
+      <a class="navlink" href="#solucion">La solución</a>
+      <a class="navlink" href="#confianza">Tus datos</a>
+      <a class="navlink" href="#planes">Planes</a>
+      <a class="btn btn-primary" href="#planes">Empieza gratis</a>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="glow" aria-hidden="true"></div>
+  <svg class="myc" viewBox="0 0 1440 720" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g stroke="#B03A2F" stroke-width="1" fill="none" stroke-opacity="0.22">
+      <path d="M120 120 C 340 200, 520 90, 720 260 S 1080 220, 1320 360"/>
+      <path d="M80 420 C 300 360, 480 520, 720 460 S 1100 540, 1380 440"/>
+      <path d="M200 640 C 420 560, 680 680, 720 460 S 1020 360, 1240 600"/>
+      <path d="M720 260 L 720 460"/><path d="M520 90 C 600 240, 460 380, 720 460"/><path d="M1080 220 C 980 340, 1140 460, 1100 540"/>
+    </g>
+    <g fill="#d05a4d" fill-opacity="0.55">
+      <circle cx="120" cy="120" r="3.5"/><circle cx="720" cy="260" r="5"/><circle cx="1320" cy="360" r="3.5"/><circle cx="720" cy="460" r="6"/><circle cx="80" cy="420" r="3"/><circle cx="1380" cy="440" r="3.5"/><circle cx="520" cy="90" r="3"/><circle cx="1080" cy="220" r="3.5"/><circle cx="200" cy="640" r="3"/><circle cx="1240" cy="600" r="3.5"/><circle cx="1100" cy="540" r="3"/>
+    </g>
+  </svg>
+  <div class="inner reveal">
+    <span class="eyebrow">Sistema operativo de producción audiovisual</span>
+    <h1>Que el caos no te cueste el <em>producto</em>, el <em>margen</em> ni la <em>paz</em>.</h1>
+    <p class="lede">Donde vive cada proyecto, del primer correo al cierre. Una sola verdad por proyecto: adiós planillas, WhatsApp y correos sueltos.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary btn-lg" href="#planes">Empieza gratis</a>
+      <a class="btn btn-secondary btn-lg" href="#solucion">Ver cómo funciona</a>
+    </div>
+    <p class="micro">Gratis con un proyecto. Sin tarjeta.</p>
+  </div>
+</section>
+
+<!-- PAINS -->
+<section class="section" id="dolores">
+  <div class="container">
+    <div class="sec-head center reveal">
+      <span class="eyebrow">El día a día</span>
+      <h2>Esto no es mala suerte.</h2>
+      <p>Es producir sin un sistema. ¿Te suena?</p>
+    </div>
+    <div class="chaos" aria-label="Situaciones caóticas de una producción">
+      <div class="scrap-pos" style="top:2%;left:1%;animation-name:driftA;animation-duration:8s;">
+        <div class="scrap" style="transform:rotate(-6deg);"><span class="blip"></span>El plan de rodaje salió sobre un guion viejo. Lo viste a las 2 AM.</div>
+      </div>
+      <div class="scrap-pos" style="top:5%;left:55%;animation-name:driftB;animation-duration:9s;">
+        <div class="scrap hot alarm" style="transform:rotate(5deg);"><span class="blip"></span>El chofer tenía la hora vieja. El protagonista llegó tarde.</div>
+      </div>
+      <div class="scrap-pos" style="top:34%;left:27%;animation-name:driftC;animation-duration:7s;">
+        <div class="scrap" style="transform:rotate(-3deg);"><span class="blip"></span>$200.000 en gastos. Nadie sabe de qué.</div>
+      </div>
+      <div class="scrap-pos" style="top:30%;left:62%;animation-name:driftA;animation-duration:9s;animation-delay:.5s;">
+        <div class="scrap hot" style="transform:rotate(7deg);"><span class="blip"></span>¿Cuál de las cinco cotizaciones aprobó el cliente?</div>
+      </div>
+      <div class="scrap-pos" style="top:60%;left:5%;animation-name:driftB;animation-duration:8s;">
+        <div class="scrap alarm" style="transform:rotate(4deg);"><span class="blip"></span>Se corrió una fórmula de excel. Ganamos $500.000, no $5.000.000.</div>
+      </div>
+      <div class="scrap-pos" style="top:63%;left:47%;animation-name:driftC;animation-duration:10s;animation-delay:.8s;">
+        <div class="scrap hot" style="transform:rotate(-5deg);"><span class="blip"></span>Cerrar contablemente tomó tres semanas.</div>
+      </div>
+    </div>
+    <p class="pain-close reveal">En cada rodaje algo falla. Nunca sabes <b>qué será</b>.</p>
+  </div>
+</section>
+
+<!-- SOLUTION -->
+<section class="section" id="solucion">
+  <div class="container">
+    <div class="sec-head center reveal">
+      <span class="eyebrow">La solución</span>
+      <h2>Un solo lugar donde la cadena no se corta.</h2>
+      <p>No prometemos un rodaje sin caos. Prometemos que el caos no se lleve tu proyecto, tu plata ni tu cabeza.</p>
+    </div>
+
+    <div class="value-grid">
+      <div class="value reveal">
+        <div class="ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="2" stroke="#8ed18f" stroke-width="1.6"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="#8ed18f" stroke-width="1.6"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="#8ed18f" stroke-width="1.6"/><rect x="13" y="13" width="8" height="8" rx="2" stroke="#8ed18f" stroke-width="1.6"/></svg></div>
+        <h3>Una sola verdad por proyecto</h3>
+        <p>Todo el proyecto en una pantalla. Se acabó el "¿en qué quedamos?".</p>
+      </div>
+      <div class="value reveal">
+        <div class="ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 18V8M9 18V5M14 18v-7M19 18V9" stroke="#8ed18f" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+        <h3>Tu plata, cerrada en días</h3>
+        <p>Presupuesto, gastos y cierre conectados. Cotizado contra real, al peso, en días e incluso horas.</p>
+      </div>
+      <div class="value reveal">
+        <div class="ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l3 3v15H6z" stroke="#8ed18f" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 11h6M9 15h6" stroke="#8ed18f" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <h3>Documentos que se hacen solos</h3>
+        <p>Cotizaciones, crew lists, hojas de llamado y planes de rodaje, desde tus datos.</p>
+      </div>
+      <div class="value reveal">
+        <div class="ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z" stroke="#8ed18f" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+        <h3>Contratos creados y guardados</h3>
+        <p>Cesiones, NDAs, servicios. Se generan, se versionan, no se pierden.</p>
+      </div>
+      <div class="value reveal">
+        <div class="ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 4a5 5 0 00-5 5v4l-2 3h14l-2-3V9a5 5 0 00-5-5z" stroke="#8ed18f" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 19a2 2 0 004 0" stroke="#8ed18f" stroke-width="1.6"/></svg></div>
+        <h3>Notificaciones que trabajan por ti <span class="tag">Producción</span></h3>
+        <p>Avisa al crew, cobra los DTEs y agenda. 45 correos con un clic.</p>
+      </div>
+      <div class="value reveal">
+        <div class="ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#8ed18f" stroke-width="1.6"/><path d="M12 12l4-2M12 12v4" stroke="#8ed18f" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <h3>El aprendizaje de cada proyecto <span class="tag">Producción</span></h3>
+        <p>El Reporte de Cierre: qué costó, dónde se fue la plata, qué mejorar.</p>
+      </div>
+    </div>
+
+    <div class="ba reveal">
+      <div class="col before">
+        <div class="lab">Antes</div>
+        <ul>
+          <li>El AD no duerme la noche anterior.</li>
+          <li>Persigues DTEs por WhatsApp durante semanas.</li>
+          <li>Nadie sabe quién aprobó qué.</li>
+          <li>Fin de mes es una incógnita.</li>
+        </ul>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="col after">
+        <div class="lab">Con TakeOS</div>
+        <ul>
+          <li>El AD llega fresco como lechuga.</li>
+          <li>Los DTEs llegan al día siguiente del rodaje.</li>
+          <li>Cada decisión queda trazada, con nombre.</li>
+          <li>Cierras al peso, en días.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST -->
+<section class="section trust" id="confianza">
+  <div class="container">
+    <div class="trust-card reveal">
+      <div class="lockico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2" stroke="#fff" stroke-width="1.7"/><path d="M8 10V7a4 4 0 018 0v3" stroke="#fff" stroke-width="1.7"/><circle cx="12" cy="15" r="1.4" fill="#fff"/></svg></div>
+      <h2>Tus números no los ve nadie. Ni nosotros.</h2>
+      <p class="sub">"¿Voy a poner mis presupuestos y mis clientes en un software de otra productora?" Sí. Y acá está por qué puedes hacerlo tranquilo.</p>
+      <div class="trust-points">
+        <div class="tp reveal">
+          <div class="n" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="16" rx="1.5" stroke="currentColor" stroke-width="1.7"/><rect x="14" y="4" width="6" height="16" rx="1.5" stroke="currentColor" stroke-width="1.7"/></svg></div>
+          <div><h4>Aislamiento real, no de palabra</h4><p>Cada productora en su propio espacio, separado a nivel de servidor. Nadie más ve tus datos. Lo garantiza el sistema.</p></div>
+        </div>
+        <div class="tp reveal">
+          <div class="n" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 12s3-7 9-7 9 7 9 7-3 7-9 7-9-7-9-7z" stroke="currentColor" stroke-width="1.6"/><path d="M5 5l14 14" stroke="currentColor" stroke-width="1.6"/></svg></div>
+          <div><h4>No miramos tus proyectos</h4><p>No husmeamos presupuestos ni márgenes. Un acceso excepcional, solo si pides soporte, queda registrado.</p></div>
+        </div>
+        <div class="tp reveal">
+          <div class="n" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div><h4>Cumplimos la Ley 21.719</h4><p>Tus datos y los de tu crew, protegidos por diseño, según la nueva ley chilena de protección de datos personales. <a class="inlink" href="https://www.bcn.cl/leychile/navegar?idNorma=1209272" target="_blank" rel="noopener">Conocer más de la ley 21.719 →</a></p></div>
+        </div>
+        <div class="tp reveal">
+          <div class="n" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 20a7 7 0 0114 0" stroke="currentColor" stroke-width="1.6"/></svg></div>
+          <div><h4>"by Primate Films" es pedigrí, no vigilancia</h4><p>Lo construyó gente que produce y sufrió este caos. Eso es todo.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="faq">
+      <div class="q reveal"><h4>¿Tengo que migrar todo de golpe?</h4><p>No. Empiezas con un proyecto y sumas a tu ritmo, y te ayudamos a migrar lo que ya tienes.</p></div>
+      <div class="q reveal"><h4>¿Cuesta aprenderlo?</h4><p>Sí. Todo software nuevo cuesta. Pero ¿prefieres una hora aprendiendo, o cientos de horas perdidas en lo que se podía automatizar?</p></div>
+      <div class="q reveal"><h4>Ya tengo mis planillas.</h4><p>Esas planillas son el problema: se pisan, se desactualizan, se pierden. Acá hay una sola verdad, viva.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- SOCIAL PROOF -->
+<section class="section tight" id="prueba">
+  <div class="container">
+    <div class="sec-head center reveal">
+      <span class="eyebrow">Lo que dicen las productoras</span>
+      <h2>Hecho para gente que vive del rodaje.</h2>
+      <div class="preview-flag"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> Reseñas de ejemplo, para previsualizar. Aún no son reales.</div>
+    </div>
+    <div class="quotes">
+      <div class="quote reveal">
+        <div class="stars" aria-label="5 de 5">★★★★★</div>
+        <blockquote>"Antes cerrábamos en tres semanas. Ahora en dos días, al peso. Le perdí el miedo a fin de mes."</blockquote>
+        <div class="who"><div class="av">MR</div><div><b>Martina Reyes</b><span>Cardumen · publicidad, Santiago</span></div></div>
+      </div>
+      <div class="quote reveal">
+        <div class="stars" aria-label="5 de 5">★★★★★</div>
+        <blockquote>"Dejé de despertarme a las 3 AM pensando en lo que se me podía estar olvidando."</blockquote>
+        <div class="who"><div class="av">TF</div><div><b>Tomás Fuentes</b><span>Errante Films · branded content, Valparaíso</span></div></div>
+      </div>
+      <div class="quote reveal">
+        <div class="stars" aria-label="5 de 5">★★★★★</div>
+        <blockquote>"Mi JP manda las hojas de llamado y cobra los DTEs sin perseguir a nadie. Diez horas menos por proyecto."</blockquote>
+        <div class="who"><div class="av">VC</div><div><b>Valentina Cortés</b><span>Norte Films · mediana, Santiago</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section pricing" id="planes">
+  <div class="container">
+    <div class="sec-head center reveal">
+      <span class="eyebrow">Planes</span>
+      <h2>Empieza hoy. Crece cuando quieras.</h2>
+      <p>Cambias de plan cuando quieras: tus datos se conservan. Precios + IVA.</p>
+    </div>
+
+    <div class="ptoggle-row reveal">
+      <div class="price-toggle" role="group" aria-label="Ciclo de cobro">
+        <button id="tgMensual" onclick="setCiclo('mensual')">Mensual</button>
+        <button id="tgAnual" class="on" onclick="setCiclo('anual')">Anual <span class="save">2 meses gratis</span></button>
+      </div>
+    </div>
+
+    <div class="plans" id="plansGrid">
+      <!-- GRATIS -->
+      <div class="plan reveal">
+        <div class="pname">Gratis</div>
+        <div class="psub">Para probar o productora muy chica.</div>
+        <div class="price-old" style="visibility:hidden;">&nbsp;</div>
+        <div class="price">$0</div>
+        <div class="billnote muted">Para siempre</div>
+        <ul>
+          <li>1 proyecto activo a la vez</li>
+          <li>Hasta 4 colaboradores</li>
+          <li>Núcleo completo: presupuesto, cotización, plan de rodaje, hoja de llamado, crew y locaciones</li>
+          <li>Legal, documentos y tareas</li>
+          <li class="off">Notificaciones y cobranza</li>
+          <li class="off">Finanzas / CFO</li>
+          <li class="off">Reporte de cierre</li>
+        </ul>
+        <a class="btn btn-secondary" href="#">Empezar gratis</a>
+      </div>
+
+      <!-- RODAJE -->
+      <div class="plan reveal">
+        <span class="badge-promo">Early Bird -50%</span>
+        <div class="pname">Rodaje</div>
+        <div class="psub">Productora chica, con varios proyectos a la vez.</div>
+        <div class="price-old"><s class="oldamt" data-m="$106.800" data-a="$89.000">$89.000</s> + IVA</div>
+        <div class="price"><span class="amount" data-m="$53.400" data-a="$44.500">$44.500</span> <small>+ IVA / mes</small></div>
+        <div class="billnote"><span class="note-anual">Facturado anual · $534.000 + IVA</span><span class="note-mensual" style="display:none;">Early Bird -50% · pago mes a mes</span></div>
+        <ul>
+          <li>Proyectos ilimitados</li>
+          <li>Hasta 4 colaboradores</li>
+          <li>Todo el núcleo de producción del plan Gratis</li>
+          <li class="off">Notificaciones y cobranza</li>
+          <li class="off">Finanzas / CFO</li>
+          <li class="off">Reporte de cierre</li>
+        </ul>
+        <a class="btn btn-secondary" href="#">Elegir Rodaje</a>
+      </div>
+
+      <!-- PRODUCCIÓN -->
+      <div class="plan feature hero-pill reveal">
+        <span class="badge-promo">Early Bird -50%</span>
+        <div class="pname">Producción</div>
+        <div class="psub">Productora mediana, más equipo y más carga.</div>
+        <div class="price-old"><s class="oldamt" data-m="$214.800" data-a="$179.000">$179.000</s> + IVA</div>
+        <div class="price"><span class="amount" data-m="$107.400" data-a="$89.500">$89.500</span> <small>+ IVA / mes</small></div>
+        <div class="billnote"><span class="note-anual">Facturado anual · $1.074.000 + IVA</span><span class="note-mensual" style="display:none;">Early Bird -50% · pago mes a mes</span></div>
+        <ul>
+          <li>Proyectos ilimitados</li>
+          <li>Hasta 12 colaboradores</li>
+          <li>Todo lo del plan Rodaje, y además:</li>
+          <li>Notificaciones (correo/WhatsApp, cobranza de DTEs, agenda)</li>
+          <li>Finanzas / CFO (gastos, conciliación, pagos)</li>
+          <li>Reporte inteligente de cierre</li>
+        </ul>
+        <a class="btn btn-primary" href="#">Elegir Producción</a>
+      </div>
+    </div>
+    <p class="pfine reveal">
+      <span class="note-anual">Precios Early Bird -50% por tiempo limitado, facturando el año por adelantado (2 meses de regalo). Al terminar, renueva a precio de lista.</span>
+      <span class="note-mensual" style="display:none;">El Early Bird -50% también aplica mes a mes. El precio tachado es la tarifa de lista tras el lanzamiento. Pagando el año entero, además te regalamos 2 meses.</span>
+    </p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container inner">
+    <div>
+      <a class="brand" href="#top">
+        <span class="mk" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="7" r="2.1" fill="#fff"/><circle cx="18" cy="6" r="1.7" fill="#fff"/><circle cx="12" cy="13" r="2.4" fill="#fff"/><circle cx="7" cy="18" r="1.7" fill="#fff"/><circle cx="18" cy="17" r="2" fill="#fff"/><path d="M6 7L12 13M18 6L12 13M12 13L7 18M12 13L18 17" stroke="#fff" stroke-width="1.1" stroke-opacity=".75"/></svg></span>
+        <span><span class="wm">TakeOS</span><span class="by">by Primate Films</span></span>
+      </a>
+      <p class="by">El sistema operativo donde vive cada proyecto audiovisual. Para que el caos no te cueste el producto, el margen ni la paz.</p>
+    </div>
+    <p class="disclaimer">Página preliminar. Nombre, logotipo e identidad visual en definición. Una vista para imaginar hacia dónde va la marca. Reseñas y productoras de ejemplo.</p>
+  </div>
+</footer>
+
+<script>
+  function setCiclo(c){
+    var anual = c==='anual';
+    document.getElementById('tgAnual').classList.toggle('on',anual);
+    document.getElementById('tgMensual').classList.toggle('on',!anual);
+    document.querySelectorAll('#plansGrid .amount').forEach(function(el){ el.textContent = anual ? el.getAttribute('data-a') : el.getAttribute('data-m'); });
+    document.querySelectorAll('#plansGrid .oldamt').forEach(function(el){ el.textContent = anual ? el.getAttribute('data-a') : el.getAttribute('data-m'); });
+    document.querySelectorAll('.note-anual').forEach(function(el){ el.style.display = anual ? 'inline' : 'none'; });
+    document.querySelectorAll('.note-mensual').forEach(function(el){ el.style.display = anual ? 'none' : 'inline'; });
+  }
+  setCiclo('anual');
+
+  if (window.IntersectionObserver && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, {threshold:0.12, rootMargin:'0px 0px -12% 0px'});
+    document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+  } else {
+    document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in'); });
+  }
+</script>
+</body>
+</html>
