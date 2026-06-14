@@ -22746,16 +22746,17 @@ function _cpEstadoInicial(planId) {
 }
 
 /* Secuencia de pasos. 'pago' solo aparece en planes de pago (la org nace
-   'free' de todos modos). En A1 cada paso es un placeholder con su título. */
+   'free' de todos modos). El paso 'datos' ya tiene contenido (A2); el resto
+   son placeholders por ahora. No hay paso de cuenta: el login y el perfil ya
+   ocurren ANTES de abrir el flujo (cloudGate + iniciarSesionTakeOS). */
 function _cpPasos() {
   const dePago = !!(_cpEstado && _cpEstado.plan && _cpEstado.plan !== 'gratis');
   const pasos = [
-    { id: 'cuenta',   titulo: 'Tu cuenta',              construye: 'A3' },
-    { id: 'datos',    titulo: 'Datos de tu productora', construye: 'A4' },
-    { id: 'terminos', titulo: 'Términos y condiciones', construye: 'A5' }
+    { id: 'datos',    titulo: 'Datos de tu productora' },
+    { id: 'terminos', titulo: 'Términos y condiciones' }
   ];
-  if (dePago) pasos.push({ id: 'pago', titulo: 'Pago', construye: 'A6' });
-  pasos.push({ id: 'creada', titulo: 'Productora creada', construye: 'A7 · A8' });
+  if (dePago) pasos.push({ id: 'pago', titulo: 'Pago' });
+  pasos.push({ id: 'creada', titulo: 'Productora creada' });
   return pasos;
 }
 
@@ -22781,7 +22782,16 @@ const _CP_CSS = `
   #crearProductora .cp-card{background:var(--bg-card);border:1px solid var(--rule);border-radius:var(--radius-lg);padding:30px 28px;box-shadow:var(--shadow-sm);}
   #crearProductora .cp-h{margin:0 0 6px;font-size:20px;font-weight:600;}
   #crearProductora .cp-ph{margin:0 0 24px;font-size:13px;color:var(--ink-faint);line-height:1.6;}
-  #crearProductora .cp-acts{display:flex;align-items:center;gap:12px;}
+  #crearProductora .cp-acts{display:flex;align-items:center;gap:12px;margin-top:26px;}
+  #crearProductora .cp-sub{color:var(--ink-muted);font-size:13px;margin:0 0 22px;}
+  #crearProductora .cp-field{margin-bottom:16px;}
+  #crearProductora .cp-field label{display:block;font-size:12px;color:var(--ink-secondary);margin-bottom:6px;font-weight:500;}
+  #crearProductora .cp-field .cp-opt{color:var(--ink-faint);font-weight:400;}
+  #crearProductora .cp-field .cp-err{font-size:11px;color:var(--accent-deep);margin-top:5px;display:none;}
+  #crearProductora .cp-field.cp-show-err .cp-err{display:block;}
+  #crearProductora .cp-field.cp-show-err .input{border-color:var(--accent-deep);}
+  #crearProductora .cp-ok{font-size:11px;color:var(--state-prep);margin-top:5px;display:none;}
+  #crearProductora .cp-ok.on{display:block;}
   @media (max-width:600px){#crearProductora .cp-top{padding:12px 16px;}#crearProductora .cp-wrap{padding:24px 16px 60px;}#crearProductora .cp-txt{display:none;}}
 `;
 
@@ -22806,7 +22816,8 @@ function abrirFlujoCrearProductora(planId) {
   _cpRender();
 }
 
-/* Pinta el paso actual: chip del plan, stepper y cuerpo (placeholder en A1). */
+/* Pinta el paso actual: chip del plan, stepper y cuerpo. El paso 'datos' ya
+   tiene contenido real (A2); el resto son placeholders por ahora. */
 function _cpRender() {
   if (!_cpEstado) return;
   var pasos = _cpPasos();
@@ -22825,12 +22836,16 @@ function _cpRender() {
     return '<div class="cp-step ' + cls + '"><span class="cp-num">' + marca + '</span><span class="cp-txt">' + p.titulo + '</span></div>';
   }).join('<span class="cp-sep"></span>');
 
+  var body = document.getElementById('cpBody');
+  if (!body) return;
+  if (paso.id === 'datos') { body.innerHTML = _cpDatosHTML(); _cpWireDatos(); return; }
+
+  // Pasos aún sin contenido (terminos, pago, creada): placeholder + navegación.
   var primero = (i === 0);
   var ultimo = (paso.id === 'creada');
-  var body = document.getElementById('cpBody');
-  if (body) body.innerHTML =
+  body.innerHTML =
       '<h3 class="cp-h">' + paso.titulo + '</h3>'
-    + '<p class="cp-ph">Este paso aún no tiene contenido — se construye en el Paso ' + paso.construye + '.</p>'
+    + '<p class="cp-ph">Este paso aún no tiene contenido — se construye en un paso siguiente.</p>'
     + '<div class="cp-acts">'
     +   '<button class="btn" onclick="' + (primero ? '_cpCerrar()' : '_cpAtras()') + '">' + (primero ? 'Cancelar' : '← Atrás') + '</button>'
     +   '<div style="flex:1"></div>'
@@ -22840,11 +22855,114 @@ function _cpRender() {
 
 function _cpSiguiente() { if (!_cpEstado) return; _cpEstado.paso++; _cpRender(); try { var o = document.getElementById('crearProductora'); if (o) o.scrollTo(0, 0); } catch (e) {} }
 function _cpAtras() { if (!_cpEstado) return; if (_cpEstado.paso > 0) _cpEstado.paso--; _cpRender(); }
-/* Cierra el flujo y vuelve al Panel Personal (sin crear nada: A1 no toca la base). */
+/* Cierra el flujo y vuelve al Panel Personal (sin crear nada: el cableado real
+   a la base recién ocurre en A7). */
 function _cpCerrar() {
   var o = document.getElementById('crearProductora'); if (o) o.remove();
   _cpEstado = null;
   try { resolverEspacioYArrancar(); } catch (e) {}
+}
+
+/* ── A2 · Paso «Datos de tu productora» ────────────────────────────────────
+   Recolecta el nombre visible (→ _cpEstado.organizacion.nombre, lo único que
+   recibe provisionar_organizacion en A7) y, SOLO en planes de pago, los datos
+   de empresa (→ _cpEstado.perfilEmpresa, que en A7 va aparte a un upsert sobre
+   organization_profile). Rama Gratis: solo el nombre, sin facturación.
+   Validación: solo UX. El servidor revalida y manda (doctrina 1/7). */
+
+/* Formatea un RUT válido a 12.345.678-9. (En el monolito no hay formateador;
+   la validación SÍ se reusa: _rutValido, módulo 11.) */
+function _cpFormatearRut(s) {
+  var x = String(s || '').toUpperCase().replace(/[^0-9K]/g, '');
+  if (x.length < 2) return String(s || '');
+  return x.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + x.slice(-1);
+}
+function _cpVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+function _cpMarcar(fieldId, ok) { var f = document.getElementById(fieldId); if (f) f.classList.toggle('cp-show-err', !ok); return ok; }
+function _cpField(id, label, opt, ph, val, err) {
+  return '<div class="cp-field" id="' + id + '_f">'
+    + '<label for="' + id + '">' + label + (opt ? ' <span class="cp-opt">' + opt + '</span>' : '') + '</label>'
+    + '<input class="input" id="' + id + '" placeholder="' + escapeHtml(ph) + '" value="' + escapeHtml(val || '') + '">'
+    + '<div class="cp-err">' + err + '</div>'
+    + '</div>';
+}
+function _cpDatosHTML() {
+  var e = _cpEstado;
+  var gratis = !(e.plan && e.plan !== 'gratis');   // 'gratis' o sin plan → solo el nombre
+  var pe = e.perfilEmpresa, primero = (e.paso === 0);
+  var html =
+      '<h3 class="cp-h">Datos de tu productora</h3>'
+    + (gratis
+        ? '<p class="cp-sub">Ponle un nombre y empiezas. Los datos de facturación se piden cuando subas a un plan de pago.</p>'
+        : '<p class="cp-sub">Estos son los datos de tu empresa, para facturación y documentos legales.</p>')
+    + _cpField('cpNombre', 'Nombre de la productora', '(visible en el sistema)', 'Ej: Filmes del Sur', e.organizacion.nombre, 'Ingresa el nombre de tu productora.');
+  if (!gratis) {
+    html += _cpField('cpRazon', 'Razón social', '', 'Ej: Filmes del Sur SpA', pe.razonSocial, 'Ingresa la razón social.')
+      + '<div class="cp-field" id="cpRut_f">'
+      +   '<label for="cpRut">RUT de la empresa</label>'
+      +   '<input class="input" id="cpRut" placeholder="76.123.456-7" value="' + escapeHtml(pe.rut || '') + '">'
+      +   '<div class="cp-ok" id="cpRut_ok">✓ RUT válido</div>'
+      +   '<div class="cp-err">RUT inválido. Revisa el número y el dígito verificador.</div>'
+      + '</div>'
+      + _cpField('cpGiro', 'Giro', '', 'Ej: Producción audiovisual', pe.giro, 'Ingresa el giro.')
+      + _cpField('cpDir', 'Dirección', '', 'Calle, número, comuna, ciudad', pe.direccion, 'Ingresa la dirección.');
+  }
+  html += '<div class="cp-acts">'
+    +   '<button class="btn" onclick="' + (primero ? '_cpCerrar()' : '_cpAtras()') + '">' + (primero ? 'Cancelar' : '← Atrás') + '</button>'
+    +   '<div style="flex:1"></div>'
+    +   '<button class="btn btn-primary" onclick="_cpGuardarDatos()">Continuar →</button>'
+    + '</div>';
+  return html;
+}
+function _cpWireDatos() {
+  var nombre = document.getElementById('cpNombre');
+  if (nombre) setTimeout(function () { try { nombre.focus(); } catch (e) {} }, 30);
+  var rut = document.getElementById('cpRut');
+  if (rut) {
+    rut.addEventListener('input', function () {
+      var v = this.value.toUpperCase().replace(/[^0-9K.\-]/g, ''); if (v !== this.value) this.value = v;
+      _cpMarcarRut();
+    });
+    rut.addEventListener('blur', function () {
+      var v = this.value.trim();
+      if (v && _rutValido(v)) this.value = _cpFormatearRut(v);
+      _cpMarcarRut();
+    });
+  }
+}
+/* Marca/limpia el estado visual del RUT (error vs ✓). Vacío = sin marca. */
+function _cpMarcarRut() {
+  var rut = document.getElementById('cpRut'); if (!rut) return false;
+  var v = rut.value.trim(), valido = !!v && _rutValido(v);
+  var f = document.getElementById('cpRut_f'); if (f) f.classList.toggle('cp-show-err', !!v && !valido);
+  var ok = document.getElementById('cpRut_ok'); if (ok) ok.classList.toggle('on', valido);
+  return valido;
+}
+/* Valida (solo UX) y, si pasa, guarda en el estado y avanza al siguiente paso. */
+function _cpGuardarDatos() {
+  var e = _cpEstado; if (!e) return;
+  var gratis = !(e.plan && e.plan !== 'gratis');
+  var nombre = _cpVal('cpNombre');
+  var ok = _cpMarcar('cpNombre_f', nombre.trim().length > 0);
+  if (!gratis) {
+    var rut = _cpVal('cpRut'), rutOk = !!rut.trim() && _rutValido(rut);
+    ok = _cpMarcar('cpRazon_f', _cpVal('cpRazon').trim().length > 0) && ok;
+    ok = _cpMarcar('cpRut_f', rutOk) && ok;
+    var okPill = document.getElementById('cpRut_ok'); if (okPill) okPill.classList.toggle('on', rutOk);
+    ok = _cpMarcar('cpGiro_f', _cpVal('cpGiro').trim().length > 0) && ok;
+    ok = _cpMarcar('cpDir_f', _cpVal('cpDir').trim().length > 0) && ok;
+  }
+  if (!ok) return;
+  e.organizacion.nombre = nombre.trim();
+  if (gratis) {
+    e.perfilEmpresa = { razonSocial: '', rut: '', giro: '', direccion: '', nombreFicticio: '', web: '' };
+  } else {
+    e.perfilEmpresa.razonSocial = _cpVal('cpRazon').trim();
+    e.perfilEmpresa.rut = _cpFormatearRut(_cpVal('cpRut').trim());
+    e.perfilEmpresa.giro = _cpVal('cpGiro').trim();
+    e.perfilEmpresa.direccion = _cpVal('cpDir').trim();
+  }
+  _cpSiguiente();
 }
 
 /* V11.4.0 · cortina de arranque: tapa el microsegundo de Control Room vacío
