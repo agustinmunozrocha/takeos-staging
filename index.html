@@ -22792,6 +22792,14 @@ const _CP_CSS = `
   #crearProductora .cp-field.cp-show-err .input{border-color:var(--accent-deep);}
   #crearProductora .cp-ok{font-size:11px;color:var(--state-prep);margin-top:5px;display:none;}
   #crearProductora .cp-ok.on{display:block;}
+  #crearProductora .cp-provisional{font-size:11px;color:var(--state-sale);background:var(--accent-bg);border:1px dashed var(--accent-soft);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:16px;}
+  #crearProductora .cp-tyc{background:var(--bg-surface-soft);border:1px solid var(--rule);border-radius:var(--radius-md);padding:14px 18px;max-height:300px;overflow:auto;font-size:13px;color:var(--ink-secondary);}
+  #crearProductora .cp-tyc h4{margin:0 0 4px;font-size:13px;color:var(--ink-primary);}
+  #crearProductora .cp-tyc p{margin:0 0 14px;}
+  #crearProductora .cp-tyc p:last-child{margin-bottom:0;}
+  #crearProductora .cp-check{display:flex;align-items:flex-start;gap:11px;margin-top:22px;cursor:pointer;}
+  #crearProductora .cp-check input{width:18px;height:18px;margin-top:1px;accent-color:var(--accent);cursor:pointer;flex:none;}
+  #crearProductora .cp-check span{font-size:13px;color:var(--ink-secondary);}
   @media (max-width:600px){#crearProductora .cp-top{padding:12px 16px;}#crearProductora .cp-wrap{padding:24px 16px 60px;}#crearProductora .cp-txt{display:none;}}
 `;
 
@@ -22839,8 +22847,9 @@ function _cpRender() {
   var body = document.getElementById('cpBody');
   if (!body) return;
   if (paso.id === 'datos') { body.innerHTML = _cpDatosHTML(); _cpWireDatos(); return; }
+  if (paso.id === 'terminos') { body.innerHTML = _cpTerminosHTML(); return; }
 
-  // Pasos aún sin contenido (terminos, pago, creada): placeholder + navegación.
+  // Pasos aún sin contenido (pago, creada): placeholder + navegación.
   var primero = (i === 0);
   var ultimo = (paso.id === 'creada');
   body.innerHTML =
@@ -22962,6 +22971,51 @@ function _cpGuardarDatos() {
     e.perfilEmpresa.giro = _cpVal('cpGiro').trim();
     e.perfilEmpresa.direccion = _cpVal('cpDir').trim();
   }
+  _cpSiguiente();
+}
+
+/* ── A3 · Paso «Términos y condiciones» ────────────────────────────────────
+   Contrato de prestación de servicios entre la sociedad desarrolladora de
+   TakeOS y la productora. TEXTO PROVISIONAL (v0): el área legal fija el
+   definitivo cuando la sociedad esté constituida; aquí NO se redactan cláusulas
+   reales. No se avanza sin marcar el checkbox. El registro/versionado del
+   consentimiento es server-side y se verá en el cableado (A7), no acá. */
+const _CP_TYC_TEXTO = [
+  ['1. Objeto', 'La sociedad desarrolladora pone a disposición de la productora la plataforma TakeOS para la gestión de su producción audiovisual, según el plan contratado.'],
+  ['2. Plan y pago', 'La productora contrata el plan seleccionado y autoriza su cobro según el ciclo elegido. Los precios se expresan en pesos chilenos más IVA.'],
+  ['3. Datos y privacidad', 'El tratamiento de datos personales se rige por la normativa vigente, incluida la Ley 21.719. La productora es responsable de los datos que carga a la plataforma.'],
+  ['4. Administración', 'Quien crea la productora queda como administrador. La productora no puede quedar sin al menos un administrador.'],
+  ['5. Vigencia y término', 'El servicio se mantiene vigente mientras el plan esté activo. Cualquiera de las partes puede terminarlo según las condiciones del plan.']
+];
+function _cpTerminosHTML() {
+  var e = _cpEstado;
+  var dePago = !!(e.plan && e.plan !== 'gratis');
+  var aceptado = !!e.aceptoTerminos;
+  var cuerpo = _CP_TYC_TEXTO.map(function (s) { return '<h4>' + s[0] + '</h4><p>' + s[1] + '</p>'; }).join('');
+  return ''
+    + '<h3 class="cp-h">Términos y condiciones de servicio</h3>'
+    + '<p class="cp-sub">Equivalen a un contrato de prestación de servicios entre la sociedad desarrolladora de TakeOS y tu productora.</p>'
+    + '<div class="cp-provisional">Texto provisional, solo para demostrar el flujo. El definitivo lo define el área legal cuando la sociedad desarrolladora esté constituida.</div>'
+    + '<div class="cp-tyc">' + cuerpo + '</div>'
+    + '<label class="cp-check">'
+    +   '<input type="checkbox" id="cpTycCk"' + (aceptado ? ' checked' : '') + ' onchange="_cpToggleTyc(this)">'
+    +   '<span>He leído y acepto los términos y condiciones de servicio.</span>'
+    + '</label>'
+    + '<div class="cp-acts">'
+    +   '<button class="btn" onclick="_cpAtras()">← Atrás</button>'
+    +   '<div style="flex:1"></div>'
+    +   '<button class="btn btn-primary" id="cpBtnTyc"' + (aceptado ? '' : ' disabled') + ' onclick="_cpAceptarTerminos()">'
+    +     (dePago ? 'Continuar al pago' : 'Activar plan gratis')
+    +   '</button>'
+    + '</div>';
+}
+/* Sincroniza el checkbox con el estado y habilita/deshabilita el botón. */
+function _cpToggleTyc(cb) {
+  if (_cpEstado) _cpEstado.aceptoTerminos = !!cb.checked;
+  var btn = document.getElementById('cpBtnTyc'); if (btn) btn.disabled = !cb.checked;
+}
+function _cpAceptarTerminos() {
+  if (!_cpEstado || !_cpEstado.aceptoTerminos) return;
   _cpSiguiente();
 }
 
