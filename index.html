@@ -22229,7 +22229,32 @@ async function dalBootProyectos() {
       sessionStorage.removeItem('takeos_ir_proyecto');
       if (PROJECTS.find(function (x) { return x.id === _irA; })) { setTimeout(function () { try { navigateToProject(_irA); } catch (e) {} try { _bootCoverHide(); } catch (e) {} }, 60); }
       else { _bootCoverHide(); }
-    } else { _bootCoverHide(); }
+    } else {
+      /* V11.15.0 · B2: restaurar la vista donde estaba el usuario antes de recargar.
+         takeos_ir_proyecto (entrada desde Panel) tiene prioridad y ya se procesó arriba.
+         Validamos que la org guardada coincida con la activa: no cruzamos cuentas. */
+      var _lv = null; try { _lv = _lastViewLeer(); } catch (_e) {}
+      if (_lv && _lv.org === ORG_ID && _lv.view === 'project' && _lv.projectId
+          && PROJECTS.find(function (x) { return x.id === _lv.projectId; })) {
+        setTimeout(function () {
+          try { navigateToProject(_lv.projectId); } catch (e) {}
+          /* navigateToProject ya aterrizó en info-proyecto (o el primer módulo visible);
+             si el módulo guardado es otro, navegamos a él encima (las guardas de
+             authPuedeVer en navigateToModule manejan el caso de permisos cambiados). */
+          if (_lv.module && _lv.module !== 'info-proyecto') {
+            try { navigateToModule(_lv.module); } catch (e2) {}
+          }
+          try { _bootCoverHide(); } catch (e) {}
+        }, 60);
+      } else if (_lv && _lv.org === ORG_ID && _lv.view === 'bd-global') {
+        setTimeout(function () {
+          try { openGlobalBDPersonas(); } catch (e) {}
+          try { _bootCoverHide(); } catch (e) {}
+        }, 60);
+      } else {
+        _bootCoverHide();
+      }
+    }
   } catch (e) { try { _bootCoverHide(); } catch (_) {} }
 }
 
@@ -23848,6 +23873,9 @@ function _espEntrarInterna(demo, orgId){
   _TIENE_EMPRESA = true;
   _bootCoverShow('Entrando a tu productora…');
   const ov=document.getElementById('espacioUsuario'); if(ov) ov.remove();
+  /* V11.15.0 · B2: limpiar ?espacio=1 de la URL para que F5 restaure la vista
+     en lugar de volver al Panel Personal. */
+  try { history.replaceState(null, '', window.location.pathname); } catch(e) {}
   arrancarTakeOS();
 }
 function _espAbrirProyecto(orgId, projId){
@@ -23859,6 +23887,7 @@ function _espAbrirProyecto(orgId, projId){
   try { sessionStorage.setItem('takeos_ir_proyecto', projId); } catch (e) {}
   _bootCoverShow('Abriendo proyecto…');
   const ov = document.getElementById('espacioUsuario'); if (ov) ov.remove();
+  try { history.replaceState(null, '', window.location.pathname); } catch(e) {}   // V11.15.0 · B2
   arrancarTakeOS();
 }
 async function _espCargarProyectosExternos(externas){
@@ -24572,6 +24601,10 @@ function _perfilRender(prof, cuenta, email, modoOnboarding) {
        extranjero por una diferencia de capitalización. */
     try { var _rc = _regionCanonica(prof.region); if (_rc) prof.region = _rc; } catch (e) {}
     var EXTRANJERO = _perfilEsExtranjero(prof);
+    /* V11.15.0 · asteriscos condicionales: solo Nombre y Apellidos en modo normal;
+       todos los campos relevantes en modo invitación (soloReqs). */
+    var esInvitacion = !!(_PERFIL_CTX && _PERFIL_CTX.soloReqs && _PERFIL_CTX.soloReqs.length);
+    var ast = esInvitacion ? ' <span style="color:var(--negative,#c0392b);">*</span>' : '';
     var bancoNombre = ext ? '' : (typeof _dalBancoNombre === 'function' ? _dalBancoNombre(cuenta.bank_codigo_sbif) : '');
     var bancoSel = (typeof bancoSelectHTML === 'function')
       ? bancoSelectHTML(bancoNombre, { id: 'perfilBanco' })
@@ -24641,22 +24674,23 @@ function _perfilRender(prof, cuenta, email, modoOnboarding) {
         <div class="pf-sec" data-secgroup="perfil">
           <p class="pf-sec-t">Identidad privada y contacto ${privChip}</p>
           <div class="pf-grid">
-            <div class="pf-f" id="pf_rutWrap" style="${EXTRANJERO ? 'display:none;' : ''}"><label>RUT <span style="color:var(--negative,#c0392b);">*</span></label><input class="input" id="pf_rut" value="${v(prof.rut)}" placeholder="12.345.678-9" inputmode="text"><span id="pf_rutErr" style="display:none;font-size:11px;color:var(--negative,#c0392b);">RUT inválido: revisa el dígito verificador.</span></div>
+            <div class="pf-f" id="pf_rutWrap" style="${EXTRANJERO ? 'display:none;' : ''}"><label>RUT${ast}</label><input class="input" id="pf_rut" value="${v(prof.rut)}" placeholder="12.345.678-9" inputmode="text"><span id="pf_rutErr" style="display:none;font-size:11px;color:var(--negative,#c0392b);">RUT inválido: revisa el dígito verificador.</span></div>
             <div class="pf-f" id="pf_docWrap" style="${EXTRANJERO ? '' : 'display:none;'}"><label>Documento de identidad / pasaporte</label><input class="input" id="pf_doc" value="" disabled placeholder="Pasaporte u otro documento"><span style="font-size:11px;color:var(--ink-faint);">Se habilita con la próxima extensión de la base.</span></div>
-            <div class="pf-f"><label>Correo <span style="color:var(--negative,#c0392b);">*</span></label><input class="input" id="pf_email" value="${v(prof.email || email)}" data-original="${v(prof.email || email)}"><span id="pf_emailWarn" style="display:none;font-size:11px;color:var(--warning);line-height:1.45;">⚠ Cambiar este correo no cambia tu correo de acceso a TakeOS, pero sí el de notificaciones y documentos. Hazlo con cuidado.</span></div>
-            <div class="pf-f"><label>Celular <span style="color:var(--negative,#c0392b);">*</span></label><input class="input" id="pf_telefono" value="${v(prof.telefono)}" placeholder="+56 9 ..." inputmode="tel"></div>
+            <div class="pf-f"><label>Correo${ast}</label><input class="input" id="pf_email" value="${v(prof.email || email)}" data-original="${v(prof.email || email)}"><span id="pf_emailWarn" style="display:none;font-size:11px;color:var(--warning);line-height:1.45;">⚠ Cambiar este correo no cambia tu correo de acceso a TakeOS, pero sí el de notificaciones y documentos. Hazlo con cuidado.</span></div>
+            <div class="pf-f"><label>Celular${ast}</label><input class="input" id="pf_telefono" value="${v(prof.telefono)}" placeholder="+56 9 ..." inputmode="tel"></div>
             <div class="pf-f"><label>Fecha de nacimiento</label><input class="input" id="pf_fnac" type="date" value="${v(prof.fecha_nacimiento)}"></div>
           </div>
         </div>
 
         <div class="pf-sec" data-secgroup="perfil">
           <p class="pf-sec-t">Dirección ${privChip}</p>
+          <p style="font-size:12px;color:var(--ink-faint);margin:-4px 0 12px;line-height:1.5;">La usamos para logística de producción y generación de contratos. Nadie puede ver esta información sin tu consentimiento explícito.</p>
           <div class="pf-grid">
-            <div class="pf-f full"><label>Calle y número <span style="color:var(--negative,#c0392b);">*</span></label><input class="input" id="pf_direccion" value="${v(prof.direccion)}"></div>
+            <div class="pf-f full"><label>Calle y número${ast}</label><input class="input" id="pf_direccion" value="${v(prof.direccion)}"></div>
             <div class="pf-f full"><label>Departamento, oficina, etc. (opcional)</label><input class="input" id="pf_dir2" value="${v(prof.direccion_linea2)}"></div>
-            <div class="pf-f" id="pf_comunaWrap" style="${EXTRANJERO ? 'display:none;' : ''}"><label>Comuna <span style="color:var(--negative,#c0392b);">*</span></label><input class="input" id="pf_comuna" value="${v(prof.comuna)}"></div>
-            <div class="pf-f"><label>Ciudad <span style="color:var(--negative,#c0392b);">*</span></label><input class="input" id="pf_ciudad" value="${v(prof.ciudad)}"></div>
-            <div class="pf-f full" id="pf_regionWrap"><label id="pf_regionLabel">${EXTRANJERO ? 'País' : 'Región'} <span style="color:var(--negative,#c0392b);">*</span></label>${EXTRANJERO ? `<input class="input" id="pf_region" value="${v(prof.region)}" placeholder="Ej: Argentina, España…">` : regionSelectHTML(prof.region, { id: 'pf_region' })}</div>
+            <div class="pf-f" id="pf_comunaWrap" style="${EXTRANJERO ? 'display:none;' : ''}"><label>Comuna${ast}</label><input class="input" id="pf_comuna" value="${v(prof.comuna)}"></div>
+            <div class="pf-f"><label>Ciudad${ast}</label><input class="input" id="pf_ciudad" value="${v(prof.ciudad)}"></div>
+            <div class="pf-f full" id="pf_regionWrap"><label id="pf_regionLabel">${EXTRANJERO ? 'País' : 'Región'}${ast}</label>${EXTRANJERO ? `<input class="input" id="pf_region" value="${v(prof.region)}" placeholder="Ej: Argentina, España…">` : regionSelectHTML(prof.region, { id: 'pf_region' })}</div>
           </div>
         </div>
 
@@ -24713,10 +24747,15 @@ function _perfilBind() {
   var bg = document.getElementById('pf_btnGuardar');
   if (bg) bg.addEventListener('click', function () { _perfilGuardar(); });
   /* V11.3.1 · Guardar apagado hasta completar los obligatorios (nombre,
-     apellido, RUT) — misma regla cosmética que el Aceptar de la invitación. */
+     apellido, RUT) — misma regla cosmética que el Aceptar de la invitación.
+     V11.15.0 · "Completar después" también reactivo a nombre + apellidos. */
   ['pf_nombre', 'pf_apellido', 'pf_rut'].forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.addEventListener('input', _perfilToggleGuardar);
+  });
+  ['pf_nombre', 'pf_apellido'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', _perfilToggleOmitir);
   });
   /* V11.4.0 · filtros de tipeo: celular solo dígitos/+/espacios; RUT solo
      dígitos, K, puntos y guión. */
@@ -24736,6 +24775,7 @@ function _perfilBind() {
   var ncl = document.getElementById('pf_noCl');
   if (ncl) ncl.addEventListener('change', _perfilToggleNoCl);
   _perfilToggleGuardar();
+  _perfilToggleOmitir();   // V11.15.0
   _perfilAplicarSoloFaltantes();
 }
 /* V11.12.0 · modo "solo lo que falta" para el onboarding de una invitación:
@@ -24779,7 +24819,8 @@ function _perfilToggleNoCl() {
   var show = function (id, s) { var el = document.getElementById(id); if (el) el.style.display = s ? '' : 'none'; };
   show('pf_rutWrap', !on); show('pf_docWrap', on); show('pf_comunaWrap', !on);
   var lbl = document.getElementById('pf_regionLabel');
-  if (lbl) lbl.innerHTML = (on ? 'País' : 'Región') + ' <span style="color:var(--negative,#c0392b);">*</span>';
+  var _astNoCl = (_PERFIL_CTX && _PERFIL_CTX.soloReqs && _PERFIL_CTX.soloReqs.length) ? ' <span style="color:var(--negative,#c0392b);">*</span>' : '';
+  if (lbl) lbl.innerHTML = (on ? 'País' : 'Región') + _astNoCl;
   /* Región: dropdown chileno ↔ texto libre (país). Se reemplaza el control. */
   var wrap = document.getElementById('pf_regionWrap');
   var cur = (document.getElementById('pf_region') || {}).value || '';
@@ -24797,6 +24838,18 @@ function _perfilToggleGuardar() {
   var ok = !!(g('pf_nombre') && g('pf_apellido') && rutOk);
   var bg = document.getElementById('pf_btnGuardar');
   if (bg) { bg.disabled = !ok; bg.title = ok ? '' : (noCl ? 'Completa nombre y apellidos para guardar.' : 'Completa nombre, apellidos y un RUT válido para guardar.'); }
+}
+/* V11.15.0 · "Completar después" solo disponible una vez que el usuario llenó
+   nombre + apellidos (los mínimos que identifican a la persona). Solo aplica en
+   modoOnboarding; en modo edición el botón siempre dice "Cerrar" y está activo. */
+function _perfilToggleOmitir() {
+  var bo = document.getElementById('pf_btnOmitir');
+  if (!bo) return;
+  if (!(_PERFIL_CTX && _PERFIL_CTX.onboarding)) return;
+  var g = function (id) { var el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; };
+  var ok = !!(g('pf_nombre') && g('pf_apellido'));
+  bo.disabled = !ok;
+  bo.title = ok ? '' : 'Ingresa al menos tu nombre y apellidos para continuar.';
 }
 function _perfilMsg(texto, esError) {
   var el = document.getElementById('pf_msg');
