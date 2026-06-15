@@ -3541,6 +3541,18 @@ tr.row-drop-after > td { box-shadow: inset 0 -2px 0 var(--accent, #B03A2F); }
   font-family: inherit;
 }
 .topbar-save-btn:hover { border-color: var(--ink-faint); color: var(--ink-primary); }
+.esw { position: relative; }
+.esw-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 7px 12px; font-size: 12px; color: var(--ink-secondary); cursor: pointer; font-family: inherit; white-space: nowrap; }
+.esw-btn:hover { background: var(--bg-card); border-color: var(--ink-faint); color: var(--ink-primary); }
+.esw-menu { position: absolute; top: calc(100% + 6px); left: 0; width: 300px; max-height: 420px; overflow: auto; background: var(--bg-elevated); border: 1px solid var(--rule-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); z-index: 1300; padding: 6px; }
+.esw-group { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); padding: 9px 10px 5px; }
+.esw-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--ink-secondary); }
+.esw-item:hover { background: var(--bg-card); color: var(--ink-primary); }
+.esw-item .esw-i { width: 18px; text-align: center; flex: none; }
+.esw-item .esw-x { flex: 1; min-width: 0; }
+.esw-item .esw-x b { font-size: 13px; font-weight: 500; display: block; }
+.esw-item .esw-x em { font-size: 11px; color: var(--ink-faint); font-style: normal; }
+.esw-empty { padding: 10px; font-size: 12px; color: var(--ink-faint); }
 /* V5.5 (Nota 5): sin spinner ni cambio por scroll en montos. */
 .no-spin::-webkit-outer-spin-button,
 .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -4444,6 +4456,10 @@ select.go-inp{cursor:pointer;} textarea.go-inp{resize:vertical;min-height:54px;}
       <nav class="breadcrumb" id="breadcrumb">
         <span class="breadcrumb-current">Control Room</span>
       </nav>
+      <div class="esw" id="eswWrap">
+        <button class="esw-btn" onclick="_swToggle(event)" title="Cambiar de espacio">Cambiar de espacio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+        <div class="esw-menu" id="eswMenu" hidden></div>
+      </div>
     </div>
 
     <div class="topbar-right">
@@ -17562,6 +17578,77 @@ function irAlPanelPersonal() {
   try { sessionStorage.setItem('takeos_sin_veil', '1'); } catch (e) {}
   window.location.href = window.location.pathname + '?espacio=1';
 }
+
+/* ── FRENTE C · C3 · Selector "Cambiar de espacio" (topbar) ──────────────────
+   Cambia el contexto de organización activa desde la barra superior. Lista:
+   Panel personal · tus productoras (Control Room, interno) · proyectos externos
+   (solo el proyecto, NUNCA un Control Room ajeno). La regla real vive en RLS
+   (server-side); el selector solo refleja y no puede construir una ruta a un
+   Control Room ajeno. Motor de organización activa: _setOrgActiva (V10.9.0). */
+var _swData = null;
+function _swToggle(ev) {
+  if (ev) ev.stopPropagation();
+  var menu = document.getElementById('eswMenu'); if (!menu) return;
+  if (menu.hidden) { menu.hidden = false; _swRender(); if (!_swData) _swCargar(); }
+  else menu.hidden = true;
+}
+function _swCerrar() { var m = document.getElementById('eswMenu'); if (m && !m.hidden) m.hidden = true; }
+async function _swCargar() {
+  try {
+    var client = (typeof sb !== 'undefined' && sb) ? sb : null;
+    if (!client) { _swData = { internas: [], externas: [] }; _swRender(); return; }
+    var ures = await client.auth.getUser();
+    var uid = (ures && ures.data && ures.data.user) ? ures.data.user.id : null;
+    if (!uid) { _swData = { internas: [], externas: [] }; _swRender(); return; }
+    var rm = await client.from('memberships').select('organization_id, tipo, estado, organizations(nombre)').eq('user_id', uid).eq('estado', 'activo');
+    var rows = (rm && rm.data ? rm.data : []).filter(function (r) { return r.organizations; });
+    var internas = rows.filter(function (r) { return r.tipo !== 'externo'; }).map(function (r) { return { orgId: r.organization_id, nombre: r.organizations.nombre }; });
+    var extOrg = rows.filter(function (r) { return r.tipo === 'externo'; });
+    var extIds = extOrg.map(function (r) { return r.organization_id; });
+    var proys = [];
+    if (extIds.length) {
+      var rp = await client.from('projects').select('id, nombre_proyecto, organization_id').in('organization_id', extIds).is('deleted_at', null);
+      if (rp && !rp.error && rp.data) proys = rp.data;
+    }
+    var externas = extOrg.map(function (r) {
+      return { orgId: r.organization_id, nombre: r.organizations.nombre, proyectos: proys.filter(function (p) { return p.organization_id === r.organization_id; }) };
+    });
+    _swData = { internas: internas, externas: externas };
+  } catch (e) { _swData = { internas: [], externas: [] }; }
+  _swRender();
+}
+function _swRender() {
+  var menu = document.getElementById('eswMenu'); if (!menu) return;
+  if (!_swData) { menu.innerHTML = '<div class="esw-empty">Cargando tus espacios…</div>'; return; }
+  var html = '<div class="esw-item" onclick="_swPanel()"><span class="esw-i">🏠</span><span class="esw-x"><b>Panel personal</b><em>Todos tus espacios</em></span></div>';
+  if (_swData.internas.length) {
+    html += '<div class="esw-group">Tus productoras · acceso completo</div>'
+      + _swData.internas.map(function (o) {
+        return '<div class="esw-item" onclick="_swControlRoom(\'' + o.orgId + '\')"><span class="esw-i">🎬</span><span class="esw-x"><b>' + escapeHtml(o.nombre) + '</b><em>Control Room (interno)</em></span></div>';
+      }).join('');
+  }
+  _swData.externas.forEach(function (o) {
+    html += '<div class="esw-group">' + escapeHtml(o.nombre) + ' · externo (solo proyectos)</div>';
+    html += o.proyectos.length
+      ? o.proyectos.map(function (p) { return '<div class="esw-item" onclick="_swProyecto(\'' + o.orgId + '\',\'' + p.id + '\')"><span class="esw-i">📁</span><span class="esw-x"><b>' + escapeHtml(p.nombre_proyecto || 'Proyecto') + '</b><em>Proyecto</em></span></div>'; }).join('')
+      : '<div class="esw-empty">Sin proyectos visibles.</div>';
+  });
+  menu.innerHTML = html;
+}
+function _swPanel() { _swCerrar(); try { irAlPanelPersonal(); } catch (e) {} }
+function _swControlRoom(orgId) {
+  _swCerrar();
+  try { if (orgId && typeof _setOrgActiva === 'function') _setOrgActiva(orgId); } catch (e) {}
+  try { _TIENE_EMPRESA = true; } catch (e) {}
+  try { if (typeof _bootCoverShow === 'function') _bootCoverShow('Cambiando de espacio…'); } catch (e) {}
+  try { arrancarTakeOS(); } catch (e) {}
+}
+function _swProyecto(orgId, projId) {
+  _swCerrar();
+  try { if (typeof _espAbrirProyecto === 'function') _espAbrirProyecto(orgId, projId); } catch (e) {}
+}
+try { document.addEventListener('click', function (e) { var w = document.getElementById('eswWrap'); var m = document.getElementById('eswMenu'); if (m && !m.hidden && w && !w.contains(e.target)) m.hidden = true; }); } catch (e) {}
+
 function openConfigPanel() {
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
