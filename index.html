@@ -23782,6 +23782,7 @@ var _pdVista = 'hub';
 var _pdExportEstado = 'idle';   // B2: idle | solicitada
 var _pdConsents = [];           // B3: consentimientos cargados de data_consents
 var _pdRevocarId = null;
+var _pdElimSole = [];           // B4: productoras donde el usuario es ÚNICO admin
 var _PD_CSS = `
   #privacidadDatos{position:fixed;inset:0;z-index:99998;overflow-y:auto;background:var(--bg-page);color:var(--ink-primary);font-family:var(--font-sans),system-ui,sans-serif;}
   #privacidadDatos *{box-sizing:border-box;}
@@ -23825,6 +23826,9 @@ var _PD_CSS = `
   #privacidadDatos .pd-badge{font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--rule-strong);color:var(--ink-muted);}
   #privacidadDatos .pd-badge.rev{color:var(--accent-deep);border-color:var(--accent-soft);}
   #privacidadDatos .pd-empty{font-size:13px;color:var(--ink-faint);padding:16px;border:1px dashed var(--rule-strong);border-radius:var(--radius-md);text-align:center;}
+  #privacidadDatos .pd-danger{border:1px solid var(--accent-soft);border-radius:var(--radius-md);background:var(--accent-bg);padding:20px 22px;}
+  #privacidadDatos .pd-check{display:flex;align-items:flex-start;gap:11px;margin:16px 0 0;cursor:pointer;font-size:13px;color:var(--ink-secondary);}
+  #privacidadDatos .pd-check input{width:18px;height:18px;margin-top:1px;accent-color:var(--accent);cursor:pointer;flex:none;}
   @media (max-width:640px){#privacidadDatos .pd-rights{grid-template-columns:1fr;}#privacidadDatos .pd-wrap{padding:24px 16px 60px;}}
 `;
 /* Lee el nombre/correo de la cuenta desde el Panel Personal ya renderizado. */
@@ -23856,6 +23860,8 @@ function _pdRender() {
   if (_pdVista === 'consentimientos') { w.innerHTML = _pdConsentShell(); _pdConsentCargar(); return; }
   if (_pdVista === 'revocar') { w.innerHTML = _pdRevocarHTML(); return; }
   if (_pdVista === 'revocado') { w.innerHTML = _pdRevocadoHTML(); return; }
+  if (_pdVista === 'eliminar') { w.innerHTML = _pdElimShell(); _pdElimCargar(); return; }
+  if (_pdVista === 'eliminada') { w.innerHTML = _pdElimProgramadaHTML(); return; }
   var flows = {
     export:         ['Descargar mis datos', 'B2'],
     consentimientos:['Productoras con acceso a tus datos', 'B3'],
@@ -24019,6 +24025,98 @@ function _pdRevocadoHTML() {
     + '</div>';
 }
 
+/* ── B4 · Eliminar mi cuenta (anonimizar + gracia 30 días) ───────────────────
+   Decisión de Agustín: al eliminar se ANONIMIZA (no hard delete) y hay período
+   de gracia recuperable de 30 días. El borrado real es SERVER-SIDE (RPC pendiente
+   → BD Expert): anonimiza los datos personales, conserva consentimientos/auditoría
+   datados, programa la eliminación a 30 días y permite cancelar. Invariante: una
+   productora nunca queda sin administrador → guard de único admin (UX; el servidor
+   reimpone la regla). */
+function _pdElimShell() {
+  return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+    + '<div id="pdElimBody"><div class="pd-flow"><p class="pd-ph">Revisando tu cuenta…</p></div></div>';
+}
+async function _pdElimCargar() {
+  try {
+    _pdElimSole = [];
+    if (typeof sb !== 'undefined' && sb) {
+      var ures = await sb.auth.getUser();
+      var uid = (ures && ures.data && ures.data.user) ? ures.data.user.id : null;
+      if (uid) {
+        var r1 = await sb.from('memberships').select('organization_id, permission_profiles(codigo), organizations(nombre)').eq('user_id', uid).eq('estado', 'activo').eq('tipo', 'interno');
+        if (!r1.error && r1.data) {
+          var adminOrgs = r1.data.filter(function (m) { return m.permission_profiles && m.permission_profiles.codigo === 1 && m.organizations; });
+          if (adminOrgs.length) {
+            var ids = adminOrgs.map(function (m) { return m.organization_id; });
+            var r2 = await sb.from('memberships').select('organization_id, permission_profiles!inner(codigo)').in('organization_id', ids).eq('estado', 'activo').eq('permission_profiles.codigo', 1);
+            var cnt = {};
+            if (!r2.error && r2.data) r2.data.forEach(function (m) { cnt[m.organization_id] = (cnt[m.organization_id] || 0) + 1; });
+            _pdElimSole = adminOrgs.filter(function (m) { return (cnt[m.organization_id] || 1) <= 1; }).map(function (m) { return { id: m.organization_id, nombre: m.organizations.nombre }; });
+          }
+        }
+      }
+    }
+  } catch (e) { _pdElimSole = []; }   // best-effort: ante error no bloqueamos (el servidor reimpone)
+  var box = document.getElementById('pdElimBody'); if (!box) return;
+  box.innerHTML = _pdElimSole.length ? _pdElimBlockerHTML() : _pdElimFormHTML();
+  if (!_pdElimSole.length) _pdElimEval();
+}
+function _pdElimBlockerHTML() {
+  var lista = _pdElimSole.map(function (o) { return '<li>' + escapeHtml(o.nombre) + '</li>'; }).join('');
+  return '<div class="pd-flow">'
+    + '<h3>Antes de eliminar tu cuenta</h3>'
+    + '<div class="pd-legal">Eres el único administrador de ' + (_pdElimSole.length === 1 ? 'una productora' : 'estas productoras') + '. Una productora no puede quedar sin administrador: primero transfiere la administración a otra persona (desde el Panel de Empresa de la productora) o elimina la productora.</div>'
+    + '<ul class="pd-list">' + lista + '</ul>'
+    + '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Entendido</button></div>'
+    + '</div>';
+}
+function _pdElimFormHTML() {
+  return '<div class="pd-flow">'
+    + '<h3>Eliminar mi cuenta</h3>'
+    + '<p class="pd-sub">Esta acción es irreversible una vez que pasa el período de recuperación. Léela con calma.</p>'
+    + '<div class="pd-danger">'
+    +   '<div class="pd-eyebrow2">Qué pasa cuando eliminas tu cuenta</div>'
+    +   '<ul class="pd-list">'
+    +     '<li>Se anonimizan tus datos personales: perfil, contacto y datos bancarios dejan de ser identificables.</li>'
+    +     '<li>Pierdes acceso a todas las productoras y proyectos donde participas.</li>'
+    +     '<li>Por la Ley 21.719, los registros de consentimiento y auditoría se conservan datados y anonimizados como evidencia. No contienen tus datos en texto plano.</li>'
+    +     '<li>Tu cuenta queda programada para eliminación y puedes recuperarla durante 30 días.</li>'
+    +   '</ul>'
+    +   '<label class="pd-check"><input type="checkbox" id="pdElimChk" onchange="_pdElimEval()"> <span>Entiendo que esta acción es irreversible una vez pasados los 30 días.</span></label>'
+    +   '<div style="margin-top:14px;"><label style="display:block;font-size:12px;color:var(--ink-secondary);margin-bottom:6px;">Para confirmar, escribe <b>ELIMINAR</b></label>'
+    +     '<input class="input" id="pdElimTxt" placeholder="ELIMINAR" oninput="_pdElimEval()"></div>'
+    + '</div>'
+    + '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Cancelar</button><button class="btn btn-danger" id="pdElimBtn" disabled onclick="_pdElimConfirmar()">Eliminar mi cuenta</button></div>'
+    + '</div>';
+}
+function _pdElimEval() {
+  var chk = document.getElementById('pdElimChk'), txt = document.getElementById('pdElimTxt'), btn = document.getElementById('pdElimBtn');
+  if (!btn) return;
+  btn.disabled = !((chk && chk.checked) && (txt && txt.value.trim().toUpperCase() === 'ELIMINAR'));
+}
+function _pdElimConfirmar() {
+  /* SEAM · BD Expert: acá va el RPC de borrado/supresión: ANONIMIZA los datos
+     personales (no hard delete), conserva consentimientos/auditoría datados,
+     programa la eliminación a 30 días y deja la cuenta recuperable. RPC pendiente. */
+  _pdIr('eliminada');
+}
+function _pdElimFechaGracia() {
+  try { return new Date(Date.now() + 30 * 86400000).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }); } catch (e) { return 'en 30 días'; }
+}
+function _pdElimProgramadaHTML() {
+  return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+    + '<div class="pd-flow">'
+    +   '<h3>Tu cuenta quedó programada para eliminación</h3>'
+    +   '<p class="pd-sub">Se eliminará el ' + _pdElimFechaGracia() + '. Hasta esa fecha puedes cancelar y recuperar tu cuenta.</p>'
+    +   '<div class="pd-legal">Pendiente de backend (BD Expert): el RPC anonimiza tus datos personales (no hard delete), conserva consentimientos y auditoría datados, y procesa la eliminación a los 30 días. La programación y la cancelación también son server-side.</div>'
+    +   '<div class="pd-acts"><button class="btn" onclick="_pdElimCancelar()">Cancelar eliminación</button></div>'
+    + '</div>';
+}
+function _pdElimCancelar() {
+  /* SEAM · BD Expert: cancelar la eliminación programada (recuperar la cuenta)
+     dentro de los 30 días. RPC pendiente. */
+  _pdIr('hub');
+}
 function renderEspacioUsuario(data){
   try{
     _bootCoverHide();
