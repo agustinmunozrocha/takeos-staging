@@ -23783,6 +23783,7 @@ var _pdExportEstado = 'idle';   // B2: idle | solicitada
 var _pdConsents = [];           // B3: consentimientos cargados de data_consents
 var _pdRevocarId = null;
 var _pdElimSole = [];           // B4: productoras donde el usuario es ÚNICO admin
+var _pdEdadVerif = false;       // B5: edad declarada en esta sesión (condicional, no gate)
 var _PD_CSS = `
   #privacidadDatos{position:fixed;inset:0;z-index:99998;overflow-y:auto;background:var(--bg-page);color:var(--ink-primary);font-family:var(--font-sans),system-ui,sans-serif;}
   #privacidadDatos *{box-sizing:border-box;}
@@ -23829,6 +23830,10 @@ var _PD_CSS = `
   #privacidadDatos .pd-danger{border:1px solid var(--accent-soft);border-radius:var(--radius-md);background:var(--accent-bg);padding:20px 22px;}
   #privacidadDatos .pd-check{display:flex;align-items:flex-start;gap:11px;margin:16px 0 0;cursor:pointer;font-size:13px;color:var(--ink-secondary);}
   #privacidadDatos .pd-check input{width:18px;height:18px;margin-top:1px;accent-color:var(--accent);cursor:pointer;flex:none;}
+  #privacidadDatos .pd-field{margin-bottom:6px;}
+  #privacidadDatos .pd-flabel{display:block;font-size:12px;color:var(--ink-secondary);margin-bottom:6px;font-weight:500;}
+  #privacidadDatos .pd-ferr{font-size:11px;color:var(--accent-deep);margin-top:5px;display:none;}
+  #privacidadDatos .pd-exito-mini{width:56px;height:56px;border-radius:50%;margin:0 0 14px;background:var(--accent-bg);border:2px solid var(--accent);display:grid;place-items:center;color:var(--accent-deep);font-size:26px;}
   @media (max-width:640px){#privacidadDatos .pd-rights{grid-template-columns:1fr;}#privacidadDatos .pd-wrap{padding:24px 16px 60px;}}
 `;
 /* Lee el nombre/correo de la cuenta desde el Panel Personal ya renderizado. */
@@ -23862,6 +23867,7 @@ function _pdRender() {
   if (_pdVista === 'revocado') { w.innerHTML = _pdRevocadoHTML(); return; }
   if (_pdVista === 'eliminar') { w.innerHTML = _pdElimShell(); _pdElimCargar(); return; }
   if (_pdVista === 'eliminada') { w.innerHTML = _pdElimProgramadaHTML(); return; }
+  if (_pdVista === 'edad') { w.innerHTML = _pdEdadHTML(); return; }
   var flows = {
     export:         ['Descargar mis datos', 'B2'],
     consentimientos:['Productoras con acceso a tus datos', 'B3'],
@@ -24116,6 +24122,44 @@ function _pdElimCancelar() {
   /* SEAM · BD Expert: cancelar la eliminación programada (recuperar la cuenta)
      dentro de los 30 días. RPC pendiente. */
   _pdIr('hub');
+}
+/* ── B5 · Verificación de edad (CONDICIONAL · "si aplica") ───────────────────
+   Decisión pendiente (Agustín/legal): si aplica al titular y en qué momento. Por
+   eso es UI OPCIONAL, NO un gate: declarar la edad no bloquea usar el software.
+   Si se decide que aplica, acá se persiste/convierte en gate (SEAM). */
+function _pdEdadHTML() {
+  var back = '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>';
+  if (_pdEdadVerif) {
+    return back + '<div class="pd-flow"><div class="pd-exito-mini">✓</div><h3>Edad verificada</h3><p class="pd-sub">Confirmaste que eres mayor de 18 años.</p><div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Volver</button></div></div>';
+  }
+  return back + '<div class="pd-flow">'
+    + '<h3>Verificación de edad</h3>'
+    + '<div class="pd-legal"><b>Si aplica.</b> Los titulares de cuenta de TakeOS son profesionales adultos, así que este paso podría no aplicar o reducirse a una declaración. Es una decisión de producto y legal, todavía abierta — por ahora es opcional y no bloquea nada.</div>'
+    + '<div class="pd-field"><label class="pd-flabel" for="pdEdadFecha">Fecha de nacimiento</label><input class="input" type="date" id="pdEdadFecha"><div class="pd-ferr" id="pdEdadErr">Ingresa tu fecha de nacimiento; debes ser mayor de 18 años.</div></div>'
+    + '<label class="pd-check"><input type="checkbox" id="pdEdadChk"> <span>Declaro que soy mayor de 18 años.</span></label>'
+    + '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Cancelar</button><button class="btn btn-primary" onclick="_pdEdadConfirmar()">Confirmar</button></div>'
+    + '</div>';
+}
+function _pdEdadConfirmar() {
+  var fecha = document.getElementById('pdEdadFecha'), chk = document.getElementById('pdEdadChk'), err = document.getElementById('pdEdadErr');
+  var v = fecha ? fecha.value : '';
+  var mayor = !!v && _pdEsMayorDe(v, 18);
+  if (err) err.style.display = mayor ? 'none' : 'block';
+  if (!mayor) return;
+  if (!(chk && chk.checked)) { try { showToast({ kind: 'warning', title: 'Falta la declaración', body: 'Marca la casilla para confirmar.' }); } catch (e) {} return; }
+  /* SEAM · decisión + BD Expert: si se decide que aplica, acá se persiste la
+     verificación (server-side) y/o se convierte en gate. Por ahora, in-session. */
+  _pdEdadVerif = true;
+  _pdRender();
+}
+function _pdEsMayorDe(fechaISO, n) {
+  try {
+    var f = new Date(fechaISO); if (isNaN(f.getTime())) return false;
+    var h = new Date(); var e = h.getFullYear() - f.getFullYear();
+    var m = h.getMonth() - f.getMonth();
+    if (m < 0 || (m === 0 && h.getDate() < f.getDate())) e--;
+    return e >= n;
+  } catch (x) { return false; }
 }
 function renderEspacioUsuario(data){
   try{
