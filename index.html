@@ -3541,6 +3541,18 @@ tr.row-drop-after > td { box-shadow: inset 0 -2px 0 var(--accent, #B03A2F); }
   font-family: inherit;
 }
 .topbar-save-btn:hover { border-color: var(--ink-faint); color: var(--ink-primary); }
+.esw { position: relative; }
+.esw-btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 7px 12px; font-size: 12px; color: var(--ink-secondary); cursor: pointer; font-family: inherit; white-space: nowrap; }
+.esw-btn:hover { background: var(--bg-card); border-color: var(--ink-faint); color: var(--ink-primary); }
+.esw-menu { position: absolute; top: calc(100% + 6px); left: 0; width: 300px; max-height: 420px; overflow: auto; background: var(--bg-elevated); border: 1px solid var(--rule-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); z-index: 1300; padding: 6px; }
+.esw-group { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); padding: 9px 10px 5px; }
+.esw-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--ink-secondary); }
+.esw-item:hover { background: var(--bg-card); color: var(--ink-primary); }
+.esw-item .esw-i { width: 18px; text-align: center; flex: none; }
+.esw-item .esw-x { flex: 1; min-width: 0; }
+.esw-item .esw-x b { font-size: 13px; font-weight: 500; display: block; }
+.esw-item .esw-x em { font-size: 11px; color: var(--ink-faint); font-style: normal; }
+.esw-empty { padding: 10px; font-size: 12px; color: var(--ink-faint); }
 /* V5.5 (Nota 5): sin spinner ni cambio por scroll en montos. */
 .no-spin::-webkit-outer-spin-button,
 .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -4444,6 +4456,10 @@ select.go-inp{cursor:pointer;} textarea.go-inp{resize:vertical;min-height:54px;}
       <nav class="breadcrumb" id="breadcrumb">
         <span class="breadcrumb-current">Control Room</span>
       </nav>
+      <div class="esw" id="eswWrap">
+        <button class="esw-btn" onclick="_swToggle(event)" title="Cambiar de espacio">Cambiar de espacio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+        <div class="esw-menu" id="eswMenu" hidden></div>
+      </div>
     </div>
 
     <div class="topbar-right">
@@ -17562,6 +17578,77 @@ function irAlPanelPersonal() {
   try { sessionStorage.setItem('takeos_sin_veil', '1'); } catch (e) {}
   window.location.href = window.location.pathname + '?espacio=1';
 }
+
+/* ── FRENTE C · C3 · Selector "Cambiar de espacio" (topbar) ──────────────────
+   Cambia el contexto de organización activa desde la barra superior. Lista:
+   Panel personal · tus productoras (Control Room, interno) · proyectos externos
+   (solo el proyecto, NUNCA un Control Room ajeno). La regla real vive en RLS
+   (server-side); el selector solo refleja y no puede construir una ruta a un
+   Control Room ajeno. Motor de organización activa: _setOrgActiva (V10.9.0). */
+var _swData = null;
+function _swToggle(ev) {
+  if (ev) ev.stopPropagation();
+  var menu = document.getElementById('eswMenu'); if (!menu) return;
+  if (menu.hidden) { menu.hidden = false; _swRender(); if (!_swData) _swCargar(); }
+  else menu.hidden = true;
+}
+function _swCerrar() { var m = document.getElementById('eswMenu'); if (m && !m.hidden) m.hidden = true; }
+async function _swCargar() {
+  try {
+    var client = (typeof sb !== 'undefined' && sb) ? sb : null;
+    if (!client) { _swData = { internas: [], externas: [] }; _swRender(); return; }
+    var ures = await client.auth.getUser();
+    var uid = (ures && ures.data && ures.data.user) ? ures.data.user.id : null;
+    if (!uid) { _swData = { internas: [], externas: [] }; _swRender(); return; }
+    var rm = await client.from('memberships').select('organization_id, tipo, estado, organizations(nombre)').eq('user_id', uid).eq('estado', 'activo');
+    var rows = (rm && rm.data ? rm.data : []).filter(function (r) { return r.organizations; });
+    var internas = rows.filter(function (r) { return r.tipo !== 'externo'; }).map(function (r) { return { orgId: r.organization_id, nombre: r.organizations.nombre }; });
+    var extOrg = rows.filter(function (r) { return r.tipo === 'externo'; });
+    var extIds = extOrg.map(function (r) { return r.organization_id; });
+    var proys = [];
+    if (extIds.length) {
+      var rp = await client.from('projects').select('id, nombre_proyecto, organization_id').in('organization_id', extIds).is('deleted_at', null);
+      if (rp && !rp.error && rp.data) proys = rp.data;
+    }
+    var externas = extOrg.map(function (r) {
+      return { orgId: r.organization_id, nombre: r.organizations.nombre, proyectos: proys.filter(function (p) { return p.organization_id === r.organization_id; }) };
+    });
+    _swData = { internas: internas, externas: externas };
+  } catch (e) { _swData = { internas: [], externas: [] }; }
+  _swRender();
+}
+function _swRender() {
+  var menu = document.getElementById('eswMenu'); if (!menu) return;
+  if (!_swData) { menu.innerHTML = '<div class="esw-empty">Cargando tus espacios…</div>'; return; }
+  var html = '<div class="esw-item" onclick="_swPanel()"><span class="esw-i">🏠</span><span class="esw-x"><b>Panel personal</b><em>Todos tus espacios</em></span></div>';
+  if (_swData.internas.length) {
+    html += '<div class="esw-group">Tus productoras · acceso completo</div>'
+      + _swData.internas.map(function (o) {
+        return '<div class="esw-item" onclick="_swControlRoom(\'' + o.orgId + '\')"><span class="esw-i">🎬</span><span class="esw-x"><b>' + escapeHtml(o.nombre) + '</b><em>Control Room (interno)</em></span></div>';
+      }).join('');
+  }
+  _swData.externas.forEach(function (o) {
+    html += '<div class="esw-group">' + escapeHtml(o.nombre) + ' · externo (solo proyectos)</div>';
+    html += o.proyectos.length
+      ? o.proyectos.map(function (p) { return '<div class="esw-item" onclick="_swProyecto(\'' + o.orgId + '\',\'' + p.id + '\')"><span class="esw-i">📁</span><span class="esw-x"><b>' + escapeHtml(p.nombre_proyecto || 'Proyecto') + '</b><em>Proyecto</em></span></div>'; }).join('')
+      : '<div class="esw-empty">Sin proyectos visibles.</div>';
+  });
+  menu.innerHTML = html;
+}
+function _swPanel() { _swCerrar(); try { irAlPanelPersonal(); } catch (e) {} }
+function _swControlRoom(orgId) {
+  _swCerrar();
+  try { if (orgId && typeof _setOrgActiva === 'function') _setOrgActiva(orgId); } catch (e) {}
+  try { _TIENE_EMPRESA = true; } catch (e) {}
+  try { if (typeof _bootCoverShow === 'function') _bootCoverShow('Cambiando de espacio…'); } catch (e) {}
+  try { arrancarTakeOS(); } catch (e) {}
+}
+function _swProyecto(orgId, projId) {
+  _swCerrar();
+  try { if (typeof _espAbrirProyecto === 'function') _espAbrirProyecto(orgId, projId); } catch (e) {}
+}
+try { document.addEventListener('click', function (e) { var w = document.getElementById('eswWrap'); var m = document.getElementById('eswMenu'); if (m && !m.hidden && w && !w.contains(e.target)) m.hidden = true; }); } catch (e) {}
+
 function openConfigPanel() {
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
@@ -22394,7 +22481,7 @@ function dalBannerHTML() {
     + 'Esta Base de Datos se carga desde la base relacional. La <strong>edici\u00f3n est\u00e1 en pausa</strong> hasta la V9.1.1; evita editar contactos o empresas mientras tanto.'
     + '</div>';
 }
-const TAKEOS_VERSION = 'V11.13.0';   // Versión actual del cliente TakeOS. El historial de cambios vive en los changelogs (.md), no aquí.
+const TAKEOS_VERSION = 'V11.14.0';   // Versión actual del cliente TakeOS. El historial de cambios vive en los changelogs (.md), no aquí.
 
 /* V10.6.0 · Capa de nube anterior retirada por completo. La persistencia es
    100% Supabase (markDirty -> dalTouchProyecto / _dal*SaveSoon) más el airbag en
@@ -22690,6 +22777,645 @@ function _espInyectarInvitaciones(invs) {
   } catch (e) { console.warn('[inv] inyectar bandeja', e); }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   FRENTE A · CREAR PRODUCTORA — Paso A1: ESQUELETO del flujo
+   ─────────────────────────────────────────────────────────────────────
+   Overlay full-screen que guía la creación de una productora paso a paso,
+   con la estética aprobada (tarjeta + stepper, sobre los botones/inputs
+   reales del monolito). En A1 está SOLO el esqueleto: estado + router +
+   pasos como placeholders. El contenido de cada paso (cuenta, facturación
+   con RUT, términos, pago, cableado a la base y tour) llega en A2…A8.
+
+   DISPARADOR: la app abre este flujo cuando arranca con ?plan=<valor> en la
+   URL (valor ∈ {gratis, rodaje, produccion}). El plan NO se elige dentro de
+   la app: llega ya elegido desde la landing. La organización SIEMPRE nace
+   'free'; el plan se usa para la experiencia (mostrarlo) y, en A6, para el
+   pago tras un feature flag apagado.
+
+   CERO backend en A1: ninguna llamada a la base. El cableado real
+   (provisionar_organizacion y, aparte, organization_profile) es el Paso A7.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Catálogo de planes para mostrar. Los PRECIOS son la referencia GTM congelada
+   del mockup (CONFIRMAR con producto). El IVA NO va acá: se lee de la global
+   `IVA` (tax_rates) en el resumen de pago. La organización nace 'free' igual;
+   estos montos son solo para el resumen de A6, que vive tras un feature flag
+   apagado mientras no exista proveedor de pago. */
+const _CP_PLANES = {
+  gratis:     { id: 'gratis',     nombre: 'Gratis',     precio: 0 },
+  rodaje:     { id: 'rodaje',     nombre: 'Rodaje',     precio: 106800 },
+  produccion: { id: 'produccion', nombre: 'Producción', precio: 214800 }
+};
+const _CP_EARLY_BIRD = 0.50;   // −50% (ventana Early Bird); aplica a planes de pago
+
+/* Estado del flujo (en memoria; se reinicia cada vez que se abre). La
+   estructura está pensada para que el cableado de A7 calce limpio: separa
+   (a) lo que va a provisionar_organizacion(p_nombre, p_slug) de (b) lo que
+   va DESPUÉS y aparte a organization_profile (upsert, gateado por
+   datos_empresa = E). */
+let _cpEstado = null;
+function _cpEstadoInicial(planId) {
+  return {
+    plan: (planId && _CP_PLANES[planId]) ? planId : null,   // de la URL; la org nace 'free' igual
+    paso: 0,                                                 // índice del paso actual
+
+    // (a) → provisionar_organizacion(p_nombre, p_slug). El slug se deriva del
+    //     nombre (slugify) recién en A7; acá solo se recolecta el nombre.
+    organizacion: { nombre: '', slug: '' },
+
+    // (b) → organization_profile DESPUÉS y aparte (upsert). El nombre ficticio,
+    //     la web y el logo se derivan solos a organization_branding por trigger.
+    perfilEmpresa: { razonSocial: '', rut: '', giro: '', direccion: '', nombreFicticio: '', web: '' },
+
+    // (c) cuenta personal — solo para la entrada desde la landing (persona
+    //     nueva). En A3 esto reusa el OAuth/onboarding existente; no se reinventa.
+    persona: { nombre: '', apellido: '', email: '' },
+
+    aceptoTerminos: false,   // A5
+    pagado: false,           // A6 (tras feature flag apagado)
+    orgCreadaId: null        // A7: id de la organización creada (para entrar a su Control Room)
+  };
+}
+
+/* Secuencia de pasos. 'pago' solo aparece en planes de pago (la org nace
+   'free' de todos modos). El paso 'datos' ya tiene contenido (A2); el resto
+   son placeholders por ahora. No hay paso de cuenta: el login y el perfil ya
+   ocurren ANTES de abrir el flujo (cloudGate + iniciarSesionTakeOS). */
+function _cpPasos() {
+  const dePago = !!(_cpEstado && _cpEstado.plan && _cpEstado.plan !== 'gratis');
+  const pasos = [
+    { id: 'datos',    titulo: 'Datos de tu productora' },
+    { id: 'terminos', titulo: 'Términos y condiciones' }
+  ];
+  if (dePago) pasos.push({ id: 'pago', titulo: 'Pago' });
+  pasos.push({ id: 'creada', titulo: 'Productora creada' });
+  return pasos;
+}
+
+/* CSS del overlay, scopeado a #crearProductora. Los controles (botones,
+   inputs) son los componentes GLOBALES del monolito; acá solo el layout. */
+const _CP_CSS = `
+  #crearProductora{position:fixed;inset:0;z-index:99998;overflow-y:auto;background:var(--bg-page);color:var(--ink-primary);font-family:var(--font-sans),system-ui,sans-serif;}
+  #crearProductora *{box-sizing:border-box;}
+  #crearProductora .cp-top{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 28px;background:var(--bg-surface);border-bottom:1px solid var(--rule);}
+  #crearProductora .cp-brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;}
+  #crearProductora .cp-mark{width:30px;height:30px;border-radius:7px;background:var(--accent);color:var(--ink-onAccent);display:grid;place-items:center;font-weight:700;font-size:16px;}
+  #crearProductora .cp-plan{font-size:12.5px;color:var(--ink-secondary);border:1px solid var(--rule);border-radius:999px;padding:6px 13px;background:var(--bg-card);}
+  #crearProductora .cp-plan b{color:var(--ink-primary);font-weight:600;}
+  #crearProductora .cp-wrap{max-width:560px;margin:0 auto;padding:34px 24px 70px;}
+  #crearProductora .cp-stepper{display:flex;align-items:center;gap:6px;margin-bottom:24px;}
+  #crearProductora .cp-step{display:flex;align-items:center;gap:8px;}
+  #crearProductora .cp-num{width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600;background:var(--bg-surface);border:1px solid var(--rule-strong);color:var(--ink-muted);}
+  #crearProductora .cp-txt{font-size:12px;color:var(--ink-muted);white-space:nowrap;}
+  #crearProductora .cp-step.active .cp-num{background:var(--accent);border-color:var(--accent);color:var(--ink-onAccent);}
+  #crearProductora .cp-step.active .cp-txt{color:var(--ink-primary);font-weight:500;}
+  #crearProductora .cp-step.done .cp-num{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--ink-primary);}
+  #crearProductora .cp-sep{flex:1;height:1px;min-width:10px;background:var(--rule);}
+  #crearProductora .cp-card{background:var(--bg-card);border:1px solid var(--rule);border-radius:var(--radius-lg);padding:30px 28px;box-shadow:var(--shadow-sm);}
+  #crearProductora .cp-h{margin:0 0 6px;font-size:20px;font-weight:600;}
+  #crearProductora .cp-ph{margin:0 0 24px;font-size:13px;color:var(--ink-faint);line-height:1.6;}
+  #crearProductora .cp-acts{display:flex;align-items:center;gap:12px;margin-top:26px;}
+  #crearProductora .cp-sub{color:var(--ink-muted);font-size:13px;margin:0 0 22px;}
+  #crearProductora .cp-field{margin-bottom:16px;}
+  #crearProductora .cp-field label{display:block;font-size:12px;color:var(--ink-secondary);margin-bottom:6px;font-weight:500;}
+  #crearProductora .cp-field .cp-opt{color:var(--ink-faint);font-weight:400;}
+  #crearProductora .cp-field .cp-err{font-size:11px;color:var(--accent-deep);margin-top:5px;display:none;}
+  #crearProductora .cp-field.cp-show-err .cp-err{display:block;}
+  #crearProductora .cp-field.cp-show-err .input{border-color:var(--accent-deep);}
+  #crearProductora .cp-ok{font-size:11px;color:var(--state-prep);margin-top:5px;display:none;}
+  #crearProductora .cp-ok.on{display:block;}
+  #crearProductora .cp-provisional{font-size:11px;color:var(--state-sale);background:var(--accent-bg);border:1px dashed var(--accent-soft);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:16px;}
+  #crearProductora .cp-tyc{background:var(--bg-surface-soft);border:1px solid var(--rule);border-radius:var(--radius-md);padding:14px 18px;max-height:300px;overflow:auto;font-size:13px;color:var(--ink-secondary);}
+  #crearProductora .cp-tyc h4{margin:0 0 4px;font-size:13px;color:var(--ink-primary);}
+  #crearProductora .cp-tyc p{margin:0 0 14px;}
+  #crearProductora .cp-tyc p:last-child{margin-bottom:0;}
+  #crearProductora .cp-check{display:flex;align-items:flex-start;gap:11px;margin-top:22px;cursor:pointer;}
+  #crearProductora .cp-check input{width:18px;height:18px;margin-top:1px;accent-color:var(--accent);cursor:pointer;flex:none;}
+  #crearProductora .cp-check span{font-size:13px;color:var(--ink-secondary);}
+  #crearProductora .cp-pay{background:var(--bg-surface-soft);border:1px solid var(--rule);border-radius:var(--radius-md);padding:4px 18px;margin-top:4px;}
+  #crearProductora .cp-pay-line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:13px;color:var(--ink-secondary);}
+  #crearProductora .cp-pay-line.disc{color:var(--state-sale);}
+  #crearProductora .cp-pay-line.total{border-top:1px solid var(--rule);margin-top:4px;padding-top:12px;font-size:16px;font-weight:600;color:var(--ink-primary);}
+  #crearProductora .cp-exito{text-align:center;padding:10px 0 6px;}
+  #crearProductora .cp-ring{width:72px;height:72px;border-radius:50%;margin:0 auto 18px;background:var(--accent-bg);border:2px solid var(--accent);display:grid;place-items:center;color:var(--accent-deep);font-size:32px;}
+  #crearProductora .cp-rol{display:inline-flex;gap:8px;align-items:center;font-size:12px;background:var(--bg-surface-soft);border:1px solid var(--rule);border-radius:999px;padding:7px 14px;margin-top:10px;color:var(--ink-secondary);}
+  @media (max-width:600px){#crearProductora .cp-top{padding:12px 16px;}#crearProductora .cp-wrap{padding:24px 16px 60px;}#crearProductora .cp-txt{display:none;}}
+`;
+
+/* Abre el overlay del flujo de creación. Se llama desde resolverEspacioYArrancar
+   cuando la URL trae ?plan=. Reabrir reinicia el flujo (no duplica el overlay). */
+function abrirFlujoCrearProductora(planId) {
+  _cpEstado = _cpEstadoInicial(planId);
+  try { _bootCoverHide(); } catch (e) {}
+  var prev = document.getElementById('crearProductora'); if (prev) prev.remove();
+  var ov = document.createElement('div');
+  ov.id = 'crearProductora';
+  ov.innerHTML = '<style>' + _CP_CSS + '</style>'
+    + '<div class="cp-top">'
+    +   '<div class="cp-brand"><div class="cp-mark">T</div><span>Crear productora</span></div>'
+    +   '<div id="cpPlanChip"></div>'
+    + '</div>'
+    + '<div class="cp-wrap">'
+    +   '<div id="cpStepper" class="cp-stepper"></div>'
+    +   '<div id="cpBody" class="cp-card"></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  _cpRender();
+}
+
+/* Pinta el paso actual: chip del plan, stepper y cuerpo. El paso 'datos' ya
+   tiene contenido real (A2); el resto son placeholders por ahora. */
+function _cpRender() {
+  if (!_cpEstado) return;
+  var pasos = _cpPasos();
+  var i = Math.max(0, Math.min(_cpEstado.paso, pasos.length - 1));
+  _cpEstado.paso = i;
+  var paso = pasos[i];
+
+  var planNom = (_cpEstado.plan && _CP_PLANES[_cpEstado.plan]) ? _CP_PLANES[_cpEstado.plan].nombre : null;
+  var chip = document.getElementById('cpPlanChip');
+  if (chip) chip.innerHTML = planNom ? ('<span class="cp-plan">Plan <b>' + planNom + '</b></span>') : '';
+
+  var stp = document.getElementById('cpStepper');
+  if (stp) stp.innerHTML = pasos.map(function (p, idx) {
+    var cls = idx < i ? 'done' : (idx === i ? 'active' : '');
+    var marca = idx < i ? '✓' : (idx + 1);
+    return '<div class="cp-step ' + cls + '"><span class="cp-num">' + marca + '</span><span class="cp-txt">' + p.titulo + '</span></div>';
+  }).join('<span class="cp-sep"></span>');
+
+  var body = document.getElementById('cpBody');
+  if (!body) return;
+  if (paso.id === 'datos') { body.innerHTML = _cpDatosHTML(); _cpWireDatos(); return; }
+  if (paso.id === 'terminos') { body.innerHTML = _cpTerminosHTML(); return; }
+  if (paso.id === 'pago') { body.innerHTML = _cpPagoHTML(); return; }
+  if (paso.id === 'creada') { body.innerHTML = _cpCreadaHTML(); return; }
+
+  // Fallback defensivo (no debería alcanzarse: todos los pasos tienen vista).
+  var primero = (i === 0);
+  var ultimo = (paso.id === 'creada');
+  body.innerHTML =
+      '<h3 class="cp-h">' + paso.titulo + '</h3>'
+    + '<p class="cp-ph">Este paso aún no tiene contenido — se construye en un paso siguiente.</p>'
+    + '<div class="cp-acts">'
+    +   '<button class="btn" onclick="' + (primero ? '_cpCerrar()' : '_cpAtras()') + '">' + (primero ? 'Cancelar' : '← Atrás') + '</button>'
+    +   '<div style="flex:1"></div>'
+    +   '<button class="btn btn-primary" onclick="' + (ultimo ? '_cpCerrar()' : '_cpSiguiente()') + '">' + (ultimo ? 'Cerrar' : 'Siguiente →') + '</button>'
+    + '</div>';
+}
+
+function _cpSiguiente() { if (!_cpEstado) return; _cpEstado.paso++; _cpRender(); try { var o = document.getElementById('crearProductora'); if (o) o.scrollTo(0, 0); } catch (e) {} }
+function _cpAtras() { if (!_cpEstado) return; if (_cpEstado.paso > 0) _cpEstado.paso--; _cpRender(); }
+/* Cierra el flujo y vuelve al Panel Personal (sin crear nada: el cableado real
+   a la base recién ocurre en A7). */
+function _cpCerrar() {
+  var o = document.getElementById('crearProductora'); if (o) o.remove();
+  _cpEstado = null;
+  try { resolverEspacioYArrancar(); } catch (e) {}
+}
+
+/* ── A2 · Paso «Datos de tu productora» ────────────────────────────────────
+   Recolecta el nombre visible (→ _cpEstado.organizacion.nombre, lo único que
+   recibe provisionar_organizacion en A7) y, SOLO en planes de pago, los datos
+   de empresa (→ _cpEstado.perfilEmpresa, que en A7 va aparte a un upsert sobre
+   organization_profile). Rama Gratis: solo el nombre, sin facturación.
+   Validación: solo UX. El servidor revalida y manda (doctrina 1/7). */
+
+/* Formatea un RUT válido a 12.345.678-9. (En el monolito no hay formateador;
+   la validación SÍ se reusa: _rutValido, módulo 11.) */
+function _cpFormatearRut(s) {
+  var x = String(s || '').toUpperCase().replace(/[^0-9K]/g, '');
+  if (x.length < 2) return String(s || '');
+  return x.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + x.slice(-1);
+}
+function _cpVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+function _cpMarcar(fieldId, ok) { var f = document.getElementById(fieldId); if (f) f.classList.toggle('cp-show-err', !ok); return ok; }
+function _cpField(id, label, opt, ph, val, err) {
+  return '<div class="cp-field" id="' + id + '_f">'
+    + '<label for="' + id + '">' + label + (opt ? ' <span class="cp-opt">' + opt + '</span>' : '') + '</label>'
+    + '<input class="input" id="' + id + '" placeholder="' + escapeHtml(ph) + '" value="' + escapeHtml(val || '') + '">'
+    + '<div class="cp-err">' + err + '</div>'
+    + '</div>';
+}
+function _cpDatosHTML() {
+  var e = _cpEstado;
+  var gratis = !(e.plan && e.plan !== 'gratis');   // 'gratis' o sin plan → solo el nombre
+  var pe = e.perfilEmpresa, primero = (e.paso === 0);
+  var html =
+      '<h3 class="cp-h">Datos de tu productora</h3>'
+    + (gratis
+        ? '<p class="cp-sub">Ponle un nombre y empiezas. Los datos de facturación se piden cuando subas a un plan de pago.</p>'
+        : '<p class="cp-sub">Estos son los datos de tu empresa, para facturación y documentos legales.</p>')
+    + _cpField('cpNombre', 'Nombre de la productora', '(visible en el sistema)', 'Ej: Filmes del Sur', e.organizacion.nombre, 'Ingresa el nombre de tu productora.');
+  if (!gratis) {
+    html += _cpField('cpRazon', 'Razón social', '', 'Ej: Filmes del Sur SpA', pe.razonSocial, 'Ingresa la razón social.')
+      + '<div class="cp-field" id="cpRut_f">'
+      +   '<label for="cpRut">RUT de la empresa</label>'
+      +   '<input class="input" id="cpRut" placeholder="76.123.456-7" value="' + escapeHtml(pe.rut || '') + '">'
+      +   '<div class="cp-ok" id="cpRut_ok">✓ RUT válido</div>'
+      +   '<div class="cp-err">RUT inválido. Revisa el número y el dígito verificador.</div>'
+      + '</div>'
+      + _cpField('cpGiro', 'Giro', '', 'Ej: Producción audiovisual', pe.giro, 'Ingresa el giro.')
+      + _cpField('cpDir', 'Dirección', '', 'Calle, número, comuna, ciudad', pe.direccion, 'Ingresa la dirección.');
+  }
+  html += '<div class="cp-acts">'
+    +   '<button class="btn" onclick="' + (primero ? '_cpCerrar()' : '_cpAtras()') + '">' + (primero ? 'Cancelar' : '← Atrás') + '</button>'
+    +   '<div style="flex:1"></div>'
+    +   '<button class="btn btn-primary" onclick="_cpGuardarDatos()">Continuar →</button>'
+    + '</div>';
+  return html;
+}
+function _cpWireDatos() {
+  var nombre = document.getElementById('cpNombre');
+  if (nombre) setTimeout(function () { try { nombre.focus(); } catch (e) {} }, 30);
+  var rut = document.getElementById('cpRut');
+  if (rut) {
+    rut.addEventListener('input', function () {
+      var v = this.value.toUpperCase().replace(/[^0-9K.\-]/g, ''); if (v !== this.value) this.value = v;
+      _cpMarcarRut();
+    });
+    rut.addEventListener('blur', function () {
+      var v = this.value.trim();
+      if (v && _rutValido(v)) this.value = _cpFormatearRut(v);
+      _cpMarcarRut();
+    });
+  }
+}
+/* Marca/limpia el estado visual del RUT (error vs ✓). Vacío = sin marca. */
+function _cpMarcarRut() {
+  var rut = document.getElementById('cpRut'); if (!rut) return false;
+  var v = rut.value.trim(), valido = !!v && _rutValido(v);
+  var f = document.getElementById('cpRut_f'); if (f) f.classList.toggle('cp-show-err', !!v && !valido);
+  var ok = document.getElementById('cpRut_ok'); if (ok) ok.classList.toggle('on', valido);
+  return valido;
+}
+/* Valida (solo UX) y, si pasa, guarda en el estado y avanza al siguiente paso. */
+function _cpGuardarDatos() {
+  var e = _cpEstado; if (!e) return;
+  var gratis = !(e.plan && e.plan !== 'gratis');
+  var nombre = _cpVal('cpNombre');
+  var ok = _cpMarcar('cpNombre_f', nombre.trim().length > 0);
+  if (!gratis) {
+    var rut = _cpVal('cpRut'), rutOk = !!rut.trim() && _rutValido(rut);
+    ok = _cpMarcar('cpRazon_f', _cpVal('cpRazon').trim().length > 0) && ok;
+    ok = _cpMarcar('cpRut_f', rutOk) && ok;
+    var okPill = document.getElementById('cpRut_ok'); if (okPill) okPill.classList.toggle('on', rutOk);
+    ok = _cpMarcar('cpGiro_f', _cpVal('cpGiro').trim().length > 0) && ok;
+    ok = _cpMarcar('cpDir_f', _cpVal('cpDir').trim().length > 0) && ok;
+  }
+  if (!ok) return;
+  e.organizacion.nombre = nombre.trim();
+  if (gratis) {
+    e.perfilEmpresa = { razonSocial: '', rut: '', giro: '', direccion: '', nombreFicticio: '', web: '' };
+  } else {
+    e.perfilEmpresa.razonSocial = _cpVal('cpRazon').trim();
+    e.perfilEmpresa.rut = _cpFormatearRut(_cpVal('cpRut').trim());
+    e.perfilEmpresa.giro = _cpVal('cpGiro').trim();
+    e.perfilEmpresa.direccion = _cpVal('cpDir').trim();
+  }
+  _cpSiguiente();
+}
+
+/* ── A3 · Paso «Términos y condiciones» ────────────────────────────────────
+   Contrato de prestación de servicios entre la sociedad desarrolladora de
+   TakeOS y la productora. TEXTO PROVISIONAL (v0): el área legal fija el
+   definitivo cuando la sociedad esté constituida; aquí NO se redactan cláusulas
+   reales. No se avanza sin marcar el checkbox. El registro/versionado del
+   consentimiento es server-side y se verá en el cableado (A7), no acá. */
+const _CP_TYC_TEXTO = [
+  ['1. Objeto', 'La sociedad desarrolladora pone a disposición de la productora la plataforma TakeOS para la gestión de su producción audiovisual, según el plan contratado.'],
+  ['2. Plan y pago', 'La productora contrata el plan seleccionado y autoriza su cobro según el ciclo elegido. Los precios se expresan en pesos chilenos más IVA.'],
+  ['3. Datos y privacidad', 'El tratamiento de datos personales se rige por la normativa vigente, incluida la Ley 21.719. La productora es responsable de los datos que carga a la plataforma.'],
+  ['4. Administración', 'Quien crea la productora queda como administrador. La productora no puede quedar sin al menos un administrador.'],
+  ['5. Vigencia y término', 'El servicio se mantiene vigente mientras el plan esté activo. Cualquiera de las partes puede terminarlo según las condiciones del plan.']
+];
+function _cpTerminosHTML() {
+  var e = _cpEstado;
+  var dePago = !!(e.plan && e.plan !== 'gratis');
+  var aceptado = !!e.aceptoTerminos;
+  var cuerpo = _CP_TYC_TEXTO.map(function (s) { return '<h4>' + s[0] + '</h4><p>' + s[1] + '</p>'; }).join('');
+  return ''
+    + '<h3 class="cp-h">Términos y condiciones de servicio</h3>'
+    + '<p class="cp-sub">Equivalen a un contrato de prestación de servicios entre la sociedad desarrolladora de TakeOS y tu productora.</p>'
+    + '<div class="cp-provisional">Texto provisional, solo para demostrar el flujo. El definitivo lo define el área legal cuando la sociedad desarrolladora esté constituida.</div>'
+    + '<div class="cp-tyc">' + cuerpo + '</div>'
+    + '<label class="cp-check">'
+    +   '<input type="checkbox" id="cpTycCk"' + (aceptado ? ' checked' : '') + ' onchange="_cpToggleTyc(this)">'
+    +   '<span>He leído y acepto los términos y condiciones de servicio.</span>'
+    + '</label>'
+    + '<div class="cp-acts">'
+    +   '<button class="btn" onclick="_cpAtras()">← Atrás</button>'
+    +   '<div style="flex:1"></div>'
+    +   '<button class="btn btn-primary" id="cpBtnTyc"' + (aceptado ? '' : ' disabled') + ' onclick="_cpAceptarTerminos()">'
+    +     (dePago ? 'Continuar al pago' : 'Activar plan gratis')
+    +   '</button>'
+    + '</div>';
+}
+/* Sincroniza el checkbox con el estado y habilita/deshabilita el botón. */
+function _cpToggleTyc(cb) {
+  if (_cpEstado) _cpEstado.aceptoTerminos = !!cb.checked;
+  var btn = document.getElementById('cpBtnTyc'); if (btn) btn.disabled = !cb.checked;
+}
+function _cpAceptarTerminos() {
+  if (!_cpEstado || !_cpEstado.aceptoTerminos) return;
+  var dePago = !!(_cpEstado.plan && _cpEstado.plan !== 'gratis');
+  if (dePago) _cpSiguiente();        // planes de pago → pantalla de pago
+  else _cpCrearProductora();          // Gratis → crea directo (sin pago)
+}
+
+/* ── A6 · Paso «Pago» (placeholder tras feature flag) ──────────────────────
+   El sistema de pago NO existe aún (handoff §9): este paso vive tras un flag
+   apagado y NO procesa nada ni pide datos de tarjeta. Muestra el resumen del
+   plan con el IVA leído de la global `IVA` (tax_rates), NUNCA hardcodeado
+   (doctrina 4). La organización nace 'free'; activar el plan de pago es aparte
+   y se conecta cuando exista proveedor (no encender el flag antes). */
+const _CP_PAGO_ACTIVO = false;   // feature flag: true solo cuando exista proveedor de pago
+function _cpMontos(planId) {
+  var p = _CP_PLANES[planId] || { precio: 0 };
+  var lista = p.precio;
+  var neto = Math.round(lista * (1 - _CP_EARLY_BIRD));
+  var iva = Math.round(neto * IVA);   // IVA = global desde tax_rates (no hardcode)
+  return { lista: lista, neto: neto, iva: iva, total: neto + iva };
+}
+function _cpPayLine(label, valor, cls) {
+  return '<div class="cp-pay-line' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><span>' + valor + '</span></div>';
+}
+function _cpPagoHTML() {
+  var e = _cpEstado;
+  var planNom = (_CP_PLANES[e.plan] || {}).nombre || '';
+  var m = _cpMontos(e.plan);
+  var ivaPct = Math.round(IVA * 100);
+  var banner = _CP_PAGO_ACTIVO
+    ? 'Revisa el resumen y confirma para activar tu plan.'
+    : 'El sistema de pago aún no está disponible. Por ahora creas tu productora y el cobro del plan se activa más adelante. No se procesa ningún pago ni se piden datos de tarjeta.';
+  var btnLabel = _CP_PAGO_ACTIVO ? 'Pagar y crear productora' : 'Crear mi productora';
+  /* Cuando _CP_PAGO_ACTIVO sea true (existe proveedor) acá va el formulario de
+     pago real. Hoy NO se captura ningún dato de tarjeta (handoff §3/§4). */
+  return ''
+    + '<h3 class="cp-h">Pago</h3>'
+    + '<p class="cp-sub">Plan ' + planNom + ' · cobro mensual.</p>'
+    + '<div class="cp-provisional">' + banner + '</div>'
+    + '<div class="cp-pay">'
+    +   _cpPayLine('Plan ' + planNom + ' (mensual)', fmtMoney(m.lista), '')
+    +   _cpPayLine('Descuento Early Bird (−50%)', '−' + fmtMoney(m.lista - m.neto), 'disc')
+    +   _cpPayLine('Neto', fmtMoney(m.neto), '')
+    +   _cpPayLine('IVA (' + ivaPct + '%)', fmtMoney(m.iva), '')
+    +   _cpPayLine('Total a pagar al activar', fmtMoney(m.total), 'total')
+    + '</div>'
+    + '<div class="cp-acts">'
+    +   '<button class="btn" onclick="_cpAtras()">← Atrás</button>'
+    +   '<div style="flex:1"></div>'
+    +   '<button class="btn btn-primary" id="cpBtnPago" onclick="_cpCrearProductora()">' + btnLabel + '</button>'
+    + '</div>';
+}
+
+/* ── A7 · Crear la productora (cableado real a la base) ─────────────────────
+   Llama al RPC provisionar_organizacion(nombre, slug) — confirmado contra la
+   base: crea la org (plan 'free'), siembra los 8 perfiles + matriz, clona los
+   catálogos del template, inserta organization_profile vacío y deja al creador
+   como Administrador interno activo. Devuelve el uuid de la org. NO se llama
+   seed_permisos_organizacion aparte (ya va adentro).
+   Para planes de pago, después se completa organization_profile (columna jsonb
+   `profile`) con un upsert; la RLS lo permite porque el creador tiene
+   datos_empresa = 'E' en esa org (auth_nivel, server-side). La creación es
+   server-side y atómica (doctrina 2); el cliente solo envía y refleja. */
+
+/* Llama al RPC reintentando con sufijo si el slug ya existe (la RPC lanza
+   'El slug "x" ya está en uso'). Cualquier otro error se propaga de inmediato. */
+async function _cpProvisionar(nombre) {
+  var base = ((typeof slugify === 'function' ? slugify(nombre) : '') || 'productora');
+  var ultimo = null;
+  for (var n = 0; n < 8; n++) {
+    var slug = (n === 0) ? base : (base + '-' + (n + 1));
+    var r = await sb.rpc('provisionar_organizacion', { p_nombre: nombre, p_slug: slug });
+    if (!r.error) {
+      var d = r.data;
+      return (d && typeof d === 'object') ? (d.organization_id || d.id || d) : d;   // retorna uuid escalar
+    }
+    ultimo = r.error;
+    var msg = String(r.error.message || '').toLowerCase();
+    var colision = (msg.indexOf('ya está en uso') >= 0) || (msg.indexOf('slug') >= 0) || (r.error.code === '23505');
+    if (!colision) throw r.error;   // error real (no es colisión de slug) → propagar
+  }
+  throw (ultimo || new Error('No se pudo generar un identificador único para la productora.'));
+}
+function _cpBtnAccion() { return document.getElementById('cpBtnPago') || document.getElementById('cpBtnTyc'); }
+/* Crea la productora y, si hay datos de empresa (planes de pago), completa su
+   perfil. Al terminar, muestra la pantalla «Productora creada». */
+async function _cpCrearProductora() {
+  var e = _cpEstado; if (!e || e._creando) return;
+  var btn = _cpBtnAccion(); var lblPrev = btn ? btn.textContent : '';
+  e._creando = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando tu productora…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Sin conexión a la base.');
+    var orgId = await _cpProvisionar(e.organizacion.nombre);
+    e.orgCreadaId = orgId;
+    /* Perfil de empresa: solo planes de pago traen estos datos. La org ya nació
+       con organization_profile vacío; acá lo completamos (no bloquea si falla:
+       la org ya existe). */
+    var pe = e.perfilEmpresa || {};
+    if (pe.razonSocial || pe.rut || pe.giro || pe.direccion) {
+      try {
+        var profile = {
+          razonSocial: pe.razonSocial || '', rut: pe.rut || '', giro: pe.giro || '',
+          direccion: pe.direccion || '', nombreFicticio: pe.nombreFicticio || '', web: pe.web || ''
+        };
+        var up = await sb.from('organization_profile').upsert({ organization_id: orgId, profile: profile, updated_at: new Date().toISOString() });
+        if (up && up.error) console.warn('[crear] organization_profile', up.error);
+      } catch (pErr) { console.warn('[crear] organization_profile', pErr); }
+    }
+    e._creando = false;
+    _cpSiguiente();   // → pantalla «Productora creada»
+  } catch (err) {
+    e._creando = false;
+    if (btn) { btn.disabled = false; btn.textContent = lblPrev; }
+    var msg = (err && err.message) ? String(err.message).replace(/^[a-z_]+:\s*/i, '') : 'No se pudo crear la productora.';
+    try { showToast({ kind: 'error', title: 'No se pudo crear la productora', body: msg, duration: 9000 }); } catch (e2) {}
+  }
+}
+/* Pantalla final: productora creada. */
+function _cpCreadaHTML() {
+  var e = _cpEstado;
+  var nom = (e && e.organizacion && e.organizacion.nombre) || 'Tu productora';
+  return ''
+    + '<div class="cp-exito">'
+    +   '<div class="cp-ring">✓</div>'
+    +   '<h3 class="cp-h" style="margin-bottom:8px;">Tu productora está lista</h3>'
+    +   '<p class="cp-sub" style="margin:0 0 4px;"><b>' + escapeHtml(nom) + '</b> ya está creada.</p>'
+    +   '<div class="cp-rol">👑 Eres Administrador interno de ' + escapeHtml(nom) + '</div>'
+    + '</div>'
+    + '<div class="cp-acts">'
+    +   '<div style="flex:1"></div>'
+    +   '<button class="btn btn-primary" onclick="_cpEntrarProductora()">Entrar a mi productora →</button>'
+    + '</div>';
+}
+/* Cierra el flujo y entra al Control Room de la productora recién creada (mismo
+   mecanismo que «entrar» desde el Panel Personal). El tour inicial va en A8. */
+function _cpEntrarProductora() {
+  var e = _cpEstado; var orgId = e && e.orgCreadaId;
+  var ov = document.getElementById('crearProductora'); if (ov) ov.remove();
+  _cpEstado = null;
+  try { if (orgId && typeof _setOrgActiva === 'function') _setOrgActiva(orgId); } catch (x) {}
+  try { _TIENE_EMPRESA = true; } catch (x) {}
+  try { _cpTourPendiente = true; } catch (x) {}   // A8: dispara el tour inicial al cargar el Control Room
+  try { if (typeof _bootCoverShow === 'function') _bootCoverShow('Entrando a tu productora…'); } catch (x) {}
+  try { if (typeof arrancarTakeOS === 'function') arrancarTakeOS(); } catch (x) {}
+}
+
+/* ── A8 · Tour inicial sobre el Control Room real ───────────────────────────
+   Tras crear la productora y entrar (_cpEntrarProductora), un recorrido breve
+   resalta las piezas clave del Control Room REAL. Se dispara UNA vez, justo
+   después de crear: _cpEntrarProductora enciende _cpTourPendiente y la cadena de
+   arrancarTakeOS la consume al terminar de cargar. Robusto: si un elemento no
+   está, salta ese paso; si no hay ninguno, no muestra nada. */
+var _cpTourPendiente = false;
+var _cpTourPaso = 0;
+var _CP_TOUR = [
+  { sel: '#controlRoomView', top: true,                                  titulo: 'Este es tu Control Room',   texto: 'Todo esto es tu Control Room: desde acá ves y manejas los proyectos de tu productora. Está casi vacío porque recién la creaste.' },
+  { sel: '#controlRoomView .cr-actions .btn-primary', center: true, titulo: 'Crea tu primer proyecto', texto: 'Con «Nuevo proyecto» partes una producción: presupuesto, plan de rodaje, legal y más, todo dentro del proyecto.' },
+  { sel: '#controlRoomView .cr-metrics', top: true,                      titulo: 'El pulso de tu productora', texto: 'Acá ves de un vistazo cuántos proyectos están activos, cuáles cerraste y qué requiere tu atención.' },
+  { sel: '#kanbanContainer', samples: true, cardTop: true,             titulo: 'Tus proyectos, por estado', texto: 'Acá viven tus proyectos: cada uno aparece en la columna de su etapa y avanza a medida que progresa. Estos son de ejemplo.' },
+  { sel: '#notifBtn', center: true,                                        titulo: 'Tus notificaciones', texto: 'Acá el sistema te avisa lo que necesita tu atención: cuando te asignan una tarea, te mencionan o aparece una señal de un proyecto.' },
+  { sel: '.topbar-config-btn', center: true,                               titulo: 'Tu cuenta y tu productora', texto: 'Desde acá configuras tu productora —equipo, marca y datos— y tu cuenta personal.' }
+];
+var _CP_TOUR_CSS = ''
+  + '@property --cpang{syntax:"<angle>";inherits:false;initial-value:0deg;}'
+  + '.cp-tour-backdrop{position:fixed;inset:0;background:rgba(10,10,9,.62);z-index:100000;}'
+  + '.cp-tour-target{position:relative;z-index:100001;border-radius:10px;box-shadow:0 0 0 2px var(--accent-deep),0 0 20px rgba(208,90,77,.45);}'
+  + '.cp-tour-target::after{content:"";position:absolute;inset:-3px;border-radius:13px;padding:2px;background:conic-gradient(from var(--cpang),rgba(208,90,77,0) 0deg,rgba(208,90,77,0) 250deg,var(--accent-deep) 305deg,#ffd9d0 333deg,var(--accent-deep) 360deg);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;animation:cpBorderLight 5s linear infinite;pointer-events:none;}'
+  + '@keyframes cpBorderLight{to{--cpang:360deg;}}'
+  + '#cpTourStage{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(1.5);z-index:100002;pointer-events:none;background:var(--bg-elevated);border-radius:12px;padding:18px 24px;box-shadow:var(--shadow-lg);}'
+  + '.cp-tour-card{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);width:min(440px,calc(100vw - 36px));z-index:100003;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:22px 24px;font-family:var(--font-sans),system-ui,sans-serif;color:var(--ink-primary);}'
+  + '.cp-tour-card.cp-card-top{bottom:auto;top:24px;}'
+  + '.cp-tour-card .cp-tstep{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-deep);font-weight:700;margin-bottom:7px;}'
+  + '.cp-tour-card h4{margin:0 0 6px;font-size:16px;font-weight:600;}'
+  + '.cp-tour-card p{margin:0 0 16px;font-size:13px;color:var(--ink-secondary);line-height:1.55;}'
+  + '.cp-tour-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;}'
+  + '.cp-tdots{display:flex;gap:6px;}'
+  + '.cp-tdot{width:7px;height:7px;border-radius:50%;background:var(--rule-strong);display:inline-block;}'
+  + '.cp-tdot.on{background:var(--accent);}'
+  + '.cp-tour-btns{display:flex;gap:8px;}'
+  + '@media (prefers-reduced-motion:reduce){.cp-tour-target::after{animation:none;}}';
+function _cpTourInicialQuizas() {
+  if (!_cpTourPendiente) return;
+  _cpTourPendiente = false;
+  setTimeout(function () { try { _cpTourIniciar(); } catch (e) {} }, 450);   // deja pintar el Control Room
+}
+function _cpTourEnsureCss() {
+  if (document.getElementById('cpTourStyle')) return;
+  var st = document.createElement('style'); st.id = 'cpTourStyle'; st.textContent = _CP_TOUR_CSS;
+  document.head.appendChild(st);
+}
+function _cpTourIniciar() {
+  var cr = document.getElementById('controlRoomView');
+  if (!cr || cr.classList.contains('hidden')) return;   // solo en el home del Control Room
+  if (!_cpTourPasoUltimo()) return;                      // no hay ningún elemento que resaltar
+  _cpTourEnsureCss();
+  _cpTourPaso = 1;
+  _cpTourRender();
+}
+function _cpTourPasoValido(i) { for (var k = i; k <= _CP_TOUR.length; k++) { if (document.querySelector(_CP_TOUR[k - 1].sel)) return k; } return 0; }
+function _cpTourPasoUltimo() { for (var k = _CP_TOUR.length; k >= 1; k--) { if (document.querySelector(_CP_TOUR[k - 1].sel)) return k; } return 0; }
+/* Mueve el elemento REAL a un escenario central (sobre el fondo), agrandado y con
+   el borde de luz. Guarda su lugar original para devolverlo al salir. Así el
+   propio botón —no un clon— se ve grande y al centro, sin importar si su barra
+   queda atrapada en un contexto de apilamiento. */
+var _cpTourMoved = null;
+function _cpTourCentrar(el) {
+  if (!el) return;
+  var stage = document.getElementById('cpTourStage');
+  if (!stage) { stage = document.createElement('div'); stage.id = 'cpTourStage'; stage.className = 'cp-tour-target'; document.body.appendChild(stage); }
+  _cpTourMoved = { el: el, parent: el.parentNode, next: el.nextSibling };
+  stage.appendChild(el);
+}
+function _cpTourRestaurarMovido() {
+  if (_cpTourMoved) {
+    var m = _cpTourMoved; _cpTourMoved = null;
+    try { if (m.next && m.next.parentNode === m.parent) m.parent.insertBefore(m.el, m.next); else if (m.parent) m.parent.appendChild(m.el); } catch (e) {}
+  }
+  var stage = document.getElementById('cpTourStage'); if (stage) stage.remove();
+}
+function _cpTourLimpiar() {
+  var ov = document.getElementById('cpTour'); if (ov) ov.remove();
+  _cpTourRestaurarMovido();
+  var t = document.querySelector('.cp-tour-target'); if (t) t.classList.remove('cp-tour-target');
+  _cpTourSamplesOff();
+}
+function _cpTourRender() {
+  _cpTourLimpiar();
+  var paso = _cpTourPasoValido(_cpTourPaso);
+  if (!paso) { _cpTourCerrar(); return; }
+  _cpTourPaso = paso;
+  var def = _CP_TOUR[paso - 1];
+  if (def.samples) _cpTourSamplesOn();          // proyectos de muestra (mundo LOTR) en el kanban
+  var el = document.querySelector(def.sel);
+  var ultimo = (paso === _cpTourPasoUltimo());
+  var dots = _CP_TOUR.map(function (_, idx) { return '<i class="cp-tdot' + (idx === paso - 1 ? ' on' : '') + '"></i>'; }).join('');
+  var ov = document.createElement('div'); ov.id = 'cpTour';
+  ov.innerHTML = '<div class="cp-tour-backdrop"></div>'    // el fondo NO cierra el tour (solo Saltar / Listo)
+    + '<div class="cp-tour-card' + (def.cardTop ? ' cp-card-top' : '') + '">'
+    +   '<div class="cp-tstep">Paso ' + paso + ' de ' + _CP_TOUR.length + '</div>'
+    +   '<h4>' + def.titulo + '</h4><p>' + def.texto + '</p>'
+    +   '<div class="cp-tour-foot"><div class="cp-tdots">' + dots + '</div>'
+    +     '<div class="cp-tour-btns">'
+    +       '<button class="btn btn-ghost btn-sm" onclick="_cpTourCerrar()">Saltar</button>'
+    +       (paso > 1 ? '<button class="btn btn-sm" onclick="_cpTourPrev()">Anterior</button>' : '')
+    +       '<button class="btn btn-primary btn-sm" onclick="' + (ultimo ? '_cpTourCerrar()' : '_cpTourNext()') + '">' + (ultimo ? 'Listo' : 'Siguiente') + '</button>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  if (def.center && el) _cpTourCentrar(el);       // botones chicos: el real se mueve al centro, agrandado
+  else if (el) el.classList.add('cp-tour-target'); // secciones grandes: se resaltan en su lugar
+  if (def.center || def.top) { try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (x) { try { window.scrollTo(0, 0); } catch (y) {} } }
+  else if (el) { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) {} }
+}
+function _cpTourNext() { _cpTourPaso = _cpTourPaso + 1; _cpTourRender(); }
+function _cpTourPrev() { if (_cpTourPaso > 1) _cpTourPaso = _cpTourPaso - 1; _cpTourRender(); }
+function _cpTourCerrar() { _cpTourLimpiar(); _cpTourPaso = 0; }
+
+/* Proyectos de muestra (mundo de El Señor de los Anillos) para que el kanban no
+   se vea vacío durante el tour. Guarda el contenido real del kanban y lo
+   restaura al salir; NO toca PROJECTS ni la base — es solo visual. */
+var _cpKanbanBackup = null;
+function _cpTourSamplesOn() {
+  var k = document.getElementById('kanbanContainer'); if (!k) return;
+  if (_cpKanbanBackup === null) _cpKanbanBackup = k.innerHTML;
+  try { k.innerHTML = _cpTourKanbanSample(); } catch (e) {}
+}
+function _cpTourSamplesOff() {
+  if (_cpKanbanBackup === null) return;
+  var k = document.getElementById('kanbanContainer'); if (k) k.innerHTML = _cpKanbanBackup;
+  _cpKanbanBackup = null;
+}
+function _cpTourKanbanSample() {
+  var SAMP = {
+    venta:          [{ client: 'New Line Cinema', name: 'El Hobbit — Spot',        pe: 'A. Muñoz',   dlabel: 'Fecha',  dval: 'Cotización enviada', monto: '$6.400.000' }],
+    preproduccion:  [{ client: 'WingNut Films',   name: 'Las Dos Torres',          pe: 'P. Jackson', dlabel: 'Fecha',  dval: '12 jornadas',        monto: '$28.000.000' }],
+    produccion:     [{ client: 'WingNut Films',   name: 'La Comunidad del Anillo', pe: 'P. Jackson', dlabel: 'Estado', dval: 'En rodaje',          monto: '$38.000.000' }],
+    postproduccion: [{ client: 'WETA Workshop',   name: 'El Retorno del Rey',      pe: 'F. Walsh',   dlabel: 'Estado', dval: 'Montaje',            monto: '$24.000.000' }]
+  };
+  function card(p) {
+    return '<div class="project-card">'
+      + '<div class="project-card-header"><div>'
+      +   '<div class="project-client">' + p.client + '</div>'
+      +   '<div class="project-name">' + p.name + '</div>'
+      + '</div></div>'
+      + '<div class="project-meta">'
+      +   '<div class="project-meta-row"><span class="project-meta-label">PE</span><span class="project-meta-value">' + p.pe + '</span></div>'
+      +   '<div class="project-meta-row"><span class="project-meta-label">' + p.dlabel + '</span><span class="project-meta-value">' + p.dval + '</span></div>'
+      +   '<div class="project-meta-row"><span class="project-meta-label">Monto</span><span class="project-amount">' + p.monto + '</span></div>'
+      + '</div></div>';
+  }
+  return Object.keys(STATES).sort(function (a, b) { return STATES[a].order - STATES[b].order; }).map(function (key) {
+    var st = STATES[key], list = SAMP[key] || [];
+    return '<div class="column"><div class="column-header"><div class="column-title">'
+      + '<div class="column-dot" style="background:' + st.color + '"></div><span class="column-name">' + st.name + '</span></div>'
+      + '<span class="column-count">' + list.length + '</span></div>'
+      + '<div class="column-body">' + (list.length ? list.map(card).join('') : '<div class="empty-column">Sin proyectos</div>') + '</div></div>';
+  }).join('');
+}
+
 /* V11.4.0 · cortina de arranque: tapa el microsegundo de Control Room vacío
    antes del login y los ~2 s de carga de proyectos después de loguear. */
 function _bootVeil(msg) {
@@ -22936,7 +23662,7 @@ function arrancarTakeOS() {
      jamás se entra al Control Room (se re-deriva la vista correcta). */
   var _pend = false; try { _pend = !!sessionStorage.getItem('takeos_ir_proyecto'); } catch (e) {}
   if (!_TIENE_EMPRESA && !_pend) { resolverEspacioYArrancar(); return; }
-  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} });
+  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} }).then(function(){ try { _cpTourInicialQuizas(); } catch (e) {} });
 }
 
 function _espIniciales(txt){
@@ -23009,6 +23735,22 @@ async function resolverEspacioYArrancar(){
   const forzar = /[?&]espacio=1\b/.test(window.location.search);
   const demo   = /[?&]espacio=demo\b/.test(window.location.search);
   if (demo) { try { renderEspacioUsuario(ESPACIO_DEMO); return; } catch(e){ arrancarTakeOS(); return; } }
+  /* FRENTE A · A1 · disparador del flujo de creación de productora:
+     ?plan=<gratis|rodaje|produccion>. El plan llega ya elegido desde la landing.
+     Se limpia de la URL para que cerrar/cancelar el flujo no lo vuelva a disparar.
+     (La organización nace 'free' igual; el plan es para la experiencia y A6.) */
+  try {
+    const _pm = /[?&]plan=(gratis|rodaje|produccion)\b/.exec(window.location.search);
+    if (_pm) {
+      const _plan = _pm[1];
+      try {
+        const _qs = window.location.search.replace(/[?&]plan=[^&]*/, '').replace(/^&/, '?');
+        history.replaceState(null, '', window.location.pathname + (_qs === '?' ? '' : _qs));
+      } catch (e) {}
+      abrirFlujoCrearProductora(_plan);
+      return;
+    }
+  } catch (e) {}
   try {
     const client = (typeof sb !== 'undefined' && sb) ? sb : (typeof supabaseInit === 'function' ? supabaseInit() : null);
     if (!client) { _renderEspacioSeguro(''); return; }
@@ -23115,6 +23857,486 @@ async function _espCargarProyectosExternos(externas){
 }
 function _espPerfil(){ try{ abrirPerfilUsuario(false); }catch(e){} }
 
+/* ════════════════════════════════════════════════════════════════════
+   FRENTE B · B1 · CENTRO DE PRIVACIDAD Y DATOS (hub + ruteo)
+   ─────────────────────────────────────────────────────────────────────
+   Estos derechos son de IDENTIDAD GLOBAL por usuario (Ley 21.719), por eso
+   viven en el Panel Personal, no dentro de una productora. B1 arma el hub con
+   las 5 tarjetas y el ruteo a cada flujo; el contenido de cada flujo llega en
+   B2…B6 (algunos son UI-contra-contrato del BD Expert; eliminar y edad tienen
+   decisiones de Agustín). En B1 cada flujo es un placeholder. */
+var _pdVista = 'hub';
+var _pdExportEstado = 'idle';   // B2: idle | solicitada
+var _pdConsents = [];           // B3: consentimientos cargados de data_consents
+var _pdRevocarId = null;
+var _pdElimSole = [];           // B4: productoras donde el usuario es ÚNICO admin
+var _pdEdadVerif = false;       // B5: edad declarada en esta sesión (condicional, no gate)
+var _pdCookies = { decidido: false, analitica: false, marketing: false };   // B6 (esenciales siempre on)
+var _pdCkGuardado = false;       // B6: muestra "Preferencias guardadas"
+var _PD_CSS = `
+  #privacidadDatos{position:fixed;inset:0;z-index:99998;overflow-y:auto;background:var(--bg-page);color:var(--ink-primary);font-family:var(--font-sans),system-ui,sans-serif;}
+  #privacidadDatos *{box-sizing:border-box;}
+  #privacidadDatos .pd-top{position:sticky;top:0;display:flex;align-items:center;gap:14px;padding:13px 24px;background:var(--bg-surface);border-bottom:1px solid var(--rule);}
+  #privacidadDatos .pd-back{background:transparent;border:1px solid var(--rule);border-radius:var(--radius-sm);padding:7px 13px;font-size:12px;color:var(--ink-secondary);cursor:pointer;font-family:inherit;}
+  #privacidadDatos .pd-back:hover{background:var(--bg-card);}
+  #privacidadDatos .pd-brand{font-weight:700;font-size:15px;}
+  #privacidadDatos .pd-wrap{max-width:760px;margin:0 auto;padding:30px 24px 80px;}
+  #privacidadDatos .pd-acct{display:flex;align-items:center;gap:12px;margin-bottom:24px;}
+  #privacidadDatos .pd-av{width:40px;height:40px;border-radius:50%;background:var(--accent-soft);color:var(--ink-primary);display:grid;place-items:center;font-size:15px;font-weight:600;text-transform:uppercase;}
+  #privacidadDatos .pd-acct .who b{font-size:15px;font-weight:600;display:block;}
+  #privacidadDatos .pd-acct .who span{font-size:12px;color:var(--ink-muted);}
+  #privacidadDatos .pd-title{margin:0 0 4px;font-size:24px;font-weight:700;letter-spacing:-.01em;}
+  #privacidadDatos .pd-sub{color:var(--ink-muted);font-size:14px;margin:0 0 20px;}
+  #privacidadDatos .pd-legal{font-size:12px;color:var(--state-sale);background:var(--accent-bg);border:1px dashed var(--accent-soft);border-radius:var(--radius-sm);padding:10px 13px;margin-bottom:24px;}
+  #privacidadDatos .pd-rights{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  #privacidadDatos .pd-card{background:var(--bg-card);border:1px solid var(--rule);border-radius:var(--radius-md);padding:22px;cursor:pointer;transition:border-color .12s,transform .12s;display:flex;flex-direction:column;gap:10px;text-align:left;width:100%;font-family:inherit;color:inherit;}
+  #privacidadDatos .pd-card:hover{border-color:var(--rule-strong);transform:translateY(-2px);}
+  #privacidadDatos .pd-ico{font-size:22px;}
+  #privacidadDatos .pd-rt{font-size:15px;font-weight:600;}
+  #privacidadDatos .pd-rd{font-size:12px;color:var(--ink-muted);flex:1;}
+  #privacidadDatos .pd-tag{align-self:flex-start;font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-secondary);border:1px solid var(--rule-strong);border-radius:999px;padding:3px 9px;}
+  #privacidadDatos .pd-tag.warn{color:var(--state-sale);border-color:#5a4a2a;}
+  #privacidadDatos .pd-tag.danger{color:var(--accent-deep);border-color:var(--accent-soft);}
+  #privacidadDatos .pd-card.full{grid-column:1/-1;}
+  #privacidadDatos .pd-flow{background:var(--bg-card);border:1px solid var(--rule);border-radius:var(--radius-lg);padding:30px 28px;}
+  #privacidadDatos .pd-flow h3{margin:0 0 6px;font-size:20px;font-weight:600;}
+  #privacidadDatos .pd-flow .pd-ph{font-size:13px;color:var(--ink-faint);line-height:1.6;}
+  #privacidadDatos .pd-flow .pd-sub{color:var(--ink-muted);font-size:13px;margin:0 0 14px;}
+  #privacidadDatos .pd-eyebrow2{font-size:12px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
+  #privacidadDatos .pd-list{display:flex;flex-direction:column;gap:9px;margin:0 0 14px;padding:0;list-style:none;}
+  #privacidadDatos .pd-list li{font-size:13px;color:var(--ink-secondary);display:flex;gap:9px;align-items:flex-start;}
+  #privacidadDatos .pd-list li::before{content:"\\203A";color:var(--accent-deep);font-weight:700;}
+  #privacidadDatos .pd-acts{display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;}
+  #privacidadDatos .pd-consent{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rule);border-radius:var(--radius-md);background:var(--bg-surface-soft);margin-bottom:11px;}
+  #privacidadDatos .pd-consent.rev{opacity:.7;}
+  #privacidadDatos .pd-c-ico{width:38px;height:38px;border-radius:var(--radius-sm);background:var(--bg-elevated);display:grid;place-items:center;font-size:16px;flex:none;}
+  #privacidadDatos .pd-c-meta{flex:1;min-width:0;}
+  #privacidadDatos .pd-c-meta b{font-size:14px;font-weight:600;display:block;}
+  #privacidadDatos .pd-c-meta span{font-size:12px;color:var(--ink-muted);}
+  #privacidadDatos .pd-badge{font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:999px;border:1px solid var(--rule-strong);color:var(--ink-muted);}
+  #privacidadDatos .pd-badge.rev{color:var(--accent-deep);border-color:var(--accent-soft);}
+  #privacidadDatos .pd-empty{font-size:13px;color:var(--ink-faint);padding:16px;border:1px dashed var(--rule-strong);border-radius:var(--radius-md);text-align:center;}
+  #privacidadDatos .pd-danger{border:1px solid var(--accent-soft);border-radius:var(--radius-md);background:var(--accent-bg);padding:20px 22px;}
+  #privacidadDatos .pd-check{display:flex;align-items:flex-start;gap:11px;margin:16px 0 0;cursor:pointer;font-size:13px;color:var(--ink-secondary);}
+  #privacidadDatos .pd-check input{width:18px;height:18px;margin-top:1px;accent-color:var(--accent);cursor:pointer;flex:none;}
+  #privacidadDatos .pd-field{margin-bottom:6px;}
+  #privacidadDatos .pd-flabel{display:block;font-size:12px;color:var(--ink-secondary);margin-bottom:6px;font-weight:500;}
+  #privacidadDatos .pd-ferr{font-size:11px;color:var(--accent-deep);margin-top:5px;display:none;}
+  #privacidadDatos .pd-exito-mini{width:56px;height:56px;border-radius:50%;margin:0 0 14px;background:var(--accent-bg);border:2px solid var(--accent);display:grid;place-items:center;color:var(--accent-deep);font-size:26px;}
+  #privacidadDatos .pd-sw-row{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--rule-soft);}
+  #privacidadDatos .pd-sw-info{flex:1;}
+  #privacidadDatos .pd-sw-info b{font-size:13px;font-weight:600;display:block;}
+  #privacidadDatos .pd-sw-info span{font-size:12px;color:var(--ink-muted);}
+  #privacidadDatos .pd-switch{position:relative;width:42px;height:24px;flex:none;cursor:pointer;}
+  #privacidadDatos .pd-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;}
+  #privacidadDatos .pd-switch .track{position:absolute;inset:0;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:999px;transition:all .15s;}
+  #privacidadDatos .pd-switch .knob{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--ink-muted);transition:all .15s;}
+  #privacidadDatos .pd-switch input:checked + .track{background:var(--accent);border-color:var(--accent);}
+  #privacidadDatos .pd-switch input:checked ~ .knob{left:21px;background:var(--ink-onAccent);}
+  #privacidadDatos .pd-switch.locked .track{background:var(--accent-soft);border-color:var(--accent-soft);}
+  #privacidadDatos .pd-switch.locked .knob{left:21px;background:var(--ink-primary);}
+  #privacidadDatos .pd-ok{font-size:11px;color:var(--state-prep);margin-top:12px;display:none;}
+  #privacidadDatos .pd-ok.on{display:block;}
+  @media (max-width:640px){#privacidadDatos .pd-rights{grid-template-columns:1fr;}#privacidadDatos .pd-wrap{padding:24px 16px 60px;}}
+`;
+/* Lee el nombre/correo de la cuenta desde el Panel Personal ya renderizado. */
+function _pdUserInfo() {
+  var info = { nombre: 'Tu cuenta', email: '', iniciales: 'U' };
+  try {
+    var b = document.querySelector('#espacioUsuario .esp-acct .who b'); if (b && b.textContent) info.nombre = b.textContent;
+    var s = document.querySelector('#espacioUsuario .esp-acct .who span'); if (s) info.email = s.textContent;
+    var av = document.querySelector('#espacioUsuario .esp-av'); if (av && av.textContent) info.iniciales = av.textContent;
+  } catch (e) {}
+  return info;
+}
+function abrirPrivacidadDatos() {
+  _pdVista = 'hub';
+  _pdExportEstado = 'idle';
+  var prev = document.getElementById('privacidadDatos'); if (prev) prev.remove();
+  var ov = document.createElement('div'); ov.id = 'privacidadDatos';
+  ov.innerHTML = '<style>' + _PD_CSS + '</style>'
+    + '<div class="pd-top"><button class="pd-back" onclick="_pdCerrar()">← Volver</button><span class="pd-brand">TakeOS · Privacidad y datos</span></div>'
+    + '<div class="pd-wrap" id="pdWrap"></div>';
+  document.body.appendChild(ov);
+  _pdRender();
+}
+/* Hub (5 tarjetas) o el placeholder del flujo elegido (B2…B6 llegan después). */
+function _pdRender() {
+  var w = document.getElementById('pdWrap'); if (!w) return;
+  if (_pdVista === 'hub') { w.innerHTML = _pdHubHTML(); return; }
+  if (_pdVista === 'export') { w.innerHTML = _pdExportHTML(); return; }
+  if (_pdVista === 'consentimientos') { w.innerHTML = _pdConsentShell(); _pdConsentCargar(); return; }
+  if (_pdVista === 'revocar') { w.innerHTML = _pdRevocarHTML(); return; }
+  if (_pdVista === 'revocado') { w.innerHTML = _pdRevocadoHTML(); return; }
+  if (_pdVista === 'eliminar') { w.innerHTML = _pdElimShell(); _pdElimCargar(); return; }
+  if (_pdVista === 'eliminada') { w.innerHTML = _pdElimProgramadaHTML(); return; }
+  if (_pdVista === 'edad') { w.innerHTML = _pdEdadHTML(); return; }
+  if (_pdVista === 'cookies') { w.innerHTML = _pdCookiesHTML(); return; }
+  var flows = {
+    export:         ['Descargar mis datos', 'B2'],
+    consentimientos:['Productoras con acceso a tus datos', 'B3'],
+    edad:           ['Verificación de edad', 'B5'],
+    cookies:        ['Cookies y analítica', 'B6'],
+    eliminar:       ['Eliminar mi cuenta', 'B4']
+  };
+  var f = flows[_pdVista] || ['', ''];
+  w.innerHTML = '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+    + '<div class="pd-flow"><h3>' + f[0] + '</h3><p class="pd-ph">Esta sección se construye próximamente (' + f[1] + ').</p></div>';
+}
+function _pdHubHTML() {
+  var u = _pdUserInfo();
+  function card(extra, ico, titulo, desc, tag, tagcls, vista) {
+    return '<button class="pd-card' + extra + '" onclick="_pdIr(\'' + vista + '\')">'
+      + '<div class="pd-ico">' + ico + '</div>'
+      + '<div class="pd-rt">' + titulo + '</div>'
+      + '<div class="pd-rd">' + desc + '</div>'
+      + '<span class="pd-tag' + tagcls + '">' + tag + '</span></button>';
+  }
+  return ''
+    + '<div class="pd-acct"><div class="pd-av">' + escapeHtml(u.iniciales) + '</div><div class="who"><b>' + escapeHtml(u.nombre) + '</b><span>' + escapeHtml(u.email) + '</span></div></div>'
+    + '<h1 class="pd-title">Privacidad y datos</h1>'
+    + '<p class="pd-sub">Tus derechos sobre tus datos personales, según la Ley 21.719 de protección de datos.</p>'
+    + '<div class="pd-legal">Los textos legales de esta sección son provisionales y solo demuestran el flujo. El área legal define la versión definitiva antes de salir en vivo.</div>'
+    + '<div class="pd-rights">'
+    +   card('', '⬇️', 'Descargar mis datos', 'Pide una copia de todos tus datos personales en un formato portable.', 'Acceso · Portabilidad', '', 'export')
+    +   card('', '🏢', 'Productoras con acceso a tus datos', 'Revisa quién tiene tus datos y revoca tu consentimiento cuando quieras.', 'Revocación', '', 'consentimientos')
+    +   card('', '🪪', 'Verificación de edad', 'Declara tu mayoría de edad, por si algún flujo lo requiere.', 'Si aplica', ' warn', 'edad')
+    +   card('', '🍪', 'Cookies y analítica', 'Decide qué datos de navegación permites recolectar.', 'Consentimiento', '', 'cookies')
+    +   card(' full', '🗑️', 'Eliminar mi cuenta', 'Elimina tu cuenta de TakeOS y suprime tus datos personales. Esta acción es irreversible.', 'Supresión', ' danger', 'eliminar')
+    + '</div>';
+}
+function _pdIr(v) { _pdVista = v; _pdRender(); var o = document.getElementById('privacidadDatos'); if (o && o.scrollTo) { try { o.scrollTo(0, 0); } catch (e) {} } }
+/* Cierra el centro de privacidad y vuelve al Panel Personal (queda debajo). */
+function _pdCerrar() { var o = document.getElementById('privacidadDatos'); if (o) o.remove(); }
+
+/* ── B2 · Descargar mis datos (export / portabilidad) ───────────────────────
+   Derecho de acceso + portabilidad (Ley 21.719). La generación del archivo es
+   SERVER-SIDE (no se arma en el cliente): el backend reúne los datos del titular,
+   entrega un archivo firmado (JSON/CSV) y registra la solicitud en audit_log.
+   El endpoint aún NO existe → handoff al BD Expert. Acá queda la UI y el punto
+   de integración marcado (_pdExportSolicitar). */
+function _pdExportHTML() {
+  if (_pdExportEstado === 'solicitada') {
+    return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+      + '<div class="pd-flow">'
+      +   '<h3>Solicitud registrada</h3>'
+      +   '<p class="pd-sub">Tu copia se prepara en el servidor (no en tu navegador) por seguridad. El botón de descarga se activará cuando esté lista.</p>'
+      +   '<div class="pd-legal">Pendiente de backend: el endpoint de exportación lo entrega el equipo de base de datos. La solicitud queda registrada en el historial (audit_log).</div>'
+      +   '<div class="pd-acts"><button class="btn" onclick="_pdExportReset()">Volver a empezar</button></div>'
+      + '</div>';
+  }
+  return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+    + '<div class="pd-flow">'
+    +   '<h3>Descargar mis datos</h3>'
+    +   '<p class="pd-sub">Pide una copia completa de tus datos personales. Es tu derecho de acceso y portabilidad.</p>'
+    +   '<div class="pd-eyebrow2">Tu copia incluye</div>'
+    +   '<ul class="pd-list">'
+    +     '<li>Tu perfil personal y datos de contacto</li>'
+    +     '<li>Tus datos bancarios registrados</li>'
+    +     '<li>Las productoras donde participas y tu rol en cada una</li>'
+    +     '<li>Los consentimientos que has otorgado, con su fecha</li>'
+    +     '<li>Un resumen de tu actividad en el sistema</li>'
+    +   '</ul>'
+    +   '<p style="font-size:12px;color:var(--ink-muted);">Se entrega en un formato legible y portable (JSON y CSV).</p>'
+    +   '<div class="pd-acts"><button class="btn btn-primary" onclick="_pdExportSolicitar()">Solicitar mi copia</button></div>'
+    + '</div>';
+}
+function _pdExportSolicitar() {
+  /* SEAM · BD Expert: acá va la llamada al RPC de exportación, que genera el
+     archivo server-side y registra la solicitud en audit_log. El endpoint aún
+     no existe; por ahora solo se refleja el estado. NO armar el export en el
+     cliente (doctrina: lógica sensible y datos completos = server-side). */
+  _pdExportEstado = 'solicitada';
+  _pdRender();
+}
+function _pdExportReset() { _pdExportEstado = 'idle'; _pdRender(); }
+
+/* ── B3 · Productoras con acceso a tus datos + revocar consentimiento ───────
+   Lista los consentimientos del titular desde data_consents (RLS: el usuario lee
+   los suyos). Revocar es SERVER-SIDE y el RPC aún NO existe (espeja
+   consentir_invitacion) → handoff BD Expert. ADR-020: data_consents es
+   append-only; revocar marca revoked_at, NO borra. La UI dice la consecuencia. */
+function _pdFecha(ts) { if (!ts) return '—'; try { return new Date(ts).toLocaleDateString('es-CL'); } catch (e) { return '—'; } }
+function _pdConsentShell() {
+  return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+    + '<div class="pd-flow">'
+    +   '<h3>Productoras con acceso a tus datos</h3>'
+    +   '<p class="pd-sub">Estas productoras tienen una copia de tus datos porque diste tu consentimiento al incorporarte. Puedes revocarlo cuando quieras.</p>'
+    +   '<div id="pdConsentList"><div class="pd-ph">Cargando…</div></div>'
+    + '</div>';
+}
+async function _pdConsentCargar() {
+  var box = document.getElementById('pdConsentList'); if (!box) return;
+  var vacio = '<div class="pd-empty">No hay productoras con tus datos.</div>';
+  try {
+    if (typeof sb === 'undefined' || !sb) { box.innerHTML = vacio; return; }
+    var ures = await sb.auth.getUser();
+    var uid = (ures && ures.data && ures.data.user) ? ures.data.user.id : null;
+    if (!uid) { box.innerHTML = vacio; return; }
+    /* Sin embed de organizations: data_consents tiene FK a organizations Y a
+       memberships (que también apunta a organizations), así que el embed de
+       PostgREST es ambiguo y falla. Traemos los nombres aparte. */
+    var r = await sb.from('data_consents').select('id, organization_id, accepted_at, revoked_at').eq('user_id', uid).order('accepted_at', { ascending: false });
+    if (r.error) throw r.error;
+    var consents = r.data || [];
+    box = document.getElementById('pdConsentList'); if (!box) return;
+    if (!consents.length) { box.innerHTML = vacio; return; }
+    var nombres = {};
+    try {
+      var ids = consents.map(function (c) { return c.organization_id; });
+      var ro = await sb.from('organizations').select('id, nombre').in('id', ids);
+      if (!ro.error && ro.data) ro.data.forEach(function (o) { nombres[o.id] = o.nombre; });
+    } catch (e) {}
+    _pdConsents = consents.map(function (c) { return { id: c.id, accepted_at: c.accepted_at, revoked_at: c.revoked_at, nombre: nombres[c.organization_id] || 'Una productora' }; });
+    box = document.getElementById('pdConsentList'); if (!box) return;
+    box.innerHTML = _pdConsents.map(_pdConsentRow).join('');
+  } catch (e) { try { var b2 = document.getElementById('pdConsentList'); if (b2) b2.innerHTML = '<div class="pd-empty">No se pudieron cargar tus consentimientos. Reintenta.</div>'; } catch (x) {} }
+}
+function _pdConsentRow(c) {
+  var nom = c.nombre || 'Una productora';
+  if (c.revoked_at) {
+    return '<div class="pd-consent rev"><div class="pd-c-ico">🏢</div>'
+      + '<div class="pd-c-meta"><b>' + escapeHtml(nom) + '</b><span>Consentimiento revocado el ' + _pdFecha(c.revoked_at) + '</span></div>'
+      + '<span class="pd-badge rev">Revocado</span></div>';
+  }
+  return '<div class="pd-consent"><div class="pd-c-ico">🏢</div>'
+    + '<div class="pd-c-meta"><b>' + escapeHtml(nom) + '</b><span>Tiene una copia de tus datos · desde el ' + _pdFecha(c.accepted_at) + '</span></div>'
+    + '<button class="btn" onclick="_pdRevocarConfirm(\'' + c.id + '\')">Revocar</button></div>';
+}
+function _pdRevocarConfirm(id) { _pdRevocarId = id; _pdIr('revocar'); }
+function _pdRevocarHTML() {
+  var c = _pdConsents.filter(function (x) { return x.id === _pdRevocarId; })[0];
+  var nom = (c && c.nombre) || 'esta productora';
+  return '<button class="pd-back" onclick="_pdIr(\'consentimientos\')" style="margin-bottom:18px;">← Volver</button>'
+    + '<div class="pd-flow">'
+    +   '<h3>Revocar consentimiento en ' + escapeHtml(nom) + '</h3>'
+    +   '<p class="pd-sub">Antes de continuar, ten en cuenta lo que pasa:</p>'
+    +   '<ul class="pd-list">'
+    +     '<li>' + escapeHtml(nom) + ' dejará de tener acceso a tus datos.</li>'
+    +     '<li>Si participas en un proyecto activo con ellos, perderás ese acceso.</li>'
+    +     '<li>Queda registrado como revocado, con la fecha. La copia que ya tienen se conserva de forma datada como evidencia legal hasta que la productora la suprima.</li>'
+    +   '</ul>'
+    +   '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'consentimientos\')">Cancelar</button><button class="btn btn-danger" onclick="_pdRevocarConfirmar()">Revocar consentimiento</button></div>'
+    + '</div>';
+}
+function _pdRevocarConfirmar() {
+  /* SEAM · BD Expert: acá va el RPC de revocación (espeja consentir_invitacion):
+     marca revoked_at en data_consents (append-only, NO borra), pasa la membresía
+     a 'inactivo' y corta el acceso; queda en audit_log. El RPC aún no existe. */
+  _pdIr('revocado');
+}
+function _pdRevocadoHTML() {
+  return '<button class="pd-back" onclick="_pdIr(\'consentimientos\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+    + '<div class="pd-flow">'
+    +   '<h3>Revocación pendiente de backend</h3>'
+    +   '<p class="pd-sub">La revocación se procesa en el servidor y se conecta cuando el RPC esté disponible.</p>'
+    +   '<div class="pd-legal">Pendiente de backend (BD Expert): el RPC marca revoked_at en data_consents (append-only, no se borra), pasa tu membresía a inactivo y corta el acceso; queda en audit_log. Tu registro de consentimiento se conserva como evidencia.</div>'
+    +   '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'consentimientos\')">Volver</button></div>'
+    + '</div>';
+}
+
+/* ── B4 · Eliminar mi cuenta (anonimizar + gracia 30 días) ───────────────────
+   Decisión de Agustín: al eliminar se ANONIMIZA (no hard delete) y hay período
+   de gracia recuperable de 30 días. El borrado real es SERVER-SIDE (RPC pendiente
+   → BD Expert): anonimiza los datos personales, conserva consentimientos/auditoría
+   datados, programa la eliminación a 30 días y permite cancelar. Invariante: una
+   productora nunca queda sin administrador → guard de único admin (UX; el servidor
+   reimpone la regla). */
+function _pdElimShell() {
+  return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+    + '<div id="pdElimBody"><div class="pd-flow"><p class="pd-ph">Revisando tu cuenta…</p></div></div>';
+}
+async function _pdElimCargar() {
+  try {
+    _pdElimSole = [];
+    if (typeof sb !== 'undefined' && sb) {
+      var ures = await sb.auth.getUser();
+      var uid = (ures && ures.data && ures.data.user) ? ures.data.user.id : null;
+      if (uid) {
+        var r1 = await sb.from('memberships').select('organization_id, permission_profiles(codigo), organizations(nombre)').eq('user_id', uid).eq('estado', 'activo').eq('tipo', 'interno');
+        if (!r1.error && r1.data) {
+          var adminOrgs = r1.data.filter(function (m) { return m.permission_profiles && m.permission_profiles.codigo === 1 && m.organizations; });
+          if (adminOrgs.length) {
+            var ids = adminOrgs.map(function (m) { return m.organization_id; });
+            var r2 = await sb.from('memberships').select('organization_id, permission_profiles!inner(codigo)').in('organization_id', ids).eq('estado', 'activo').eq('permission_profiles.codigo', 1);
+            var cnt = {};
+            if (!r2.error && r2.data) r2.data.forEach(function (m) { cnt[m.organization_id] = (cnt[m.organization_id] || 0) + 1; });
+            _pdElimSole = adminOrgs.filter(function (m) { return (cnt[m.organization_id] || 1) <= 1; }).map(function (m) { return { id: m.organization_id, nombre: m.organizations.nombre }; });
+          }
+        }
+      }
+    }
+  } catch (e) { _pdElimSole = []; }   // best-effort: ante error no bloqueamos (el servidor reimpone)
+  var box = document.getElementById('pdElimBody'); if (!box) return;
+  box.innerHTML = _pdElimSole.length ? _pdElimBlockerHTML() : _pdElimFormHTML();
+  if (!_pdElimSole.length) _pdElimEval();
+}
+function _pdElimBlockerHTML() {
+  var lista = _pdElimSole.map(function (o) { return '<li>' + escapeHtml(o.nombre) + '</li>'; }).join('');
+  return '<div class="pd-flow">'
+    + '<h3>Antes de eliminar tu cuenta</h3>'
+    + '<div class="pd-legal">Eres el único administrador de ' + (_pdElimSole.length === 1 ? 'una productora' : 'estas productoras') + '. Una productora no puede quedar sin administrador: primero transfiere la administración a otra persona (desde el Panel de Empresa de la productora) o elimina la productora.</div>'
+    + '<ul class="pd-list">' + lista + '</ul>'
+    + '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Entendido</button></div>'
+    + '</div>';
+}
+function _pdElimFormHTML() {
+  return '<div class="pd-flow">'
+    + '<h3>Eliminar mi cuenta</h3>'
+    + '<p class="pd-sub">Esta acción es irreversible una vez que pasa el período de recuperación. Léela con calma.</p>'
+    + '<div class="pd-danger">'
+    +   '<div class="pd-eyebrow2">Qué pasa cuando eliminas tu cuenta</div>'
+    +   '<ul class="pd-list">'
+    +     '<li>Se anonimizan tus datos personales: perfil, contacto y datos bancarios dejan de ser identificables.</li>'
+    +     '<li>Pierdes acceso a todas las productoras y proyectos donde participas.</li>'
+    +     '<li>Por la Ley 21.719, los registros de consentimiento y auditoría se conservan datados y anonimizados como evidencia. No contienen tus datos en texto plano.</li>'
+    +     '<li>Tu cuenta queda programada para eliminación y puedes recuperarla durante 30 días.</li>'
+    +   '</ul>'
+    +   '<label class="pd-check"><input type="checkbox" id="pdElimChk" onchange="_pdElimEval()"> <span>Entiendo que esta acción es irreversible una vez pasados los 30 días.</span></label>'
+    +   '<div style="margin-top:14px;"><label style="display:block;font-size:12px;color:var(--ink-secondary);margin-bottom:6px;">Para confirmar, escribe <b>ELIMINAR</b></label>'
+    +     '<input class="input" id="pdElimTxt" placeholder="ELIMINAR" oninput="_pdElimEval()"></div>'
+    + '</div>'
+    + '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Cancelar</button><button class="btn btn-danger" id="pdElimBtn" disabled onclick="_pdElimConfirmar()">Eliminar mi cuenta</button></div>'
+    + '</div>';
+}
+function _pdElimEval() {
+  var chk = document.getElementById('pdElimChk'), txt = document.getElementById('pdElimTxt'), btn = document.getElementById('pdElimBtn');
+  if (!btn) return;
+  btn.disabled = !((chk && chk.checked) && (txt && txt.value.trim().toUpperCase() === 'ELIMINAR'));
+}
+function _pdElimConfirmar() {
+  /* SEAM · BD Expert: acá va el RPC de borrado/supresión: ANONIMIZA los datos
+     personales (no hard delete), conserva consentimientos/auditoría datados,
+     programa la eliminación a 30 días y deja la cuenta recuperable. RPC pendiente. */
+  _pdIr('eliminada');
+}
+function _pdElimFechaGracia() {
+  try { return new Date(Date.now() + 30 * 86400000).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }); } catch (e) { return 'en 30 días'; }
+}
+function _pdElimProgramadaHTML() {
+  return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+    + '<div class="pd-flow">'
+    +   '<h3>Tu cuenta quedó programada para eliminación</h3>'
+    +   '<p class="pd-sub">Se eliminará el ' + _pdElimFechaGracia() + '. Hasta esa fecha puedes cancelar y recuperar tu cuenta.</p>'
+    +   '<div class="pd-legal">Pendiente de backend (BD Expert): el RPC anonimiza tus datos personales (no hard delete), conserva consentimientos y auditoría datados, y procesa la eliminación a los 30 días. La programación y la cancelación también son server-side.</div>'
+    +   '<div class="pd-acts"><button class="btn" onclick="_pdElimCancelar()">Cancelar eliminación</button></div>'
+    + '</div>';
+}
+function _pdElimCancelar() {
+  /* SEAM · BD Expert: cancelar la eliminación programada (recuperar la cuenta)
+     dentro de los 30 días. RPC pendiente. */
+  _pdIr('hub');
+}
+/* ── B6 · Cookies y analítica ────────────────────────────────────────────────
+   Panel de preferencias (esenciales fijas; analítica y marketing opcionales) +
+   banner de aviso. El consentimiento se registra VERSIONADO en el servidor
+   (no en localStorage) → SEAM BD Expert. Esenciales siempre activas. */
+function _pdCookiesHTML() {
+  var back = '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>';
+  var c = _pdCookies;
+  function sw(id, on, locked) {
+    var oc = locked ? '' : ' onchange="_pdCkTouch()"';
+    return '<label class="pd-switch' + (locked ? ' locked' : '') + '"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + (locked ? ' disabled' : '') + oc + '><span class="track"></span><span class="knob"></span></label>';
+  }
+  return back + '<div class="pd-flow">'
+    + '<h3>Cookies y analítica</h3>'
+    + '<p class="pd-sub">Decide qué datos de navegación permites. Puedes cambiarlo cuando quieras.</p>'
+    + '<div class="pd-sw-row"><div class="pd-sw-info"><b>Esenciales</b><span>Necesarias para que el sitio funcione. Siempre activas.</span></div>' + sw('pdCkEsen', true, true) + '</div>'
+    + '<div class="pd-sw-row"><div class="pd-sw-info"><b>Analítica</b><span>Nos ayuda a entender cómo se usa el sistema para mejorarlo.</span></div>' + sw('pdCkAna', c.analitica, false) + '</div>'
+    + '<div class="pd-sw-row" style="border-bottom:none;"><div class="pd-sw-info"><b>Marketing</b><span>Para mostrarte comunicaciones relevantes sobre el producto.</span></div>' + sw('pdCkMkt', c.marketing, false) + '</div>'
+    + '<div class="pd-legal" style="margin-top:16px;">Tu preferencia se registra versionada en el servidor (no en el navegador) — pendiente de backend (BD Expert).</div>'
+    + '<div class="pd-acts"><button class="btn" onclick="_pdCookiesGuardar(\'rechazar\')">Rechazar opcionales</button><button class="btn" onclick="_pdCookiesGuardar(\'aceptar\')">Aceptar todas</button><button class="btn btn-primary" onclick="_pdCookiesGuardar(\'guardar\')">Guardar preferencias</button></div>'
+    + '<div class="pd-ok' + (_pdCkGuardado ? ' on' : '') + '" id="pdCkOk">✓ Preferencias guardadas</div>'
+    + '<div style="margin-top:14px;"><button class="btn" onclick="_pdCookieBannerShow()">Ver el aviso de cookies</button></div>'
+    + '</div>';
+}
+function _pdCookiesGuardar(modo) {
+  var c = _pdCookies;
+  if (modo === 'aceptar') { c.analitica = true; c.marketing = true; }
+  else if (modo === 'rechazar') { c.analitica = false; c.marketing = false; }
+  else {
+    var a = document.getElementById('pdCkAna'), m = document.getElementById('pdCkMkt');
+    c.analitica = a ? a.checked : c.analitica;
+    c.marketing = m ? m.checked : c.marketing;
+  }
+  c.decidido = true;
+  /* SEAM · BD Expert: registrar el consentimiento de cookies VERSIONADO en el
+     servidor (no en localStorage). Tabla/RPC pendiente. */
+  var b = document.getElementById('pdCookieBanner'); if (b) b.remove();
+  _pdCkGuardado = true;
+  try { showToast({ kind: 'success', title: 'Preferencias guardadas', body: 'Puedes cambiarlas cuando quieras.' }); } catch (e) {}
+  _pdRender();
+}
+/* Oculta el "Preferencias guardadas" cuando el usuario vuelve a tocar un switch. */
+function _pdCkTouch() { _pdCkGuardado = false; var o = document.getElementById('pdCkOk'); if (o) o.classList.remove('on'); }
+/* Banner de aviso (primera visita). La condición de "primera visita" es
+   server-side (consentimiento versionado, pendiente); por ahora se muestra a
+   pedido y se oculta tras decidir en la sesión. */
+function _pdCookieBannerShow() {
+  if (document.getElementById('pdCookieBanner')) return;
+  var b = document.createElement('div'); b.id = 'pdCookieBanner';
+  b.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);width:min(680px,calc(100vw - 28px));z-index:100050;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:10px;box-shadow:var(--shadow-lg);padding:16px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-family:var(--font-sans),system-ui,sans-serif;color:var(--ink-primary);';
+  b.innerHTML = '<div style="flex:1;min-width:220px;font-size:13px;color:var(--ink-secondary);"><b style="color:var(--ink-primary);">Usamos cookies.</b> Las esenciales hacen funcionar el sitio. Las de analítica y marketing son opcionales y dependen de tu consentimiento.</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    +   '<button class="btn" onclick="_pdCookieBannerDecidir(\'solo\')">Solo esenciales</button>'
+    +   '<button class="btn" onclick="_pdCookieBannerConfig()">Configurar</button>'
+    +   '<button class="btn btn-primary" onclick="_pdCookieBannerDecidir(\'todas\')">Aceptar todas</button>'
+    + '</div>';
+  document.body.appendChild(b);
+}
+function _pdCookieBannerDecidir(modo) {
+  _pdCookies.analitica = (modo === 'todas');
+  _pdCookies.marketing = (modo === 'todas');
+  _pdCookies.decidido = true;
+  /* SEAM · BD Expert: registrar consentimiento de cookies versionado server-side. */
+  var b = document.getElementById('pdCookieBanner'); if (b) b.remove();
+  try { showToast({ kind: 'success', title: modo === 'todas' ? 'Cookies aceptadas' : 'Solo cookies esenciales', body: '' }); } catch (e) {}
+  if (document.getElementById('privacidadDatos') && _pdVista === 'cookies') _pdRender();
+}
+function _pdCookieBannerConfig() {
+  var b = document.getElementById('pdCookieBanner'); if (b) b.remove();
+  if (!document.getElementById('privacidadDatos')) abrirPrivacidadDatos();
+  _pdIr('cookies');
+}
+
+/* ── B5 · Verificación de edad (CONDICIONAL · "si aplica") ───────────────────
+   Decisión pendiente (Agustín/legal): si aplica al titular y en qué momento. Por
+   eso es UI OPCIONAL, NO un gate: declarar la edad no bloquea usar el software.
+   Si se decide que aplica, acá se persiste/convierte en gate (SEAM). */
+function _pdEdadHTML() {
+  var back = '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>';
+  if (_pdEdadVerif) {
+    return back + '<div class="pd-flow"><div class="pd-exito-mini">✓</div><h3>Edad verificada</h3><p class="pd-sub">Confirmaste que eres mayor de 18 años.</p><div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Volver</button></div></div>';
+  }
+  return back + '<div class="pd-flow">'
+    + '<h3>Verificación de edad</h3>'
+    + '<div class="pd-legal"><b>Si aplica.</b> Los titulares de cuenta de TakeOS son profesionales adultos, así que este paso podría no aplicar o reducirse a una declaración. Es una decisión de producto y legal, todavía abierta — por ahora es opcional y no bloquea nada.</div>'
+    + '<div class="pd-field"><label class="pd-flabel" for="pdEdadFecha">Fecha de nacimiento</label><input class="input" type="date" id="pdEdadFecha"><div class="pd-ferr" id="pdEdadErr">Ingresa tu fecha de nacimiento; debes ser mayor de 18 años.</div></div>'
+    + '<label class="pd-check"><input type="checkbox" id="pdEdadChk"> <span>Declaro que soy mayor de 18 años.</span></label>'
+    + '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Cancelar</button><button class="btn btn-primary" onclick="_pdEdadConfirmar()">Confirmar</button></div>'
+    + '</div>';
+}
+function _pdEdadConfirmar() {
+  var fecha = document.getElementById('pdEdadFecha'), chk = document.getElementById('pdEdadChk'), err = document.getElementById('pdEdadErr');
+  var v = fecha ? fecha.value : '';
+  var mayor = !!v && _pdEsMayorDe(v, 18);
+  if (err) err.style.display = mayor ? 'none' : 'block';
+  if (!mayor) return;
+  if (!(chk && chk.checked)) { try { showToast({ kind: 'warning', title: 'Falta la declaración', body: 'Marca la casilla para confirmar.' }); } catch (e) {} return; }
+  /* SEAM · decisión + BD Expert: si se decide que aplica, acá se persiste la
+     verificación (server-side) y/o se convierte en gate. Por ahora, in-session. */
+  _pdEdadVerif = true;
+  _pdRender();
+}
+function _pdEsMayorDe(fechaISO, n) {
+  try {
+    var f = new Date(fechaISO); if (isNaN(f.getTime())) return false;
+    var h = new Date(); var e = h.getFullYear() - f.getFullYear();
+    var m = h.getMonth() - f.getMonth();
+    if (m < 0 || (m === 0 && h.getDate() < f.getDate())) e--;
+    return e >= n;
+  } catch (x) { return false; }
+}
 function renderEspacioUsuario(data){
   try{
     _bootCoverHide();
@@ -23149,6 +24371,9 @@ function renderEspacioUsuario(data){
       #espacioUsuario .esp-acct .who{text-align:right;line-height:1.25;}
       #espacioUsuario .esp-acct .who b{font-weight:600;font-size:14px;}
       #espacioUsuario .esp-acct .who span{display:block;font-size:12px;color:var(--ink-faint);}
+      #espacioUsuario .esp-right{display:flex;align-items:center;gap:12px;}
+      #espacioUsuario .esp-logout{display:inline-flex;align-items:center;gap:7px;background:transparent;border:1px solid var(--rule);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--ink-secondary);cursor:pointer;font-family:inherit;}
+      #espacioUsuario .esp-logout:hover{background:var(--bg-card);border-color:var(--ink-faint);color:var(--ink-primary);}
       #espacioUsuario .esp-av{width:36px;height:36px;border-radius:50%;background:var(--bg-elevated);color:var(--ink-primary);display:grid;place-items:center;font-weight:600;font-size:14px;border:1px solid var(--rule-strong);text-transform:uppercase;}
       #espacioUsuario .esp-wrap{max-width:920px;margin:0 auto;padding:34px 28px 70px;}
       #espacioUsuario .esp-eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:12px;color:var(--ink-faint);font-weight:600;display:flex;align-items:center;gap:8px;}
@@ -23203,7 +24428,10 @@ function renderEspacioUsuario(data){
     </style>
       <div class="esp-top"><div class="esp-top-in">
         <div class="esp-brand"><div class="esp-mark">T</div><span class="esp-bname">TakeOS</span><span class="esp-ver">${demo?'Demo':'Tu espacio'}</span></div>
-        <div class="esp-acct" onclick="_espPerfil()"><div class="who"><b>${u.nombre||'tu cuenta'}</b><span>${u.email||''}</span></div><div class="esp-av">${u.iniciales||'U'}</div></div>
+        <div class="esp-right">
+          <div class="esp-acct" onclick="_espPerfil()"><div class="who"><b>${u.nombre||'tu cuenta'}</b><span>${u.email||''}</span></div><div class="esp-av">${u.iniciales||'U'}</div></div>
+          <button class="esp-logout" onclick="confirmLogout()" title="Cerrar sesión en TakeOS"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Salir</button>
+        </div>
       </div></div>
       <div class="esp-wrap">
         <div class="esp-eyebrow">Tu espacio</div>
@@ -23211,6 +24439,7 @@ function renderEspacioUsuario(data){
         ${internas.length?`<div class="esp-sec"><div class="esp-sec-h"><div class="esp-eyebrow"><span class="esp-dot i"></span>Tus productoras</div></div>${intHTML}</div>`:''}
         ${externas.length?`<div class="esp-sec"><div class="esp-sec-h"><div class="esp-eyebrow"><span class="esp-dot e"></span>Proyectos donde colaboras</div></div>${extHTML}</div>`:''}
         ${(!internas.length && !externas.length)?`<div class="esp-grp"><div class="esp-empty" style="padding:30px 20px;text-align:center;line-height:1.7;">Aún no perteneces a ninguna productora.<br><span style="color:var(--ink-faint);font-size:12.5px;">Cuando una productora te invite a colaborar, sus proyectos van a aparecer aquí.</span></div></div>`:''}
+        <div class="esp-foot"><a onclick="abrirPrivacidadDatos()" style="color:var(--accent-deep);cursor:pointer;font-weight:600;text-decoration:none;">Privacidad y datos</a> · tus derechos sobre tus datos personales (Ley 21.719).</div>
       </div>`;
     document.body.appendChild(ov);
     try{ if(!demo){ _espCargarConteos(internas); _espCargarProyectosExternos(externas); _espOnboarding(internas.length>0, externas.length>0); } }catch(e){}
