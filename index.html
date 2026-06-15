@@ -23814,7 +23814,7 @@ function arrancarTakeOS() {
      jamás se entra al Control Room (se re-deriva la vista correcta). */
   var _pend = false; try { _pend = !!sessionStorage.getItem('takeos_ir_proyecto'); } catch (e) {}
   if (!_TIENE_EMPRESA && !_pend) { resolverEspacioYArrancar(); return; }
-  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} }).then(function(){ try { _cpTourInicialQuizas(); } catch (e) {} });
+  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} }).then(function(){ try { _cpTourInicialQuizas(); } catch (e) {} }).then(function(){ try { setTimeout(_pdCookiesBootCheck, 1200); } catch (e) {} });
 }
 
 function _espIniciales(txt){
@@ -24030,6 +24030,12 @@ var _pdElimFecha = null;        // Plan G (1.3): fecha real de ejecución que de
 var _pdEdadVerif = false;       // B5: edad declarada en esta sesión (condicional, no gate)
 var _pdCookies = { decidido: false, analitica: false, marketing: false };   // B6 (esenciales siempre on)
 var _pdCkGuardado = false;       // B6: muestra "Preferencias guardadas"
+/* V11.15.0 · Plan G §2 · versión vigente de la política de cookies (vive en el
+   cliente: no hay fuente server-side). "Ya decidió" = existe una fila en
+   cookie_consents con ESTA versión. Al subir la política, se bumpea esta
+   constante y el banner vuelve a aparecer para re-consentir. */
+var COOKIES_VERSION = 'v1.0';
+var _pdCookiesBootHecho = false;   // el chequeo de primera visita corre una vez por sesión
 var _PD_CSS = `
   #privacidadDatos{position:fixed;inset:0;z-index:99998;overflow-y:auto;background:var(--bg-page);color:var(--ink-primary);font-family:var(--font-sans),system-ui,sans-serif;}
   #privacidadDatos *{box-sizing:border-box;}
@@ -24451,7 +24457,7 @@ function _pdCookiesHTML() {
     + '<div class="pd-sw-row"><div class="pd-sw-info"><b>Esenciales</b><span>Necesarias para que el sitio funcione. Siempre activas.</span></div>' + sw('pdCkEsen', true, true) + '</div>'
     + '<div class="pd-sw-row"><div class="pd-sw-info"><b>Analítica</b><span>Nos ayuda a entender cómo se usa el sistema para mejorarlo.</span></div>' + sw('pdCkAna', c.analitica, false) + '</div>'
     + '<div class="pd-sw-row" style="border-bottom:none;"><div class="pd-sw-info"><b>Marketing</b><span>Para mostrarte comunicaciones relevantes sobre el producto.</span></div>' + sw('pdCkMkt', c.marketing, false) + '</div>'
-    + '<div class="pd-legal" style="margin-top:16px;">Tu preferencia se registra versionada en el servidor (no en el navegador) — pendiente de backend (BD Expert).</div>'
+    + '<div class="pd-legal" style="margin-top:16px;">Tu preferencia se registra versionada en el servidor (no en el navegador), con la fecha. Si la política de cookies cambia, te volveremos a preguntar.</div>'
     + '<div class="pd-acts"><button class="btn" onclick="_pdCookiesGuardar(\'rechazar\')">Rechazar opcionales</button><button class="btn" onclick="_pdCookiesGuardar(\'aceptar\')">Aceptar todas</button><button class="btn btn-primary" onclick="_pdCookiesGuardar(\'guardar\')">Guardar preferencias</button></div>'
     + '<div class="pd-ok' + (_pdCkGuardado ? ' on' : '') + '" id="pdCkOk">✓ Preferencias guardadas</div>'
     + '<div style="margin-top:14px;"><button class="btn" onclick="_pdCookieBannerShow()">Ver el aviso de cookies</button></div>'
@@ -24467,8 +24473,8 @@ function _pdCookiesGuardar(modo) {
     c.marketing = m ? m.checked : c.marketing;
   }
   c.decidido = true;
-  /* SEAM · BD Expert: registrar el consentimiento de cookies VERSIONADO en el
-     servidor (no en localStorage). Tabla/RPC pendiente. */
+  /* Plan G §2.1: registrar el consentimiento VERSIONADO en el servidor (append-only). */
+  _pdCookiesPersistir(c.analitica, c.marketing);
   var b = document.getElementById('pdCookieBanner'); if (b) b.remove();
   _pdCkGuardado = true;
   try { showToast({ kind: 'success', title: 'Preferencias guardadas', body: 'Puedes cambiarlas cuando quieras.' }); } catch (e) {}
@@ -24495,7 +24501,8 @@ function _pdCookieBannerDecidir(modo) {
   _pdCookies.analitica = (modo === 'todas');
   _pdCookies.marketing = (modo === 'todas');
   _pdCookies.decidido = true;
-  /* SEAM · BD Expert: registrar consentimiento de cookies versionado server-side. */
+  /* Plan G §2.1: registrar consentimiento versionado server-side. */
+  _pdCookiesPersistir(_pdCookies.analitica, _pdCookies.marketing);
   var b = document.getElementById('pdCookieBanner'); if (b) b.remove();
   try { showToast({ kind: 'success', title: modo === 'todas' ? 'Cookies aceptadas' : 'Solo cookies esenciales', body: '' }); } catch (e) {}
   if (document.getElementById('privacidadDatos') && _pdVista === 'cookies') _pdRender();
@@ -24504,6 +24511,52 @@ function _pdCookieBannerConfig() {
   var b = document.getElementById('pdCookieBanner'); if (b) b.remove();
   if (!document.getElementById('privacidadDatos')) abrirPrivacidadDatos();
   _pdIr('cookies');
+}
+/* V11.15.0 · Plan G §2 · persistencia y derivación de "ya decidió" (server-side).
+   guardar_consentimiento_cookies(p_analitica, p_marketing, p_version) es append-only:
+   cada decisión es una fila nueva (historial versionado). Optimista: la UI ya
+   actualizó; si la red falla, el banner reaparecerá la próxima vez. */
+async function _pdCookiesPersistir(analitica, marketing) {
+  try {
+    if (typeof sb === 'undefined' || !sb) return;
+    var r = await sb.rpc('guardar_consentimiento_cookies', { p_analitica: !!analitica, p_marketing: !!marketing, p_version: COOKIES_VERSION });
+    if (r.error) throw r.error;
+  } catch (e) { console.warn('[cookies] no se pudo guardar la preferencia', e); }
+}
+/* Lee la última decisión del usuario desde cookie_consents (RLS: solo las suyas).
+   "Ya decidió" = la fila más reciente tiene la versión vigente. */
+async function _pdCookiesCargar() {
+  try {
+    if (typeof sb === 'undefined' || !sb) return false;
+    var ures = await sb.auth.getUser();
+    var uid = (ures && ures.data && ures.data.user) ? ures.data.user.id : null;
+    if (!uid) return false;
+    var r = await sb.from('cookie_consents').select('analitica, marketing, version, accepted_at').eq('user_id', uid).order('accepted_at', { ascending: false }).limit(1);
+    if (r.error) throw r.error;
+    var row = (r.data && r.data[0]) ? r.data[0] : null;
+    if (row) {
+      _pdCookies.analitica = !!row.analitica;
+      _pdCookies.marketing = !!row.marketing;
+      _pdCookies.decidido = (row.version === COOKIES_VERSION);
+    } else {
+      _pdCookies.decidido = false;
+    }
+    return true;   // estado determinado de verdad (con fila o confirmando que no hay)
+  } catch (e) { console.warn('[cookies] no se pudo leer la preferencia', e); return false; }
+}
+/* Primera visita: tras iniciar sesión y aterrizar en una "casa" (Panel Personal o
+   Control Room), si el usuario aún no decidió con la versión vigente, muestra el
+   banner. Corre una sola vez por sesión y no se encima sobre flujos de pantalla
+   completa (onboarding, invitación, crear productora, login). */
+async function _pdCookiesBootCheck() {
+  if (_pdCookiesBootHecho) return;
+  try {
+    if (document.getElementById('perfilUsuario') || document.getElementById('invitacionRecibida') || document.getElementById('crearProductora') || document.getElementById('cloudGate') || document.getElementById('espOnb')) return;
+    var leido = await _pdCookiesCargar();
+    if (!leido) return;   // no se pudo determinar el estado: reintenta en otra carga, sin marcar hecho
+    _pdCookiesBootHecho = true;
+    if (!_pdCookies.decidido) _pdCookieBannerShow();
+  } catch (e) { /* silencioso: el banner reaparecerá en otra carga */ }
 }
 
 /* ── B5 · Verificación de edad (CONDICIONAL · "si aplica") ───────────────────
@@ -24650,6 +24703,7 @@ function renderEspacioUsuario(data){
       </div>`;
     document.body.appendChild(ov);
     try{ if(!demo){ _espCargarConteos(internas); _espCargarProyectosExternos(externas); _espOnboarding(internas.length>0, externas.length>0); } }catch(e){}
+    try{ if(!demo) setTimeout(_pdCookiesBootCheck, 1200); }catch(e){}   // V11.15.0 · Plan G §2: banner de cookies en primera visita
   }catch(e){ console.error('[espacio] render falló', e); try{ const o=document.getElementById('espacioUsuario'); if(o)o.remove(); }catch(_){ } _bootCoverHide(); }
 }
 
