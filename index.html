@@ -23184,15 +23184,22 @@ function _cpEntrarProductora() {
 var _cpTourPendiente = false;
 var _cpTourPaso = 0;
 var _CP_TOUR = [
-  { sel: '#controlRoomView .cr-header',               titulo: 'Este es tu Control Room',  texto: 'Desde acá ves y manejas todos los proyectos de tu productora. Está vacío porque recién la creaste.' },
-  { sel: '#controlRoomView .cr-actions .btn-primary', titulo: 'Crea tu primer proyecto',   texto: 'Con «Nuevo proyecto» partes una producción: presupuesto, plan de rodaje, legal y más, todo dentro del proyecto.' },
-  { sel: '#controlRoomView .cr-metrics',              titulo: 'El pulso de tu productora', texto: 'Acá ves de un vistazo cuántos proyectos están activos, cuáles cerraste y qué requiere tu atención.' },
-  { sel: '#controlRoomView .cr-toolbar',              titulo: 'Filtra y ordena',          texto: 'Filtra tus proyectos y cambia entre vista por etapa y lista cuando tengas varios.' }
+  { sel: '#controlRoomView', top: true,                                  titulo: 'Este es tu Control Room',   texto: 'Todo esto es tu Control Room: desde acá ves y manejas los proyectos de tu productora. Está casi vacío porque recién la creaste.' },
+  { sel: '#controlRoomView .cr-actions .btn-primary', center: true, titulo: 'Crea tu primer proyecto', texto: 'Con «Nuevo proyecto» partes una producción: presupuesto, plan de rodaje, legal y más, todo dentro del proyecto.' },
+  { sel: '#controlRoomView .cr-metrics', top: true,                      titulo: 'El pulso de tu productora', texto: 'Acá ves de un vistazo cuántos proyectos están activos, cuáles cerraste y qué requiere tu atención.' },
+  { sel: '#kanbanContainer', samples: true, cardTop: true,             titulo: 'Tus proyectos, por estado', texto: 'Acá viven tus proyectos: cada uno aparece en la columna de su etapa y avanza a medida que progresa. Estos son de ejemplo.' },
+  { sel: '#notifBtn', center: true,                                        titulo: 'Tus notificaciones', texto: 'Acá el sistema te avisa lo que necesita tu atención: cuando te asignan una tarea, te mencionan o aparece una señal de un proyecto.' },
+  { sel: '.topbar-config-btn', center: true,                               titulo: 'Tu cuenta y tu productora', texto: 'Desde acá configuras tu productora —equipo, marca y datos— y tu cuenta personal.' }
 ];
 var _CP_TOUR_CSS = ''
-  + '.cp-tour-backdrop{position:fixed;inset:0;background:rgba(10,10,9,.55);z-index:100000;}'
-  + '.cp-tour-target{position:relative;z-index:100001;outline:2px solid var(--accent-deep);outline-offset:4px;border-radius:8px;box-shadow:0 0 0 5px rgba(176,58,47,.30);}'
-  + '.cp-tour-card{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);width:min(440px,calc(100vw - 36px));z-index:100002;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:22px 24px;font-family:var(--font-sans),system-ui,sans-serif;color:var(--ink-primary);}'
+  + '@property --cpang{syntax:"<angle>";inherits:false;initial-value:0deg;}'
+  + '.cp-tour-backdrop{position:fixed;inset:0;background:rgba(10,10,9,.62);z-index:100000;}'
+  + '.cp-tour-target{position:relative;z-index:100001;border-radius:10px;box-shadow:0 0 0 2px var(--accent-deep),0 0 20px rgba(208,90,77,.45);}'
+  + '.cp-tour-target::after{content:"";position:absolute;inset:-3px;border-radius:13px;padding:2px;background:conic-gradient(from var(--cpang),rgba(208,90,77,0) 0deg,rgba(208,90,77,0) 250deg,var(--accent-deep) 305deg,#ffd9d0 333deg,var(--accent-deep) 360deg);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;animation:cpBorderLight 5s linear infinite;pointer-events:none;}'
+  + '@keyframes cpBorderLight{to{--cpang:360deg;}}'
+  + '#cpTourStage{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(1.5);z-index:100002;pointer-events:none;background:var(--bg-elevated);border-radius:12px;padding:18px 24px;box-shadow:var(--shadow-lg);}'
+  + '.cp-tour-card{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);width:min(440px,calc(100vw - 36px));z-index:100003;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:22px 24px;font-family:var(--font-sans),system-ui,sans-serif;color:var(--ink-primary);}'
+  + '.cp-tour-card.cp-card-top{bottom:auto;top:24px;}'
   + '.cp-tour-card .cp-tstep{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-deep);font-weight:700;margin-bottom:7px;}'
   + '.cp-tour-card h4{margin:0 0 6px;font-size:16px;font-weight:600;}'
   + '.cp-tour-card p{margin:0 0 16px;font-size:13px;color:var(--ink-secondary);line-height:1.55;}'
@@ -23200,7 +23207,8 @@ var _CP_TOUR_CSS = ''
   + '.cp-tdots{display:flex;gap:6px;}'
   + '.cp-tdot{width:7px;height:7px;border-radius:50%;background:var(--rule-strong);display:inline-block;}'
   + '.cp-tdot.on{background:var(--accent);}'
-  + '.cp-tour-btns{display:flex;gap:8px;}';
+  + '.cp-tour-btns{display:flex;gap:8px;}'
+  + '@media (prefers-reduced-motion:reduce){.cp-tour-target::after{animation:none;}}';
 function _cpTourInicialQuizas() {
   if (!_cpTourPendiente) return;
   _cpTourPendiente = false;
@@ -23221,9 +23229,30 @@ function _cpTourIniciar() {
 }
 function _cpTourPasoValido(i) { for (var k = i; k <= _CP_TOUR.length; k++) { if (document.querySelector(_CP_TOUR[k - 1].sel)) return k; } return 0; }
 function _cpTourPasoUltimo() { for (var k = _CP_TOUR.length; k >= 1; k--) { if (document.querySelector(_CP_TOUR[k - 1].sel)) return k; } return 0; }
+/* Mueve el elemento REAL a un escenario central (sobre el fondo), agrandado y con
+   el borde de luz. Guarda su lugar original para devolverlo al salir. Así el
+   propio botón —no un clon— se ve grande y al centro, sin importar si su barra
+   queda atrapada en un contexto de apilamiento. */
+var _cpTourMoved = null;
+function _cpTourCentrar(el) {
+  if (!el) return;
+  var stage = document.getElementById('cpTourStage');
+  if (!stage) { stage = document.createElement('div'); stage.id = 'cpTourStage'; stage.className = 'cp-tour-target'; document.body.appendChild(stage); }
+  _cpTourMoved = { el: el, parent: el.parentNode, next: el.nextSibling };
+  stage.appendChild(el);
+}
+function _cpTourRestaurarMovido() {
+  if (_cpTourMoved) {
+    var m = _cpTourMoved; _cpTourMoved = null;
+    try { if (m.next && m.next.parentNode === m.parent) m.parent.insertBefore(m.el, m.next); else if (m.parent) m.parent.appendChild(m.el); } catch (e) {}
+  }
+  var stage = document.getElementById('cpTourStage'); if (stage) stage.remove();
+}
 function _cpTourLimpiar() {
   var ov = document.getElementById('cpTour'); if (ov) ov.remove();
+  _cpTourRestaurarMovido();
   var t = document.querySelector('.cp-tour-target'); if (t) t.classList.remove('cp-tour-target');
+  _cpTourSamplesOff();
 }
 function _cpTourRender() {
   _cpTourLimpiar();
@@ -23231,12 +23260,13 @@ function _cpTourRender() {
   if (!paso) { _cpTourCerrar(); return; }
   _cpTourPaso = paso;
   var def = _CP_TOUR[paso - 1];
+  if (def.samples) _cpTourSamplesOn();          // proyectos de muestra (mundo LOTR) en el kanban
   var el = document.querySelector(def.sel);
   var ultimo = (paso === _cpTourPasoUltimo());
   var dots = _CP_TOUR.map(function (_, idx) { return '<i class="cp-tdot' + (idx === paso - 1 ? ' on' : '') + '"></i>'; }).join('');
   var ov = document.createElement('div'); ov.id = 'cpTour';
-  ov.innerHTML = '<div class="cp-tour-backdrop" onclick="_cpTourCerrar()"></div>'
-    + '<div class="cp-tour-card">'
+  ov.innerHTML = '<div class="cp-tour-backdrop"></div>'    // el fondo NO cierra el tour (solo Saltar / Listo)
+    + '<div class="cp-tour-card' + (def.cardTop ? ' cp-card-top' : '') + '">'
     +   '<div class="cp-tstep">Paso ' + paso + ' de ' + _CP_TOUR.length + '</div>'
     +   '<h4>' + def.titulo + '</h4><p>' + def.texto + '</p>'
     +   '<div class="cp-tour-foot"><div class="cp-tdots">' + dots + '</div>'
@@ -23248,11 +23278,56 @@ function _cpTourRender() {
     +   '</div>'
     + '</div>';
   document.body.appendChild(ov);
-  if (el) { el.classList.add('cp-tour-target'); try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) {} }
+  if (def.center && el) _cpTourCentrar(el);       // botones chicos: el real se mueve al centro, agrandado
+  else if (el) el.classList.add('cp-tour-target'); // secciones grandes: se resaltan en su lugar
+  if (def.center || def.top) { try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (x) { try { window.scrollTo(0, 0); } catch (y) {} } }
+  else if (el) { try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) {} }
 }
 function _cpTourNext() { _cpTourPaso = _cpTourPaso + 1; _cpTourRender(); }
 function _cpTourPrev() { if (_cpTourPaso > 1) _cpTourPaso = _cpTourPaso - 1; _cpTourRender(); }
 function _cpTourCerrar() { _cpTourLimpiar(); _cpTourPaso = 0; }
+
+/* Proyectos de muestra (mundo de El Señor de los Anillos) para que el kanban no
+   se vea vacío durante el tour. Guarda el contenido real del kanban y lo
+   restaura al salir; NO toca PROJECTS ni la base — es solo visual. */
+var _cpKanbanBackup = null;
+function _cpTourSamplesOn() {
+  var k = document.getElementById('kanbanContainer'); if (!k) return;
+  if (_cpKanbanBackup === null) _cpKanbanBackup = k.innerHTML;
+  try { k.innerHTML = _cpTourKanbanSample(); } catch (e) {}
+}
+function _cpTourSamplesOff() {
+  if (_cpKanbanBackup === null) return;
+  var k = document.getElementById('kanbanContainer'); if (k) k.innerHTML = _cpKanbanBackup;
+  _cpKanbanBackup = null;
+}
+function _cpTourKanbanSample() {
+  var SAMP = {
+    venta:          [{ client: 'New Line Cinema', name: 'El Hobbit — Spot',        pe: 'A. Muñoz',   dlabel: 'Fecha',  dval: 'Cotización enviada', monto: '$6.400.000' }],
+    preproduccion:  [{ client: 'WingNut Films',   name: 'Las Dos Torres',          pe: 'P. Jackson', dlabel: 'Fecha',  dval: '12 jornadas',        monto: '$28.000.000' }],
+    produccion:     [{ client: 'WingNut Films',   name: 'La Comunidad del Anillo', pe: 'P. Jackson', dlabel: 'Estado', dval: 'En rodaje',          monto: '$38.000.000' }],
+    postproduccion: [{ client: 'WETA Workshop',   name: 'El Retorno del Rey',      pe: 'F. Walsh',   dlabel: 'Estado', dval: 'Montaje',            monto: '$24.000.000' }]
+  };
+  function card(p) {
+    return '<div class="project-card">'
+      + '<div class="project-card-header"><div>'
+      +   '<div class="project-client">' + p.client + '</div>'
+      +   '<div class="project-name">' + p.name + '</div>'
+      + '</div></div>'
+      + '<div class="project-meta">'
+      +   '<div class="project-meta-row"><span class="project-meta-label">PE</span><span class="project-meta-value">' + p.pe + '</span></div>'
+      +   '<div class="project-meta-row"><span class="project-meta-label">' + p.dlabel + '</span><span class="project-meta-value">' + p.dval + '</span></div>'
+      +   '<div class="project-meta-row"><span class="project-meta-label">Monto</span><span class="project-amount">' + p.monto + '</span></div>'
+      + '</div></div>';
+  }
+  return Object.keys(STATES).sort(function (a, b) { return STATES[a].order - STATES[b].order; }).map(function (key) {
+    var st = STATES[key], list = SAMP[key] || [];
+    return '<div class="column"><div class="column-header"><div class="column-title">'
+      + '<div class="column-dot" style="background:' + st.color + '"></div><span class="column-name">' + st.name + '</span></div>'
+      + '<span class="column-count">' + list.length + '</span></div>'
+      + '<div class="column-body">' + (list.length ? list.map(card).join('') : '<div class="empty-column">Sin proyectos</div>') + '</div></div>';
+  }).join('');
+}
 
 /* V11.4.0 · cortina de arranque: tapa el microsegundo de Control Room vacío
    antes del login y los ~2 s de carga de proyectos después de loguear. */
