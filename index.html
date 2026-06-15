@@ -23170,9 +23170,89 @@ function _cpEntrarProductora() {
   _cpEstado = null;
   try { if (orgId && typeof _setOrgActiva === 'function') _setOrgActiva(orgId); } catch (x) {}
   try { _TIENE_EMPRESA = true; } catch (x) {}
+  try { _cpTourPendiente = true; } catch (x) {}   // A8: dispara el tour inicial al cargar el Control Room
   try { if (typeof _bootCoverShow === 'function') _bootCoverShow('Entrando a tu productora…'); } catch (x) {}
   try { if (typeof arrancarTakeOS === 'function') arrancarTakeOS(); } catch (x) {}
 }
+
+/* ── A8 · Tour inicial sobre el Control Room real ───────────────────────────
+   Tras crear la productora y entrar (_cpEntrarProductora), un recorrido breve
+   resalta las piezas clave del Control Room REAL. Se dispara UNA vez, justo
+   después de crear: _cpEntrarProductora enciende _cpTourPendiente y la cadena de
+   arrancarTakeOS la consume al terminar de cargar. Robusto: si un elemento no
+   está, salta ese paso; si no hay ninguno, no muestra nada. */
+var _cpTourPendiente = false;
+var _cpTourPaso = 0;
+var _CP_TOUR = [
+  { sel: '#controlRoomView .cr-header',               titulo: 'Este es tu Control Room',  texto: 'Desde acá ves y manejas todos los proyectos de tu productora. Está vacío porque recién la creaste.' },
+  { sel: '#controlRoomView .cr-actions .btn-primary', titulo: 'Crea tu primer proyecto',   texto: 'Con «Nuevo proyecto» partes una producción: presupuesto, plan de rodaje, legal y más, todo dentro del proyecto.' },
+  { sel: '#controlRoomView .cr-metrics',              titulo: 'El pulso de tu productora', texto: 'Acá ves de un vistazo cuántos proyectos están activos, cuáles cerraste y qué requiere tu atención.' },
+  { sel: '#controlRoomView .cr-toolbar',              titulo: 'Filtra y ordena',          texto: 'Filtra tus proyectos y cambia entre vista por etapa y lista cuando tengas varios.' }
+];
+var _CP_TOUR_CSS = ''
+  + '.cp-tour-backdrop{position:fixed;inset:0;background:rgba(10,10,9,.55);z-index:100000;}'
+  + '.cp-tour-target{position:relative;z-index:100001;outline:2px solid var(--accent-deep);outline-offset:4px;border-radius:8px;box-shadow:0 0 0 5px rgba(176,58,47,.30);}'
+  + '.cp-tour-card{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);width:min(440px,calc(100vw - 36px));z-index:100002;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:22px 24px;font-family:var(--font-sans),system-ui,sans-serif;color:var(--ink-primary);}'
+  + '.cp-tour-card .cp-tstep{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-deep);font-weight:700;margin-bottom:7px;}'
+  + '.cp-tour-card h4{margin:0 0 6px;font-size:16px;font-weight:600;}'
+  + '.cp-tour-card p{margin:0 0 16px;font-size:13px;color:var(--ink-secondary);line-height:1.55;}'
+  + '.cp-tour-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;}'
+  + '.cp-tdots{display:flex;gap:6px;}'
+  + '.cp-tdot{width:7px;height:7px;border-radius:50%;background:var(--rule-strong);display:inline-block;}'
+  + '.cp-tdot.on{background:var(--accent);}'
+  + '.cp-tour-btns{display:flex;gap:8px;}';
+function _cpTourInicialQuizas() {
+  if (!_cpTourPendiente) return;
+  _cpTourPendiente = false;
+  setTimeout(function () { try { _cpTourIniciar(); } catch (e) {} }, 450);   // deja pintar el Control Room
+}
+function _cpTourEnsureCss() {
+  if (document.getElementById('cpTourStyle')) return;
+  var st = document.createElement('style'); st.id = 'cpTourStyle'; st.textContent = _CP_TOUR_CSS;
+  document.head.appendChild(st);
+}
+function _cpTourIniciar() {
+  var cr = document.getElementById('controlRoomView');
+  if (!cr || cr.classList.contains('hidden')) return;   // solo en el home del Control Room
+  if (!_cpTourPasoUltimo()) return;                      // no hay ningún elemento que resaltar
+  _cpTourEnsureCss();
+  _cpTourPaso = 1;
+  _cpTourRender();
+}
+function _cpTourPasoValido(i) { for (var k = i; k <= _CP_TOUR.length; k++) { if (document.querySelector(_CP_TOUR[k - 1].sel)) return k; } return 0; }
+function _cpTourPasoUltimo() { for (var k = _CP_TOUR.length; k >= 1; k--) { if (document.querySelector(_CP_TOUR[k - 1].sel)) return k; } return 0; }
+function _cpTourLimpiar() {
+  var ov = document.getElementById('cpTour'); if (ov) ov.remove();
+  var t = document.querySelector('.cp-tour-target'); if (t) t.classList.remove('cp-tour-target');
+}
+function _cpTourRender() {
+  _cpTourLimpiar();
+  var paso = _cpTourPasoValido(_cpTourPaso);
+  if (!paso) { _cpTourCerrar(); return; }
+  _cpTourPaso = paso;
+  var def = _CP_TOUR[paso - 1];
+  var el = document.querySelector(def.sel);
+  var ultimo = (paso === _cpTourPasoUltimo());
+  var dots = _CP_TOUR.map(function (_, idx) { return '<i class="cp-tdot' + (idx === paso - 1 ? ' on' : '') + '"></i>'; }).join('');
+  var ov = document.createElement('div'); ov.id = 'cpTour';
+  ov.innerHTML = '<div class="cp-tour-backdrop" onclick="_cpTourCerrar()"></div>'
+    + '<div class="cp-tour-card">'
+    +   '<div class="cp-tstep">Paso ' + paso + ' de ' + _CP_TOUR.length + '</div>'
+    +   '<h4>' + def.titulo + '</h4><p>' + def.texto + '</p>'
+    +   '<div class="cp-tour-foot"><div class="cp-tdots">' + dots + '</div>'
+    +     '<div class="cp-tour-btns">'
+    +       '<button class="btn btn-ghost btn-sm" onclick="_cpTourCerrar()">Saltar</button>'
+    +       (paso > 1 ? '<button class="btn btn-sm" onclick="_cpTourPrev()">Anterior</button>' : '')
+    +       '<button class="btn btn-primary btn-sm" onclick="' + (ultimo ? '_cpTourCerrar()' : '_cpTourNext()') + '">' + (ultimo ? 'Listo' : 'Siguiente') + '</button>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  if (el) { el.classList.add('cp-tour-target'); try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) {} }
+}
+function _cpTourNext() { _cpTourPaso = _cpTourPaso + 1; _cpTourRender(); }
+function _cpTourPrev() { if (_cpTourPaso > 1) _cpTourPaso = _cpTourPaso - 1; _cpTourRender(); }
+function _cpTourCerrar() { _cpTourLimpiar(); _cpTourPaso = 0; }
 
 /* V11.4.0 · cortina de arranque: tapa el microsegundo de Control Room vacío
    antes del login y los ~2 s de carga de proyectos después de loguear. */
@@ -23420,7 +23500,7 @@ function arrancarTakeOS() {
      jamás se entra al Control Room (se re-deriva la vista correcta). */
   var _pend = false; try { _pend = !!sessionStorage.getItem('takeos_ir_proyecto'); } catch (e) {}
   if (!_TIENE_EMPRESA && !_pend) { resolverEspacioYArrancar(); return; }
-  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} });
+  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} }).then(function(){ try { _cpTourInicialQuizas(); } catch (e) {} });
 }
 
 function _espIniciales(txt){
