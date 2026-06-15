@@ -23539,8 +23539,15 @@ async function cloudGate(onUnlock) {
       console.warn('[auth] regreso del OAuth sin sesión utilizable; se muestra el login');
       _bootVeilOff();
     } else {
-      const { data } = await client.auth.getSession();
-      if (data && data.session) {
+      /* V11.15.0 · validación contra el SERVIDOR: getUser() verifica el token con
+         Supabase, a diferencia de getSession() que solo lee el almacenamiento del
+         navegador. Así, si el usuario fue borrado o deshabilitado en la base, no
+         entra una "sesión fantasma" (getSession la daba por válida y la app lo
+         mandaba al Panel Personal): getUser() devuelve error → cerramos la sesión
+         local y pedimos login. No afecta el retorno de OAuth (rama de arriba). */
+      const { data, error } = await client.auth.getUser();
+      const user = (!error && data && data.user) ? data.user : null;
+      if (user) {
         /* V11.3.0 · sesión breve (lo mejor de ambos mundos): la sesión
            restaurada entra SIN login solo si (a) pertenece al mismo usuario
            que se autenticó explícitamente en este navegador y (b) esa
@@ -23550,13 +23557,18 @@ async function cloudGate(onUnlock) {
         try {
           const at = parseInt(localStorage.getItem('takeos_auth_at') || '0', 10);
           const uid = localStorage.getItem('takeos_auth_uid') || '';
-          const mismo = uid && data.session.user && data.session.user.id === uid;
+          const mismo = uid && user.id === uid;
           const vigente = at > 0 && (Date.now() - at) < AUTH_TTL_HORAS * 3600 * 1000;
           okTTL = !!(mismo && vigente);
         } catch (e) { okTTL = false; }
         if (okTTL) { try { if (sessionStorage.getItem('takeos_sin_veil') === '1') { sessionStorage.removeItem('takeos_sin_veil'); } else { _bootVeil('Cargando tus proyectos…'); } } catch (e) { _bootVeil('Cargando tus proyectos…'); } onUnlock(); return; }
-        const quien = (data.session.user && data.session.user.email) ? data.session.user.email : '(desconocido)';
+        const quien = user.email || '(desconocido)';
         console.info('[auth] sesión guardada de ' + quien + ' descartada (vencida o de otro usuario): se pide autenticación.');
+        try { await client.auth.signOut({ scope: 'local' }); } catch (e) {}
+        try { localStorage.removeItem('takeos_auth_at'); localStorage.removeItem('takeos_auth_uid'); } catch (e) {}
+      } else {
+        /* getUser() sin usuario: o no hay sesión, o el token ya no es válido
+           (usuario borrado / revocado). Limpiamos lo local y pedimos login. */
         try { await client.auth.signOut({ scope: 'local' }); } catch (e) {}
         try { localStorage.removeItem('takeos_auth_at'); localStorage.removeItem('takeos_auth_uid'); } catch (e) {}
       }
