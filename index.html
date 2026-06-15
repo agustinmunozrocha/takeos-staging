@@ -22709,13 +22709,17 @@ function _espInyectarInvitaciones(invs) {
    (provisionar_organizacion y, aparte, organization_profile) es el Paso A7.
    ════════════════════════════════════════════════════════════════════ */
 
-/* Catálogo mínimo de planes, SOLO para mostrar el nombre elegido. Precios,
-   Early Bird e IVA viven en A2/A6 (no se hardcodean acá). */
+/* Catálogo de planes para mostrar. Los PRECIOS son la referencia GTM congelada
+   del mockup (CONFIRMAR con producto). El IVA NO va acá: se lee de la global
+   `IVA` (tax_rates) en el resumen de pago. La organización nace 'free' igual;
+   estos montos son solo para el resumen de A6, que vive tras un feature flag
+   apagado mientras no exista proveedor de pago. */
 const _CP_PLANES = {
-  gratis:     { id: 'gratis',     nombre: 'Gratis' },
-  rodaje:     { id: 'rodaje',     nombre: 'Rodaje' },
-  produccion: { id: 'produccion', nombre: 'Producción' }
+  gratis:     { id: 'gratis',     nombre: 'Gratis',     precio: 0 },
+  rodaje:     { id: 'rodaje',     nombre: 'Rodaje',     precio: 106800 },
+  produccion: { id: 'produccion', nombre: 'Producción', precio: 214800 }
 };
+const _CP_EARLY_BIRD = 0.50;   // −50% (ventana Early Bird); aplica a planes de pago
 
 /* Estado del flujo (en memoria; se reinicia cada vez que se abre). La
    estructura está pensada para que el cableado de A7 calce limpio: separa
@@ -22800,6 +22804,10 @@ const _CP_CSS = `
   #crearProductora .cp-check{display:flex;align-items:flex-start;gap:11px;margin-top:22px;cursor:pointer;}
   #crearProductora .cp-check input{width:18px;height:18px;margin-top:1px;accent-color:var(--accent);cursor:pointer;flex:none;}
   #crearProductora .cp-check span{font-size:13px;color:var(--ink-secondary);}
+  #crearProductora .cp-pay{background:var(--bg-surface-soft);border:1px solid var(--rule);border-radius:var(--radius-md);padding:4px 18px;margin-top:4px;}
+  #crearProductora .cp-pay-line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:13px;color:var(--ink-secondary);}
+  #crearProductora .cp-pay-line.disc{color:var(--state-sale);}
+  #crearProductora .cp-pay-line.total{border-top:1px solid var(--rule);margin-top:4px;padding-top:12px;font-size:16px;font-weight:600;color:var(--ink-primary);}
   @media (max-width:600px){#crearProductora .cp-top{padding:12px 16px;}#crearProductora .cp-wrap{padding:24px 16px 60px;}#crearProductora .cp-txt{display:none;}}
 `;
 
@@ -22848,8 +22856,9 @@ function _cpRender() {
   if (!body) return;
   if (paso.id === 'datos') { body.innerHTML = _cpDatosHTML(); _cpWireDatos(); return; }
   if (paso.id === 'terminos') { body.innerHTML = _cpTerminosHTML(); return; }
+  if (paso.id === 'pago') { body.innerHTML = _cpPagoHTML(); return; }
 
-  // Pasos aún sin contenido (pago, creada): placeholder + navegación.
+  // Pasos aún sin contenido (creada): placeholder + navegación.
   var primero = (i === 0);
   var ultimo = (paso.id === 'creada');
   body.innerHTML =
@@ -23017,6 +23026,52 @@ function _cpToggleTyc(cb) {
 function _cpAceptarTerminos() {
   if (!_cpEstado || !_cpEstado.aceptoTerminos) return;
   _cpSiguiente();
+}
+
+/* ── A6 · Paso «Pago» (placeholder tras feature flag) ──────────────────────
+   El sistema de pago NO existe aún (handoff §9): este paso vive tras un flag
+   apagado y NO procesa nada ni pide datos de tarjeta. Muestra el resumen del
+   plan con el IVA leído de la global `IVA` (tax_rates), NUNCA hardcodeado
+   (doctrina 4). La organización nace 'free'; activar el plan de pago es aparte
+   y se conecta cuando exista proveedor (no encender el flag antes). */
+const _CP_PAGO_ACTIVO = false;   // feature flag: true solo cuando exista proveedor de pago
+function _cpMontos(planId) {
+  var p = _CP_PLANES[planId] || { precio: 0 };
+  var lista = p.precio;
+  var neto = Math.round(lista * (1 - _CP_EARLY_BIRD));
+  var iva = Math.round(neto * IVA);   // IVA = global desde tax_rates (no hardcode)
+  return { lista: lista, neto: neto, iva: iva, total: neto + iva };
+}
+function _cpPayLine(label, valor, cls) {
+  return '<div class="cp-pay-line' + (cls ? ' ' + cls : '') + '"><span>' + label + '</span><span>' + valor + '</span></div>';
+}
+function _cpPagoHTML() {
+  var e = _cpEstado;
+  var planNom = (_CP_PLANES[e.plan] || {}).nombre || '';
+  var m = _cpMontos(e.plan);
+  var ivaPct = Math.round(IVA * 100);
+  var banner = _CP_PAGO_ACTIVO
+    ? 'Revisa el resumen y confirma para activar tu plan.'
+    : 'El sistema de pago aún no está disponible. Por ahora creas tu productora y el cobro del plan se activa más adelante. No se procesa ningún pago ni se piden datos de tarjeta.';
+  var btnLabel = _CP_PAGO_ACTIVO ? 'Pagar y continuar →' : 'Continuar →';
+  /* Cuando _CP_PAGO_ACTIVO sea true (existe proveedor) acá va el formulario de
+     pago real. Hoy NO se captura ningún dato de tarjeta (handoff §3/§4). */
+  return ''
+    + '<h3 class="cp-h">Pago</h3>'
+    + '<p class="cp-sub">Plan ' + planNom + ' · cobro mensual.</p>'
+    + '<div class="cp-provisional">' + banner + '</div>'
+    + '<div class="cp-pay">'
+    +   _cpPayLine('Plan ' + planNom + ' (mensual)', fmtMoney(m.lista), '')
+    +   _cpPayLine('Descuento Early Bird (−50%)', '−' + fmtMoney(m.lista - m.neto), 'disc')
+    +   _cpPayLine('Neto', fmtMoney(m.neto), '')
+    +   _cpPayLine('IVA (' + ivaPct + '%)', fmtMoney(m.iva), '')
+    +   _cpPayLine('Total a pagar al activar', fmtMoney(m.total), 'total')
+    + '</div>'
+    + '<div class="cp-acts">'
+    +   '<button class="btn" onclick="_cpAtras()">← Atrás</button>'
+    +   '<div style="flex:1"></div>'
+    +   '<button class="btn btn-primary" onclick="_cpSiguiente()">' + btnLabel + '</button>'
+    + '</div>';
 }
 
 /* V11.4.0 · cortina de arranque: tapa el microsegundo de Control Room vacío
