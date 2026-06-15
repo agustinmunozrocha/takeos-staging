@@ -22745,7 +22745,8 @@ function _cpEstadoInicial(planId) {
     persona: { nombre: '', apellido: '', email: '' },
 
     aceptoTerminos: false,   // A5
-    pagado: false            // A6 (tras feature flag apagado)
+    pagado: false,           // A6 (tras feature flag apagado)
+    orgCreadaId: null        // A7: id de la organización creada (para entrar a su Control Room)
   };
 }
 
@@ -22808,6 +22809,9 @@ const _CP_CSS = `
   #crearProductora .cp-pay-line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:13px;color:var(--ink-secondary);}
   #crearProductora .cp-pay-line.disc{color:var(--state-sale);}
   #crearProductora .cp-pay-line.total{border-top:1px solid var(--rule);margin-top:4px;padding-top:12px;font-size:16px;font-weight:600;color:var(--ink-primary);}
+  #crearProductora .cp-exito{text-align:center;padding:10px 0 6px;}
+  #crearProductora .cp-ring{width:72px;height:72px;border-radius:50%;margin:0 auto 18px;background:var(--accent-bg);border:2px solid var(--accent);display:grid;place-items:center;color:var(--accent-deep);font-size:32px;}
+  #crearProductora .cp-rol{display:inline-flex;gap:8px;align-items:center;font-size:12px;background:var(--bg-surface-soft);border:1px solid var(--rule);border-radius:999px;padding:7px 14px;margin-top:10px;color:var(--ink-secondary);}
   @media (max-width:600px){#crearProductora .cp-top{padding:12px 16px;}#crearProductora .cp-wrap{padding:24px 16px 60px;}#crearProductora .cp-txt{display:none;}}
 `;
 
@@ -22857,8 +22861,9 @@ function _cpRender() {
   if (paso.id === 'datos') { body.innerHTML = _cpDatosHTML(); _cpWireDatos(); return; }
   if (paso.id === 'terminos') { body.innerHTML = _cpTerminosHTML(); return; }
   if (paso.id === 'pago') { body.innerHTML = _cpPagoHTML(); return; }
+  if (paso.id === 'creada') { body.innerHTML = _cpCreadaHTML(); return; }
 
-  // Pasos aún sin contenido (creada): placeholder + navegación.
+  // Fallback defensivo (no debería alcanzarse: todos los pasos tienen vista).
   var primero = (i === 0);
   var ultimo = (paso.id === 'creada');
   body.innerHTML =
@@ -23025,7 +23030,9 @@ function _cpToggleTyc(cb) {
 }
 function _cpAceptarTerminos() {
   if (!_cpEstado || !_cpEstado.aceptoTerminos) return;
-  _cpSiguiente();
+  var dePago = !!(_cpEstado.plan && _cpEstado.plan !== 'gratis');
+  if (dePago) _cpSiguiente();        // planes de pago → pantalla de pago
+  else _cpCrearProductora();          // Gratis → crea directo (sin pago)
 }
 
 /* ── A6 · Paso «Pago» (placeholder tras feature flag) ──────────────────────
@@ -23053,7 +23060,7 @@ function _cpPagoHTML() {
   var banner = _CP_PAGO_ACTIVO
     ? 'Revisa el resumen y confirma para activar tu plan.'
     : 'El sistema de pago aún no está disponible. Por ahora creas tu productora y el cobro del plan se activa más adelante. No se procesa ningún pago ni se piden datos de tarjeta.';
-  var btnLabel = _CP_PAGO_ACTIVO ? 'Pagar y continuar →' : 'Continuar →';
+  var btnLabel = _CP_PAGO_ACTIVO ? 'Pagar y crear productora' : 'Crear mi productora';
   /* Cuando _CP_PAGO_ACTIVO sea true (existe proveedor) acá va el formulario de
      pago real. Hoy NO se captura ningún dato de tarjeta (handoff §3/§4). */
   return ''
@@ -23070,8 +23077,101 @@ function _cpPagoHTML() {
     + '<div class="cp-acts">'
     +   '<button class="btn" onclick="_cpAtras()">← Atrás</button>'
     +   '<div style="flex:1"></div>'
-    +   '<button class="btn btn-primary" onclick="_cpSiguiente()">' + btnLabel + '</button>'
+    +   '<button class="btn btn-primary" id="cpBtnPago" onclick="_cpCrearProductora()">' + btnLabel + '</button>'
     + '</div>';
+}
+
+/* ── A7 · Crear la productora (cableado real a la base) ─────────────────────
+   Llama al RPC provisionar_organizacion(nombre, slug) — confirmado contra la
+   base: crea la org (plan 'free'), siembra los 8 perfiles + matriz, clona los
+   catálogos del template, inserta organization_profile vacío y deja al creador
+   como Administrador interno activo. Devuelve el uuid de la org. NO se llama
+   seed_permisos_organizacion aparte (ya va adentro).
+   Para planes de pago, después se completa organization_profile (columna jsonb
+   `profile`) con un upsert; la RLS lo permite porque el creador tiene
+   datos_empresa = 'E' en esa org (auth_nivel, server-side). La creación es
+   server-side y atómica (doctrina 2); el cliente solo envía y refleja. */
+
+/* Llama al RPC reintentando con sufijo si el slug ya existe (la RPC lanza
+   'El slug "x" ya está en uso'). Cualquier otro error se propaga de inmediato. */
+async function _cpProvisionar(nombre) {
+  var base = ((typeof slugify === 'function' ? slugify(nombre) : '') || 'productora');
+  var ultimo = null;
+  for (var n = 0; n < 8; n++) {
+    var slug = (n === 0) ? base : (base + '-' + (n + 1));
+    var r = await sb.rpc('provisionar_organizacion', { p_nombre: nombre, p_slug: slug });
+    if (!r.error) {
+      var d = r.data;
+      return (d && typeof d === 'object') ? (d.organization_id || d.id || d) : d;   // retorna uuid escalar
+    }
+    ultimo = r.error;
+    var msg = String(r.error.message || '').toLowerCase();
+    var colision = (msg.indexOf('ya está en uso') >= 0) || (msg.indexOf('slug') >= 0) || (r.error.code === '23505');
+    if (!colision) throw r.error;   // error real (no es colisión de slug) → propagar
+  }
+  throw (ultimo || new Error('No se pudo generar un identificador único para la productora.'));
+}
+function _cpBtnAccion() { return document.getElementById('cpBtnPago') || document.getElementById('cpBtnTyc'); }
+/* Crea la productora y, si hay datos de empresa (planes de pago), completa su
+   perfil. Al terminar, muestra la pantalla «Productora creada». */
+async function _cpCrearProductora() {
+  var e = _cpEstado; if (!e || e._creando) return;
+  var btn = _cpBtnAccion(); var lblPrev = btn ? btn.textContent : '';
+  e._creando = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando tu productora…'; }
+  try {
+    if (typeof sb === 'undefined' || !sb) throw new Error('Sin conexión a la base.');
+    var orgId = await _cpProvisionar(e.organizacion.nombre);
+    e.orgCreadaId = orgId;
+    /* Perfil de empresa: solo planes de pago traen estos datos. La org ya nació
+       con organization_profile vacío; acá lo completamos (no bloquea si falla:
+       la org ya existe). */
+    var pe = e.perfilEmpresa || {};
+    if (pe.razonSocial || pe.rut || pe.giro || pe.direccion) {
+      try {
+        var profile = {
+          razonSocial: pe.razonSocial || '', rut: pe.rut || '', giro: pe.giro || '',
+          direccion: pe.direccion || '', nombreFicticio: pe.nombreFicticio || '', web: pe.web || ''
+        };
+        var up = await sb.from('organization_profile').upsert({ organization_id: orgId, profile: profile, updated_at: new Date().toISOString() });
+        if (up && up.error) console.warn('[crear] organization_profile', up.error);
+      } catch (pErr) { console.warn('[crear] organization_profile', pErr); }
+    }
+    e._creando = false;
+    _cpSiguiente();   // → pantalla «Productora creada»
+  } catch (err) {
+    e._creando = false;
+    if (btn) { btn.disabled = false; btn.textContent = lblPrev; }
+    var msg = (err && err.message) ? String(err.message).replace(/^[a-z_]+:\s*/i, '') : 'No se pudo crear la productora.';
+    try { showToast({ kind: 'error', title: 'No se pudo crear la productora', body: msg, duration: 9000 }); } catch (e2) {}
+  }
+}
+/* Pantalla final: productora creada. */
+function _cpCreadaHTML() {
+  var e = _cpEstado;
+  var nom = (e && e.organizacion && e.organizacion.nombre) || 'Tu productora';
+  return ''
+    + '<div class="cp-exito">'
+    +   '<div class="cp-ring">✓</div>'
+    +   '<h3 class="cp-h" style="margin-bottom:8px;">Tu productora está lista</h3>'
+    +   '<p class="cp-sub" style="margin:0 0 4px;"><b>' + escapeHtml(nom) + '</b> ya está creada.</p>'
+    +   '<div class="cp-rol">👑 Eres Administrador interno de ' + escapeHtml(nom) + '</div>'
+    + '</div>'
+    + '<div class="cp-acts">'
+    +   '<div style="flex:1"></div>'
+    +   '<button class="btn btn-primary" onclick="_cpEntrarProductora()">Entrar a mi productora →</button>'
+    + '</div>';
+}
+/* Cierra el flujo y entra al Control Room de la productora recién creada (mismo
+   mecanismo que «entrar» desde el Panel Personal). El tour inicial va en A8. */
+function _cpEntrarProductora() {
+  var e = _cpEstado; var orgId = e && e.orgCreadaId;
+  var ov = document.getElementById('crearProductora'); if (ov) ov.remove();
+  _cpEstado = null;
+  try { if (orgId && typeof _setOrgActiva === 'function') _setOrgActiva(orgId); } catch (x) {}
+  try { _TIENE_EMPRESA = true; } catch (x) {}
+  try { if (typeof _bootCoverShow === 'function') _bootCoverShow('Entrando a tu productora…'); } catch (x) {}
+  try { if (typeof arrancarTakeOS === 'function') arrancarTakeOS(); } catch (x) {}
 }
 
 /* V11.4.0 · cortina de arranque: tapa el microsegundo de Control Room vacío
