@@ -17999,7 +17999,7 @@ function openEmpresaPerfil(subInicial) {
             <div id="empRebindsBox" style="display:none;"></div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;flex-wrap:wrap;">
               <p style="margin:0;color:var(--ink-secondary);font-size:13px;line-height:1.5;">Las personas de tu planta. Ven los proyectos de la productora según su perfil de acceso.</p>
-              ${esAdmin ? `<button class="btn btn-primary btn-sm" onclick="_empAbrirInvitar()">+ Incorporar a alguien</button>` : ''}
+              ${esAdmin ? `<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-sm" onclick="_empAbrirTransferir()">Transferir administración</button><button class="btn btn-primary btn-sm" onclick="_empAbrirInvitar()">+ Incorporar a alguien</button></div>` : ''}
             </div>
             <div id="empEquipoTabla" style="border:1px solid var(--rule);border-radius:8px;padding:12px;font-size:13px;color:var(--ink-secondary);">Cargando equipo…</div>
             <div id="empInvitacionesLista" style="margin-top:14px;"></div>
@@ -18198,6 +18198,60 @@ async function _empCargarEquipo() {
   } catch (e) {
     console.warn('[empresa] no se pudo cargar el equipo', e);
     box.textContent = 'No se pudo cargar el equipo (puede ser una restricción de lectura del RLS).';
+  }
+}
+/* ── V11.15.0 · Plan G (1.6) · Transferir administración ─────────────────────
+   Asciende a otro miembro INTERNO ACTIVO a Administrador, vía el RPC
+   transferir_administracion(p_org_id, p_target_user_id). El servidor reimpone
+   la regla (solo un Administrador transfiere; el destino debe ser interno
+   activo); el cliente solo ofrece candidatos válidos y refleja el resultado.
+   Resuelve el bloqueo "no puedes borrarte si eres el único admin". */
+function _empNombreMiembro(m) {
+  var nom = (m.contact_id && typeof BD_CONTACTOS !== 'undefined' && BD_CONTACTOS[m.contact_id] && BD_CONTACTOS[m.contact_id].nombre) ? BD_CONTACTOS[m.contact_id].nombre : '';
+  if (!nom && typeof DAL_SESSION_UID !== 'undefined' && m.user_id === DAL_SESSION_UID) nom = ((typeof USER_NOMBRE !== 'undefined' ? USER_NOMBRE : '') + ' ' + (typeof USER_APELLIDO !== 'undefined' ? USER_APELLIDO : '')).trim();
+  return nom || '(sin nombre)';
+}
+async function _empAbrirTransferir() {
+  var cuerpo = '<div class="pd-ph" style="color:var(--ink-faint);font-size:13px;">Cargando miembros…</div>';
+  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:480px;">'
+    + '<div class="modal-header"><div class="modal-title">Transferir administración</div></div>'
+    + '<div class="modal-body" id="empTransBody">' + cuerpo + '</div>'
+    + '<div class="modal-footer" id="empTransFooter"><button class="btn" onclick="openConfigPanel()">Cancelar</button></div>'
+    + '</div></div>';
+  try {
+    var res = await sb.from('memberships')
+      .select('id, user_id, tipo, estado, contact_id')
+      .eq('organization_id', ORG_ID).eq('estado', 'activo').eq('tipo', 'interno');
+    if (res.error) throw res.error;
+    var cands = (res.data || []).filter(function (m) { return m.user_id && m.user_id !== DAL_SESSION_UID; });
+    var body = document.getElementById('empTransBody'); if (!body) return;
+    if (!cands.length) {
+      body.innerHTML = '<p style="margin:0;font-size:13px;color:var(--ink-secondary);line-height:1.55;">No hay otro miembro interno activo a quien transferir la administración. Primero incorpora a alguien como interno (y que acepte la invitación), o cambia su perfil a interno activo.</p>';
+      return;
+    }
+    var opts = cands.map(function (m) { return '<option value="' + escapeHtml(m.user_id) + '">' + escapeHtml(_empNombreMiembro(m)) + '</option>'; }).join('');
+    body.innerHTML = '<p style="margin:0 0 12px;font-size:13px;color:var(--ink-secondary);line-height:1.55;">La persona que elijas pasará a ser <strong>Administrador</strong> de la productora. <strong>Tú dejarás de ser Administrador</strong> en cuanto confirmes; el cambio rige desde la próxima sesión.</p>'
+      + '<div class="emp-field"><label>Nuevo Administrador</label><select class="select" id="empTransTarget">' + opts + '</select></div>';
+    var footer = document.getElementById('empTransFooter');
+    if (footer) footer.innerHTML = '<button class="btn" onclick="openConfigPanel()">Cancelar</button><button class="btn btn-danger" onclick="_empConfirmarTransferir()">Transferir administración</button>';
+  } catch (e) {
+    var b = document.getElementById('empTransBody');
+    if (b) b.innerHTML = '<p style="margin:0;font-size:13px;color:var(--accent-deep);">No se pudo cargar la lista de miembros. Reintenta.</p>';
+  }
+}
+async function _empConfirmarTransferir() {
+  var sel = document.getElementById('empTransTarget');
+  var targetUid = sel ? sel.value : '';
+  if (!targetUid) return;
+  try {
+    var r = await sb.rpc('transferir_administracion', { p_org_id: ORG_ID, p_target_user_id: targetUid });
+    if (r.error) throw r.error;
+    closeModal();
+    showToast({ kind: 'success', title: 'Administración transferida', body: 'La persona elegida es la nueva Administradora. Tu cambio de perfil rige desde tu próxima sesión.' });
+    try { openEmpresaPerfil('equipo'); } catch (e) {}
+  } catch (e) {
+    var det = (e && e.message) ? String(e.message).replace(/^[a-z_]+:\s*/i, '') : 'Reintenta.';
+    showToast({ kind: 'error', title: 'No se pudo transferir', body: det, duration: 8000 });
   }
 }
 async function _empCargarInvitaciones() {
