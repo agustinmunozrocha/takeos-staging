@@ -23784,6 +23784,8 @@ var _pdConsents = [];           // B3: consentimientos cargados de data_consents
 var _pdRevocarId = null;
 var _pdElimSole = [];           // B4: productoras donde el usuario es ÚNICO admin
 var _pdEdadVerif = false;       // B5: edad declarada en esta sesión (condicional, no gate)
+var _pdCookies = { decidido: false, analitica: false, marketing: false };   // B6 (esenciales siempre on)
+var _pdCkGuardado = false;       // B6: muestra "Preferencias guardadas"
 var _PD_CSS = `
   #privacidadDatos{position:fixed;inset:0;z-index:99998;overflow-y:auto;background:var(--bg-page);color:var(--ink-primary);font-family:var(--font-sans),system-ui,sans-serif;}
   #privacidadDatos *{box-sizing:border-box;}
@@ -23834,6 +23836,20 @@ var _PD_CSS = `
   #privacidadDatos .pd-flabel{display:block;font-size:12px;color:var(--ink-secondary);margin-bottom:6px;font-weight:500;}
   #privacidadDatos .pd-ferr{font-size:11px;color:var(--accent-deep);margin-top:5px;display:none;}
   #privacidadDatos .pd-exito-mini{width:56px;height:56px;border-radius:50%;margin:0 0 14px;background:var(--accent-bg);border:2px solid var(--accent);display:grid;place-items:center;color:var(--accent-deep);font-size:26px;}
+  #privacidadDatos .pd-sw-row{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--rule-soft);}
+  #privacidadDatos .pd-sw-info{flex:1;}
+  #privacidadDatos .pd-sw-info b{font-size:13px;font-weight:600;display:block;}
+  #privacidadDatos .pd-sw-info span{font-size:12px;color:var(--ink-muted);}
+  #privacidadDatos .pd-switch{position:relative;width:42px;height:24px;flex:none;cursor:pointer;}
+  #privacidadDatos .pd-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;}
+  #privacidadDatos .pd-switch .track{position:absolute;inset:0;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:999px;transition:all .15s;}
+  #privacidadDatos .pd-switch .knob{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--ink-muted);transition:all .15s;}
+  #privacidadDatos .pd-switch input:checked + .track{background:var(--accent);border-color:var(--accent);}
+  #privacidadDatos .pd-switch input:checked ~ .knob{left:21px;background:var(--ink-onAccent);}
+  #privacidadDatos .pd-switch.locked .track{background:var(--accent-soft);border-color:var(--accent-soft);}
+  #privacidadDatos .pd-switch.locked .knob{left:21px;background:var(--ink-primary);}
+  #privacidadDatos .pd-ok{font-size:11px;color:var(--state-prep);margin-top:12px;display:none;}
+  #privacidadDatos .pd-ok.on{display:block;}
   @media (max-width:640px){#privacidadDatos .pd-rights{grid-template-columns:1fr;}#privacidadDatos .pd-wrap{padding:24px 16px 60px;}}
 `;
 /* Lee el nombre/correo de la cuenta desde el Panel Personal ya renderizado. */
@@ -23868,6 +23884,7 @@ function _pdRender() {
   if (_pdVista === 'eliminar') { w.innerHTML = _pdElimShell(); _pdElimCargar(); return; }
   if (_pdVista === 'eliminada') { w.innerHTML = _pdElimProgramadaHTML(); return; }
   if (_pdVista === 'edad') { w.innerHTML = _pdEdadHTML(); return; }
+  if (_pdVista === 'cookies') { w.innerHTML = _pdCookiesHTML(); return; }
   var flows = {
     export:         ['Descargar mis datos', 'B2'],
     consentimientos:['Productoras con acceso a tus datos', 'B3'],
@@ -24123,6 +24140,78 @@ function _pdElimCancelar() {
      dentro de los 30 días. RPC pendiente. */
   _pdIr('hub');
 }
+/* ── B6 · Cookies y analítica ────────────────────────────────────────────────
+   Panel de preferencias (esenciales fijas; analítica y marketing opcionales) +
+   banner de aviso. El consentimiento se registra VERSIONADO en el servidor
+   (no en localStorage) → SEAM BD Expert. Esenciales siempre activas. */
+function _pdCookiesHTML() {
+  var back = '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>';
+  var c = _pdCookies;
+  function sw(id, on, locked) {
+    var oc = locked ? '' : ' onchange="_pdCkTouch()"';
+    return '<label class="pd-switch' + (locked ? ' locked' : '') + '"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + (locked ? ' disabled' : '') + oc + '><span class="track"></span><span class="knob"></span></label>';
+  }
+  return back + '<div class="pd-flow">'
+    + '<h3>Cookies y analítica</h3>'
+    + '<p class="pd-sub">Decide qué datos de navegación permites. Puedes cambiarlo cuando quieras.</p>'
+    + '<div class="pd-sw-row"><div class="pd-sw-info"><b>Esenciales</b><span>Necesarias para que el sitio funcione. Siempre activas.</span></div>' + sw('pdCkEsen', true, true) + '</div>'
+    + '<div class="pd-sw-row"><div class="pd-sw-info"><b>Analítica</b><span>Nos ayuda a entender cómo se usa el sistema para mejorarlo.</span></div>' + sw('pdCkAna', c.analitica, false) + '</div>'
+    + '<div class="pd-sw-row" style="border-bottom:none;"><div class="pd-sw-info"><b>Marketing</b><span>Para mostrarte comunicaciones relevantes sobre el producto.</span></div>' + sw('pdCkMkt', c.marketing, false) + '</div>'
+    + '<div class="pd-legal" style="margin-top:16px;">Tu preferencia se registra versionada en el servidor (no en el navegador) — pendiente de backend (BD Expert).</div>'
+    + '<div class="pd-acts"><button class="btn" onclick="_pdCookiesGuardar(\'rechazar\')">Rechazar opcionales</button><button class="btn" onclick="_pdCookiesGuardar(\'aceptar\')">Aceptar todas</button><button class="btn btn-primary" onclick="_pdCookiesGuardar(\'guardar\')">Guardar preferencias</button></div>'
+    + '<div class="pd-ok' + (_pdCkGuardado ? ' on' : '') + '" id="pdCkOk">✓ Preferencias guardadas</div>'
+    + '<div style="margin-top:14px;"><button class="btn" onclick="_pdCookieBannerShow()">Ver el aviso de cookies</button></div>'
+    + '</div>';
+}
+function _pdCookiesGuardar(modo) {
+  var c = _pdCookies;
+  if (modo === 'aceptar') { c.analitica = true; c.marketing = true; }
+  else if (modo === 'rechazar') { c.analitica = false; c.marketing = false; }
+  else {
+    var a = document.getElementById('pdCkAna'), m = document.getElementById('pdCkMkt');
+    c.analitica = a ? a.checked : c.analitica;
+    c.marketing = m ? m.checked : c.marketing;
+  }
+  c.decidido = true;
+  /* SEAM · BD Expert: registrar el consentimiento de cookies VERSIONADO en el
+     servidor (no en localStorage). Tabla/RPC pendiente. */
+  var b = document.getElementById('pdCookieBanner'); if (b) b.remove();
+  _pdCkGuardado = true;
+  try { showToast({ kind: 'success', title: 'Preferencias guardadas', body: 'Puedes cambiarlas cuando quieras.' }); } catch (e) {}
+  _pdRender();
+}
+/* Oculta el "Preferencias guardadas" cuando el usuario vuelve a tocar un switch. */
+function _pdCkTouch() { _pdCkGuardado = false; var o = document.getElementById('pdCkOk'); if (o) o.classList.remove('on'); }
+/* Banner de aviso (primera visita). La condición de "primera visita" es
+   server-side (consentimiento versionado, pendiente); por ahora se muestra a
+   pedido y se oculta tras decidir en la sesión. */
+function _pdCookieBannerShow() {
+  if (document.getElementById('pdCookieBanner')) return;
+  var b = document.createElement('div'); b.id = 'pdCookieBanner';
+  b.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);width:min(680px,calc(100vw - 28px));z-index:100050;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:10px;box-shadow:var(--shadow-lg);padding:16px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-family:var(--font-sans),system-ui,sans-serif;color:var(--ink-primary);';
+  b.innerHTML = '<div style="flex:1;min-width:220px;font-size:13px;color:var(--ink-secondary);"><b style="color:var(--ink-primary);">Usamos cookies.</b> Las esenciales hacen funcionar el sitio. Las de analítica y marketing son opcionales y dependen de tu consentimiento.</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    +   '<button class="btn" onclick="_pdCookieBannerDecidir(\'solo\')">Solo esenciales</button>'
+    +   '<button class="btn" onclick="_pdCookieBannerConfig()">Configurar</button>'
+    +   '<button class="btn btn-primary" onclick="_pdCookieBannerDecidir(\'todas\')">Aceptar todas</button>'
+    + '</div>';
+  document.body.appendChild(b);
+}
+function _pdCookieBannerDecidir(modo) {
+  _pdCookies.analitica = (modo === 'todas');
+  _pdCookies.marketing = (modo === 'todas');
+  _pdCookies.decidido = true;
+  /* SEAM · BD Expert: registrar consentimiento de cookies versionado server-side. */
+  var b = document.getElementById('pdCookieBanner'); if (b) b.remove();
+  try { showToast({ kind: 'success', title: modo === 'todas' ? 'Cookies aceptadas' : 'Solo cookies esenciales', body: '' }); } catch (e) {}
+  if (document.getElementById('privacidadDatos') && _pdVista === 'cookies') _pdRender();
+}
+function _pdCookieBannerConfig() {
+  var b = document.getElementById('pdCookieBanner'); if (b) b.remove();
+  if (!document.getElementById('privacidadDatos')) abrirPrivacidadDatos();
+  _pdIr('cookies');
+}
+
 /* ── B5 · Verificación de edad (CONDICIONAL · "si aplica") ───────────────────
    Decisión pendiente (Agustín/legal): si aplica al titular y en qué momento. Por
    eso es UI OPCIONAL, NO un gate: declarar la edad no bloquea usar el software.
