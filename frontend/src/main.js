@@ -7,8 +7,10 @@
 // Patrón por cada pieza extraída:
 //   import { fn } from './lib/...';
 //   window.fn = fn;   // ← puente
-import { escapeHtml } from './lib/helpers.js';
+import { escapeHtml, safeUrl } from './lib/helpers.js';
 
 window.escapeHtml = escapeHtml;
+window.safeUrl = safeUrl;
 
-console.info('[etapa1] puente listo · escapeHtml en window:', typeof window.escapeHtml === 'function');
+console.info('[etapa1] puente listo · helpers en window:',
+  ['escapeHtml', 'safeUrl'].every((n) => typeof window[n] === 'function'));

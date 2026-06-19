@@ -2851,20 +2851,7 @@ function initials(name) {
    de control) y luego escapa el resultado para cerrar el break-out del
    atributo. Un valor inseguro devuelve cadena vacía: el enlace/imagen no carga
    en lugar de ejecutar script. */
-function safeUrl(u) {
-  try {
-    var s = String(u === null || u === undefined ? '' : u).replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
-    if (!s) return '';
-    var m = s.match(/^([a-z][a-z0-9+.\-]*):/i);
-    if (m) {
-      var sch = m[1].toLowerCase();
-      var ok = (sch === 'http' || sch === 'https' || sch === 'blob');
-      var okImg = (sch === 'data' && /^data:image\//i.test(s));
-      if (!ok && !okImg) return '';
-    }
-    return escapeHtml(s);
-  } catch (e) { return ''; }
-}
+/* safeUrl -> movido a src/lib/helpers.js (Etapa 1); expuesto en window vía src/main.js */
 
 /* V5.2: renderUnidadCell ahora es solo dispatcher entre las dos
    versiones (select vs input custom). Las funciones detalladas viven
