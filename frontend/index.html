@@ -2843,12 +2843,7 @@ function initials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-function escapeHtml(s) {
-  if (s === null || s === undefined) return '';
-  return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+/* escapeHtml -> movido a src/lib/helpers.js (Etapa 1); expuesto en window vía src/main.js */
 
 /* V10.7.1 · Seguridad (pen-test MEDIA #6): saneo de URLs en atributos src/href.
    Valida el esquema (permite http/https, blob: y data:image/; rechaza

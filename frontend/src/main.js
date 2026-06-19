@@ -1,11 +1,14 @@
 // Punto de entrada de módulos de TakeOS — Etapa 1.
 //
-// Por ahora NO mueve lógica: solo confirma que un módulo ES (type="module")
-// convive con el gran <script> clásico inline dentro del build de Vite.
+// Importa las piezas extraídas a src/lib/ y las re-expone en window (el
+// "puente") para que el <script> clásico inline y los onclick inline las
+// sigan encontrando como globales mientras dure la migración.
 //
-// A medida que extraigamos piezas a src/lib/, aquí irán sus imports y sus
-// "puentes" a window para no romper los onclick inline. Ejemplo futuro:
-//   import { escapeHtml } from './lib/helpers.js';
-//   window.escapeHtml = escapeHtml;   // ← el puente
-console.info('[etapa1] módulo de entrada cargado ✓');
-window.__TAKEOS_ETAPA1__ = true; // marcador temporal para verificar en consola
+// Patrón por cada pieza extraída:
+//   import { fn } from './lib/...';
+//   window.fn = fn;   // ← puente
+import { escapeHtml } from './lib/helpers.js';
+
+window.escapeHtml = escapeHtml;
+
+console.info('[etapa1] puente listo · escapeHtml en window:', typeof window.escapeHtml === 'function');
