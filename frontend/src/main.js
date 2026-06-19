@@ -8,10 +8,12 @@
 //   import { fn } from './lib/...';
 //   window.fn = fn;   // ← puente
 import { escapeHtml, safeUrl, showToast } from './lib/helpers.js';
+import { supabaseInit } from './lib/supabase.js';
 
 window.escapeHtml = escapeHtml;
 window.safeUrl = safeUrl;
 window.showToast = showToast;
+window.supabaseInit = supabaseInit; // al llamarse, setea window.sb
 
-console.info('[etapa1] puente listo · helpers en window:',
-  ['escapeHtml', 'safeUrl', 'showToast'].every((n) => typeof window[n] === 'function'));
+console.info('[etapa1] puente listo · en window:',
+  ['escapeHtml', 'safeUrl', 'showToast', 'supabaseInit'].every((n) => typeof window[n] === 'function'));

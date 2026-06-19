@@ -17667,19 +17667,7 @@ const AUTH_TTL_HORAS = 12;
 /* Base de datos por ENTORNO. Los valores se inyectan en build desde los
    archivos .env (fuente única): .env.production (real) y .env.staging.
    Cada build lleva SOLO su propia base — producción no expone staging. */
-const SUPABASE_URL = '%VITE_SUPABASE_URL%';
-const SUPABASE_KEY = '%VITE_SUPABASE_KEY%';
-console.info('[supabase] base:', SUPABASE_URL);
-let sb = null;
-function supabaseInit() {
-  if (sb) return sb;
-  try {
-    if (typeof supabase === 'undefined') { console.error('[supabase] librería no cargada'); return null; }
-    sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    window.sb = sb;   // también disponible en la consola para pruebas
-    return sb;
-  } catch (e) { console.error('[supabase] init falló', e); return null; }
-}
+/* SUPABASE_URL/KEY + sb + supabaseInit -> movidos a src/lib/supabase.js (Etapa 1); supabaseInit y sb expuestos en window via src/main.js */
 /* Cerrar sesión. Por ahora se llama desde la consola: logoutTakeOS()
    Próximo paso: un botón "Salir" en la barra superior. */
 window.logoutTakeOS = async function () {
