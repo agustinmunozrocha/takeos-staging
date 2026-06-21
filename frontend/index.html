@@ -7673,14 +7673,29 @@ function afterRowConfirmToggle(sectionKey, dept, idx) {
 
 /* ─── AGREGAR / ELIMINAR (sí requieren re-render limitado) ──────────── */
 
+/* Pasada 1 · id estable de fila puesto por el cliente. crypto.randomUUID exige
+   contexto seguro (https/localhost) — staging y prod lo cumplen; el fallback
+   evita un crash en entornos sin él. Es un id de correlación/idempotencia, no
+   una clave de seguridad (la autoridad es el RPC + organization_id + RLS). */
+function _clientUuid() {
+  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    var r = (window.crypto && crypto.getRandomValues) ? (crypto.getRandomValues(new Uint8Array(1))[0] % 16) : Math.floor(Math.random() * 16);
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
 function addRow(sectionKey, dept) {
   const project = STATE.currentProject;
   // V5.2.2: si el proyecto ya está aprobado, las nuevas filas son
   // "extras" — editables, no afectan la cotización original.
   const isExtra = cotizadoLocked(project);
+  // Pasada 1 · la fila nueva nace con identidad estable (clientUuid), version=null
+  // (marca de "nueva, nunca guardada") y sucia. El RPC le asigna version:1 al guardar.
+  const ident = { clientUuid: _clientUuid(), version: null, _dirty: true, _dirtySeq: 1 };
   const blank = sectionKey === 'servicios'
-    ? { nombre: '', rol: '', valor: null, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: isExtra }
-    : { nombre: '', item: '', valor: null, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: isExtra };
+    ? { nombre: '', rol: '', valor: null, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: isExtra, ...ident }
+    : { nombre: '', item: '', valor: null, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: isExtra, ...ident };
 
   if (sectionKey === 'servicios') {
     project.data.servicios[dept].push(blank);
