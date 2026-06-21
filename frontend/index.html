@@ -18712,6 +18712,8 @@ function _dalBudgetRow(r, esServicio) {
     prontoPago: !!r.es_pp,   // V9.2.0: el campo real del cliente es 'prontoPago' (no 'pp')
     horaExtra: (r.hora_extra != null ? Number(r.hora_extra) : 0),
     heConfig: (r.he_config != null ? r.he_config : null),   // V10.5.0: inputs HE persistidos (jsonb); hora_extra es el cache del costo empresa
+    clientUuid: r.client_uuid || null,   // Pasada 1 · identidad estable de fila (concurrencia por fila)
+    version: (r.version != null ? r.version : null),   // Pasada 1 · sello de versión por fila (null = fila nueva sin guardar)
     _contactId: r.contact_id || ''
   };
   if (esServicio) row.rol = r.concepto || ''; else row.item = r.concepto || '';
@@ -18940,6 +18942,7 @@ function _dalProyectoPartes(p) {
   const cot = _dalCotizacionPartes(p);
   return {
     estado: p.estado || 'venta', nombre: p.nombre_proyecto || '', cliente: cliente, pe: info.productorEjecutivo,
+    headerVersion: (p.version != null ? p.version : null),   // Pasada 1 · versión de cabecera (projects.version)
     cotizacion: cot ? cot.cotizacion : null, cotizaciones: cot ? cot.cotizaciones : null,
     operaciones4a: _dalOperaciones4aPartes(p),
     operaciones4b: _dalOperaciones4bPartes(p),
@@ -18988,19 +18991,24 @@ function _dalFusionarProyecto(target, partes) {
   if (partes.documentos && partes.documentos.items) {               // V9.6.0: Documentos (4e) desde Supabase
     d.documentos = { items: partes.documentos.items };
   }
+  // ── Pasada 1 · concurrencia por fila: línea base tras (re)cargar de Supabase ──
+  target._headerVersion = (partes.headerVersion != null ? partes.headerVersion : null);   // versión de cabecera cargada
+  target._headerDirty = false; target._headerDirtySeq = 0;
+  target._budgetPendingDeletes = [];   // las filas vienen frescas del servidor → nada pendiente de borrar
+  target._snap = _snapSecciones(target);   // línea base de las secciones no migradas (snapshot-diff)
   // locaciones/tareas/senales/crewExtra/responsables/asistentes/crewExternos/gastosOp: intactos (estado actual). rodajes/planRodaje/hojaLlamado: desde Supabase (4a).
 }
 
 async function dalLoadProyectos(soloBorrados) {
   if (!sb) return null;
-  const sel = 'id,nombre_proyecto,categoria,es_remunerado,servicio,productora,fecha_entrega_final,estado,aprobado_at,cerrado_at,deleted_at,'
+  const sel = 'id,nombre_proyecto,categoria,es_remunerado,servicio,productora,fecha_entrega_final,estado,version,aprobado_at,cerrado_at,deleted_at,'
     + 'project_commercial(cliente_empresa_id,cliente_contacto_id,agencia_empresa_id,cliente_texto,agencia_texto,derechos_tiempo,derechos_plataformas,derechos_territorio,contacto_cliente,mail_contacto_cliente,telefono_contacto_cliente,contacto_agencia,mail_contacto_agencia,telefono_contacto_agencia,condicion_pago,fecha_cotizacion,fecha_aprobacion,fecha_pago),'
     + 'project_assignments(contact_id,function_id,project_functions(nombre)),'
     + 'project_financials(presupuesto_cliente,gastos_admin_pct,he_recargo_default,frozen),'
     + 'project_commissions(label,mode,value,posicion),'
     + 'project_risks(label,mode,value,posicion),'
     + 'project_income_extras(label,monto,posicion),'
-    + 'budget_line_items(section,department_id,contact_id,nombre,concepto,valor,cantidad,unidad,dte,confirmado,costo_real,es_extra,es_pp,hora_extra,he_config,posicion,departments(nombre)),'
+    + 'budget_line_items(client_uuid,version,section,department_id,contact_id,nombre,concepto,valor,cantidad,unidad,dte,confirmado,costo_real,es_extra,es_pp,hora_extra,he_config,posicion,departments(nombre)),'
     + 'project_quotation(fecha_emision,representante_cliente,condiciones,descripcion_proyecto,jornadas_rodaje,meta),'
     + 'quotation_offers(id_externo,es_base,nombre,valor_cliente,descripcion,incluye,no_incluye,entregables,presupuesto_alt,posicion),'
     + 'quotation_versions(numero,es_activa,snapshot,nota),'
@@ -19096,6 +19104,65 @@ function _dalResolveContactId(nombre, hintId) {
   if (!n) return '';
   for (const id in BD_CONTACTOS) { const c = BD_CONTACTOS[id]; if (c && (c.nombre || '').trim().toLowerCase() === n) return id; }
   return '';
+}
+
+/* ── Pasada 1 · secciones aún NO migradas a por-fila (asignaciones, finanzas,
+   cotización, versiones): se arman igual que antes, pero ahora se reusan tanto
+   para el payload como para el snapshot-diff que decide si la sección cambió (y
+   por ende si su clave se envía). El RPC, por presencia de clave, no toca lo que
+   no se manda → un autosave de presupuesto ya no reescribe estas secciones. ── */
+function _payloadAsignaciones(d) {
+  const ip = d.infoProyecto || {};
+  const asign = [];
+  [['Productor Ejecutivo', ip.productorEjecutivo], ['Director', ip.director], ['Jefe de Producción', ip.jefeProduccion]].forEach(function(par){
+    const nom = (par[1] || '').trim();
+    if (nom) asign.push({ funcion: par[0], contactId: _dalResolveContactId(nom, ''), nombre: nom });
+  });
+  return asign;
+}
+function _payloadFinanzas(d) {
+  const fin = d.finanzas || {};
+  return {
+    presupuestoCliente: (fin.presupuestoCliente != null ? fin.presupuestoCliente : 0),
+    gastosAdminPct: (fin.gastosAdminPct != null ? fin.gastosAdminPct : 0.05),
+    heRecargoPct: (fin.heRecargoPct != null ? fin.heRecargoPct : 150),
+    frozen: (fin.frozen != null ? fin.frozen : null),
+    comisiones: fin.comisiones || [], riesgos: fin.riesgos || [], extras: fin.extras || []
+  };
+}
+function _payloadCotizacion(d) {
+  const c = d.cotizacion;
+  if (c && Array.isArray(c.ofertas) && c.ofertas.length) {
+    return {
+      fechaEmision: c.fechaEmision || '', representanteCliente: c.representanteCliente || '',
+      condiciones: c.condiciones || {}, descripcionProyecto: c.descripcionProyecto || '', jornadasRodaje: c.jornadasRodaje || '',
+      meta: { id: c.id || '', numero: (c.numero != null ? c.numero : 1), label: c.label || '', nota: c.nota || '', createdAt: c.createdAt || '', resumen: (c.resumen != null ? c.resumen : null) },
+      ofertas: c.ofertas.map(function(o,i){ return {
+        idExterno: o.id || '', esBase: !!o.esBase, nombre: o.nombre || '', valorCliente: (o.valorCliente != null ? o.valorCliente : null),
+        descripcion: o.descripcion || '', incluye: o.incluye || [], noIncluye: o.noIncluye || [],
+        entregables: o.entregables || { videos: [], fotografia: [], otros: [] }, presupuestoAlt: (o.presupuestoAlt != null ? o.presupuestoAlt : null), posicion: i }; })
+    };
+  }
+  return undefined;
+}
+function _payloadVersiones(d) {
+  const cs = d.cotizaciones;
+  if (cs && Array.isArray(cs.versiones) && cs.versiones.length) {
+    return cs.versiones.map(function(v){ return { numero: (v.numero != null ? v.numero : 1), esActiva: (v.id === cs.activoId), snapshot: v, nota: v.nota || '' }; });
+  }
+  return undefined;
+}
+/* Snapshot normalizado de las secciones no migradas: el JSON contra el que se
+   compara al armar el payload. Si difiere → la sección cambió → se manda. Se
+   toma al cargar (línea base) y se re-toma tras cada guardado exitoso. */
+function _snapSecciones(project) {
+  const d = (project && project.data) || {};
+  return {
+    asignaciones: JSON.stringify(_payloadAsignaciones(d)),
+    finanzas: JSON.stringify(_payloadFinanzas(d)),
+    cotizacion: JSON.stringify(_payloadCotizacion(d) || null),
+    versiones: JSON.stringify(_payloadVersiones(d) || null)
+  };
 }
 
 /* Proyecto canónico -> payload para la RPC (inverso de la lectura). */
