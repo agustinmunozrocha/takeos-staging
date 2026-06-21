@@ -2,7 +2,9 @@
 
 > Este archivo son las **instrucciones permanentes** para Claude Code en este repositorio. Vive en la raíz del proyecto; Claude Code lo lee solo al iniciar cada sesión. Es la "biblia de producción" del agente. Mantenerlo corto y de alta señal.
 >
-> **Versión:** borrador 0.1 · **Mantiene:** Agustín (arbitra) / Redactor (consolida). Cuando suban de versión los canónicos, actualizar las referencias de abajo.
+> **Versión:** borrador 0.2 · **Mantiene:** Agustín (arbitra) / Redactor (consolida). Cuando suban de versión los canónicos, actualizar las referencias de abajo.
+>
+> **v0.2 (jun 2026):** alineado a los canónicos vigentes (PRD V3.6 · ADR v1.9 · Roadmap v1.8 · Arquitectura v1.5 · + hub de Seguridad OWASP v1.3). Cambios de fondo: nuevo flujo «BD en código» (Orden A, *merge = deploy* por Branching de Supabase; se retira el `supabase db push` manual a producción), equipo de dos con Juan de la Cuadra (CTO) y trabajo en ramas + PR, modularización del frontend con Vite (en curso, hoy en el repo de staging) y estado de deuda actualizado.
 
 ---
 
@@ -14,7 +16,7 @@ Lo construye **Agustín Muñoz Rocha** (Primate Films / La Hectárea SpA), funda
 
 ## 2. Stack técnico
 
-- **Frontend:** un solo archivo HTML grande (~25.000 líneas) con **JavaScript puro** (sin framework). El archivo canónico vive en la **raíz del repo (`/index.html`)** — GitHub Pages publica desde la raíz, por eso vive ahí y no en `frontend/`. La carpeta `frontend/` queda con un `.gitkeep` (vacía por ahora). *Cuando arranque la modularización con Vite, `frontend/` se reestructura y esta regla cambia — actualizar entonces.*
+- **Frontend:** **JavaScript puro** (sin framework), hoy un monolito de ~23.000 líneas. **En producción corre el monolito**: `index.html` vive en la **raíz** del repo y GitHub Pages publica desde ahí (la carpeta `frontend/` de producción solo tiene un `.gitkeep`). **La modularización con Vite está EN CURSO, y vive en el repo de staging**: Etapas 0 y 1 hechas (CSS extraído + un «cimiento» de 12 funciones en `frontend/src/lib/`); el grueso —la **Etapa 2**, los módulos de negocio, ~88% del trabajo— sigue pendiente, y el **corte de producción** a la build de Vite también. Patrón de migración: cada función movida a un módulo se **puentea a `window`** para no romper los `onclick` inline. *No reescribir el monolito de golpe: se extrae un módulo a la vez. Detalle en Arquitectura §3.4 y §7.*
 - **Backend:** **Supabase** — PostgreSQL (base), Supabase Auth (identidad), Supabase Storage (archivos), RLS + GRANT (acceso) y **RPCs / Edge Functions para la lógica crítica**.
 - **Multi-tenant:** `organization_id` en toda tabla de negocio.
 
@@ -22,13 +24,17 @@ Lo construye **Agustín Muñoz Rocha** (Primate Films / La Hectárea SpA), funda
 
 La verdad del proyecto vive en tres documentos. **Léelos antes de proponer cambios de fondo.** Si un cambio contradice uno de ellos, **levanta la contradicción, no la resuelvas en silencio.**
 
-- **PRD** (`TakeOS_PRD_V3_5.md`) — qué es TakeOS y por qué. **Manda en producto y dominio.**
-- **ADR** (`TakeOS_ADR_Backend_v1_7.md`) — cómo se construye técnicamente y por qué. **Manda en lo técnico.**
-- **Roadmap** (`TakeOS_Roadmap_Operativo_v1_6.md`) — en qué orden, cuándo y quién. **Manda en ejecución.**
+- **PRD** (`TakeOS_PRD_V3_6.md`) — qué es TakeOS y por qué. **Manda en producto y dominio.**
+- **ADR** (`TakeOS_ADR_Backend_v1_9.md`) — cómo se construye técnicamente y por qué. **Manda en lo técnico.**
+- **Roadmap** (`TakeOS_Roadmap_Operativo_v1_8.md`) — en qué orden, cuándo y quién. **Manda en ejecución.**
 
 Ante choque: PRD en producto → ADR en técnica → **Agustín arbitra.**
 
-> **Documento relacionado (no es del trío de autoridad):** `TakeOS_Arquitectura_y_Flujo_de_Trabajo_v1_3.md` — registra la **infraestructura** (BD en código, entornos producción/staging) y el **flujo de trabajo de equipo** (Git, ramas, Pull Requests, quién hace qué). Consúltalo para *cómo* se construye y se publica; no manda sobre producto/técnica/ejecución (eso sigue siendo PRD/ADR/Roadmap).
+> **Documentos relacionados (no son del trío de autoridad):**
+> - `TakeOS_Arquitectura_y_Flujo_de_Trabajo_v1_5.md` — la **infraestructura** (BD en código, entornos producción/staging, despliegue, modularización del frontend con Vite) y el **flujo de equipo** (Git, ramas, Pull Requests, quién hace qué). Consúltalo para *cómo* se construye y se publica.
+> - `TakeOS_Seguridad_OWASP_Top_10_2025_v1_3.md` — **hub de seguridad**: mapea las 10 categorías OWASP 2025 al stack de TakeOS y deja veredicto. Subordinado al PRD (producto) y al ADR (técnica); alimenta el Gate C y el pentest.
+>
+> Ninguno de estos manda sobre producto/técnica/ejecución (eso sigue siendo PRD/ADR/Roadmap).
 
 ---
 
@@ -60,7 +66,8 @@ Estas no se negocian. Si una tarea te empuja a romper una, **detente y avisa**.
 
 - **Ediciones quirúrgicas.** Cambia **solo** lo pedido. **No toques lo que funciona.** El frontend es un HTML de ~25k líneas: **edita la zona exacta con reemplazos puntuales; NUNCA reescribas el archivo entero.**
 - **Features grandes, pasos chicos.** Una tarea grande (integrar un flujo o módulo nuevo, por ejemplo) es un objetivo **válido y bienvenido**. Lo que nunca se hace es ejecutarla en un **solo bloque imposible de revisar**. Ante una tarea grande: primero propón un **plan** que la descomponga en pasos chicos y revisables (Plan Mode), espera la aprobación del plan, y ejecútala **paso a paso**, commiteando cada uno. Lo que debe ser chico es **cada cambio que se revisa**, no la feature.
-- **Features grandes o arriesgadas → en una rama (branch) dedicada**, nunca directo en `main`. Se construye y se prueba completa en la rama; se fusiona a `main` solo cuando funciona. Si una tarea lo amerita, propón crear la rama antes de empezar.
+- **Equipo de dos · ramas + Pull Request.** Desde junio 2026 el equipo es Agustín (producto/dominio) y **Juan de la Cuadra (CTO, responde por todo el código)**. El flujo formal es **rama de feature → PR → revisión** (Juan revisa infra/integración; Agustín, producto/dominio) → merge a `main`. **Features grandes o arriesgadas van siempre en rama dedicada**, nunca directo en `main`; se prueban completas (en staging) y se fusionan solo cuando funcionan. *Matiz de Agustín: para cambios menores y de bajo riesgo, `main` directo es aceptable — el flujo de PR no es sagrado para lo trivial.*
+- **Cambios de base de datos: «en código», repo primero (Orden A).** Todo cambio de BD es un **archivo de migración** en `supabase/migrations/`. Secuencia canónica única: **migración en una rama → PR + prueba (preview branch; el *required check* impide mergear si la migración falla) → revisión de Juan → merge a `main` → la integración de Branching de Supabase aplica la migración a producción AL MERGEAR** (*merge = deploy*). **No** se corre `supabase db push` manual a producción (lo aplica el merge; hacerlo a mano la duplica). **Nunca** se toca producción directo por el conector MCP ni por el editor SQL: eso desincroniza la base respecto del código (fue la causa del incidente del 17-jun; el «Orden B», prod-primero, quedó descartado). El conector MCP de Supabase es solo para **inspección de lectura** y pruebas en transacción revertida (`BEGIN … ROLLBACK`). *(Detalle: ADR-023 · Arquitectura §2.2 · Roadmap §5.1. Reglas: **R1** merge = deploy; **R2** la excepción «solo/rápido» relaja la revisión, nunca el orden, y solo para migraciones aditivas/reversibles que no toquen RLS, policies, auth, aislamiento de tenant, ni drops/renames/cambios de tipo/backfills; **R3** no se salta la prueba en staging.)*
 - **Explora antes de editar.** Primero encuentra y explica la zona/función relevante; recién después modifica. Usa **Plan Mode** para cualquier cambio no trivial: propón el plan, espera aprobación, luego ejecuta.
 - **Muestra el diff (técnico) + explícalo con peras y manzanas (obligatorio).** El diff es el registro técnico exacto, y está bien que sea técnico. Pero **Agustín no es programador** — es amateur, no domina la nomenclatura. Por eso, junto al diff, SIEMPRE incluye una explicación en lenguaje simple, sin jerga, que cubra: **(a) qué se hizo**, en términos de comportamiento y no de código; **(b) dónde se hizo**, qué función o parte de la app, y sobre todo **qué pantalla o flujo del usuario afecta**; y **(c) por qué**. Si tienes que usar un término técnico, **defínelo la primera vez**, como a un principiante. La explicación clara no es un extra: sin ella, Agustín no puede revisar ni aprobar.
 - **No tomas decisiones de arquitectura ni de producto.** Esas son de los chats expertos (BD, permisos, legal…) y de Agustín. Si una tarea requiere esa decisión, **detente y pregunta** en vez de improvisar.
@@ -74,15 +81,13 @@ Estas no se negocian. Si una tarea te empuja a romper una, **detente y avisa**.
 
 ## 8. Estado actual y deuda técnica conocida
 
-(Lista móvil — confirmar contra el estado real antes de actuar.)
+(Lista móvil — confirmar contra el estado real antes de actuar. Build de producción: **V11.16.0** (monolito). Base: **7 migraciones**, 77 tablas, todas con RLS.)
 
-- **Gate A cerrado:** Firebase apagado y retirado (V10), Supabase Pro con backups validados, `currentUser()` conectado a la sesión real.
-- **Autorización en RPCs:** ya construida server-side y fail-closed (Capa 1 + Capa 2). Pendiente de certificación del Test Master.
-- **Fixes puntuales pendientes (chat Dev):**
-  - Frontend fail-open: `authNivel()` retorna `'E'` cuando no hay acceso cargado → debe retornar `'none'` (fail-closed).
-  - `const IVA = 0.19` hardcodeado (~línea 5671) → reemplazar por lectura de `tax_rates`.
-  - Mover la generación de IDs (`ctk_`, `emp_`) de cliente a server-side.
-  - Validación server-side de cuentas bancarias (formato por tipo de cuenta).
+- **Gate A — CERRADO:** Firebase apagado y retirado (V10), Supabase Pro con backups validados, `currentUser()` conectado a la sesión real.
+- **Gate B — casi cerrado:** motor de organización activa construido (`_setOrgActiva`). Falta el **RLS real por organización y rol** (reemplazar las políticas `mvp_`) y su **validación con varias organizaciones** (tests de cruce de tenant que deben fallar).
+- **Gate C — por delante (crítico antes del beta):** hoy es sobre todo **legal** —los cinco flujos de derechos del titular ya están **construidos en UI**; faltan los **textos aprobados** por abogado (Ley 21.719, deadline 1-dic-2026)— más el header `frame-ancestors` del hosting y el endurecimiento del aislamiento multi-tenant. *(Mapa de seguridad: hub OWASP.)*
+- **Ya resuelto — NO reabrir:** refresco vuelve a donde estabas (V11.15.0); `authNivelModulo` **falla cerrado** (V11.15.0); validación de RUT; lectura de IVA/tasas desde `tax_rates` (en `frontend/src/lib/rates.js`); backlog de endurecimiento (REVOKE `anon`, `search_path`, policy `app_config`) entró por migración. *(Excepción deliberada, NO “arreglar”: los guardas de **escritura** del cliente siguen fail-open a propósito — la cerradura real es el RPC `SECURITY DEFINER`.)*
+- **Deuda puntual abierta:** normalización de teléfono `+56` en `_perfilGuardar` (hoy guarda en crudo); validación server-side de cuentas bancarias por tipo; mover la generación de IDs (`ctk_`, `emp_`) a server-side; deuda de reportería (RPC `cerrar_proyecto` que congele totales server-side; `reporte_cierre` recalcula desde las líneas, **nunca** confía en `frozen` ni en snapshots).
 
 ---
 

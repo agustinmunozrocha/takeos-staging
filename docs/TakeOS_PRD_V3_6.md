@@ -6,9 +6,9 @@
 
 | | |
 |---|---|
-| **Versión** | V3.5 |
+| **Versión** | V3.6 |
 | **Fecha** | Junio 2026 |
-| **Estado** | Borrador para aprobación · V3.5 sincroniza con la infraestructura ya en código (Prioridad #1 y #2 cerradas): provisión autocontenida, distinción modelo de dominio vs. conteo vivo del esquema, y suma una idea de horizonte (MCP server de solo lectura) · reemplaza V2.0 |
+| **Estado** | Borrador para aprobación · V3.6 corrige el **cupo de colaboradores a "por proyecto"** (§22), actualiza el estado real del frontend verificado contra el build vivo (Centro de Privacidad y cinco flujos de derechos **ya construidos en UI**, refresco resuelto, acceso de externos y transferencia de administración en producción) y registra el cierre del flujo "BD en código" (detalle técnico en ADR v1.8 / Arquitectura v1.4) · reemplaza V2.0 |
 | **Autor** | Agustín Ignacio Muñoz Rocha |
 | **Razón social** | La Hectárea SpA |
 | **Marca comercial** | Primate Films |
@@ -39,6 +39,8 @@ Este documento es estrictamente confidencial. Su acceso está restringido al equ
 ---
 
 ## 00.B — Changelog · V2.0 → V3.0
+
+> **Actualización V3.6 · junio 2026.** Tres cosas. **(1) Cupo de colaboradores por proyecto (§22):** el límite que da cada plan (ej. 12 en Producción) se mide **por proyecto**, no por organización; se canoniza la regla **cargos = colaboradores** y que los **internos no consumen cupo**. **(2) Estado real del frontend** (verificado contra el build vivo): el **Centro de Privacidad y los cinco flujos de derechos** ya están **construidos en UI y en producción** (con textos legales aún provisionales → lo que falta del cumplimiento es **legal**, no UI); el **bug de refresco** está resuelto; el **acceso restringido a externos** (con la lente "personas de mis proyectos") y la **transferencia de administración** están en producción. Toca §16, §21 y §07. **(3) Flujo "BD en código" cerrado:** queda registrado que el detalle técnico (Orden A, despliegue por Branching al mergear) vive en ADR v1.8 y Arquitectura v1.4. No cambian el modelo de negocio ni los planes. El resto se mantiene igual al V3.5.
 
 > **Actualización V3.5 · junio 2026.** Sincroniza el PRD con la **infraestructura ya en código** (cierre de Prioridad #1 y #2; ver Arquitectura y Flujo de Trabajo v1.3 y ADR v1.7): la **provisión de una organización nueva es autocontenida** (lee de catálogos globales, ya no clona desde Primate — ADR-022), se aclara en §19 la distinción entre el **modelo de dominio (≈24 tablas)** y el **conteo vivo de la base (77 tablas)**, y se suma a **§24 Horizonte** una idea no comprometida: un **MCP server de solo lectura** para un Reporte de Cierre analítico. No cambian el modelo de negocio ni los planes. El resto se mantiene igual al V3.4.
 
@@ -372,6 +374,8 @@ Ejemplo: un JP freelance es `externo` + perfil `Producción`: ve solo sus proyec
 
 > **Decisión estructural:** los permisos cuelgan del **usuario** (vía su membresía en la productora), **no del rol que cumple en cada proyecto.** Una persona puede tener varios roles según el proyecto, o ninguno aún; si los permisos colgaran del rol, el acceso se volvería ambiguo. El rol por proyecto es una **etiqueta descriptiva** (RECI, responsabilidades, mostrar quién es quién), desacoplada del acceso.
 
+> **Estado en producción (V3.6).** Este modelo ya está **cableado y verificado**: el **acceso restringido de externos** (un externo solo ve y direcciona a sus proyectos asignados, vía la lente `personas_de_mis_proyectos`) y la **transferencia de administración** (el Administrador puede traspasar ese perfil a otra persona) están **en el build vivo** (V11.16.0). *(El detalle de cómo se hace cumplir —portero del cliente y RPC— vive en el hub OWASP / ADR-004, no se duplica acá.)*
+
 ### Los ocho perfiles
 
 | Perfil | Roles típicos | Para qué |
@@ -633,7 +637,7 @@ Esto convierte al audit log (§10) y a la observabilidad (logs, métricas, alert
 
 > **Corrección de precisión (V3.3) — plazo de notificación de brechas.** La Ley 21.719 **no fija "72 horas"**: exige notificar a la Agencia "por los medios más expeditos y **sin dilaciones indebidas**", y avisar a los titulares cuando la brecha afecte datos sensibles, de menores de 14 años o de carácter económico/bancario. Las **72 horas** son de **otros marcos** (el RGPD europeo y la **Ley 21.663** / Ley Marco de Ciberseguridad, en su reporte a la ANCI). El estándar a usar para la Ley 21.719 es "sin dilaciones indebidas". (Detalle en ADR-012.)
 
-> **Estado de los instrumentos legales (V3.3).** Existen **dos instrumentos en borrador, NO aptos para producción ni venta** hasta que un abogado habilitado los apruebe: (1) **Términos + Privacidad de cuenta** y (2) **Consentimiento de incorporación** a una productora. La infraestructura técnica de cumplimiento ya está lista (consentimiento versionado con copia exacta del texto; auditoría inmutable; aislamiento por organización — ADR-020, ADR-012). Lo que **falta construir** son los **cinco flujos de derechos del titular**: borrado/supresión de cuenta, exportación/portabilidad, revocación del consentimiento, verificación de edad (si aplica) y aviso de cookies/analytics. *Prometer en los términos un derecho que la interfaz no entrega es, en sí mismo, un riesgo legal.* (Roadmap · Gate C.)
+> **Estado de los instrumentos legales (actualizado V3.6).** Existen **dos instrumentos en borrador, NO aptos para producción ni venta** hasta que un abogado habilitado los apruebe: (1) **Términos + Privacidad de cuenta** y (2) **Consentimiento de incorporación** a una productora. La infraestructura técnica de cumplimiento ya está lista (consentimiento versionado con copia exacta del texto; auditoría inmutable; aislamiento por organización — ADR-020, ADR-012). Y los **cinco flujos de derechos del titular** —borrado/supresión de cuenta, exportación/portabilidad, revocación del consentimiento, verificación de edad (si aplica) y aviso de cookies/analytics— ya están **construidos en UI y en producción** (Centro de Privacidad). Por lo tanto, lo que **falta NO es construir interfaz**, sino la **aprobación legal de los textos** (hoy provisionales) y el endurecimiento del aislamiento. *Prometer en los términos un derecho que la interfaz no entrega es, en sí mismo, un riesgo legal; aquí la interfaz ya está, falta que el texto lo respalde.* (Roadmap · Gate C.)
 
 > **Qué requiere validación legal antes de lanzar:** Los detalles legales —delegado de protección de datos, evaluaciones de impacto, contratos de tratamiento— deben revisarse con un **abogado especializado** antes de lanzar. Las implicancias de ingeniería —cifrar, minimizar, registrar, aislar— son estables y ya están cubiertas (§15, §17, §19). (Detalle en ADR-012.)
 
@@ -768,7 +772,7 @@ TakeOS debe sentirse premium, claro y cinematográfico. La estética no es decor
 
 **El gesto de marca.** «La boina roja»: una base seria y sobria —negros, grises, neutro— con **un gesto cálido y distintivo**, el rojo institucional, usado con intención y sin saturar. La interfaz hereda ese principio: limpia y profesional, con el acento rojo reservado para lo que importa (alertas, acciones primarias, estados).
 
-> **Persistencia al refrescar (hallazgo de testing, V3.4).** Hoy, al recargar la página, el usuario siempre vuelve a su panel personal (o al Control Room, si es interno de Primate), sin importar dónde estaba. El principio correcto es que **el refresco te deje donde estabas**: si estabas dentro de un proyecto, en Documentos, que vuelvas ahí. Arreglo de pulido (Roadmap §2).
+> **Persistencia al refrescar — RESUELTO (V3.6).** Antes, al recargar la página el usuario volvía siempre a su panel personal (o al Control Room, si era interno), sin importar dónde estaba. Ya se corrigió (V11.15.0): el refresco **te deja donde estabas** —si estabas dentro de un proyecto, en una pestaña, vuelves ahí—.
 
 **UX adaptativa por tamaño** *(Horizonte).* La visión de adaptar la UX según el tamaño de la productora (de un freelancer a una casa grande) es **horizonte de producto, no algo construido**. Se documenta como norte, no como funcionalidad vigente. Hoy la UX está calibrada para el operador real: el equipo de Primate.
 
@@ -793,6 +797,8 @@ El modelo es **premium**: no se compite por precio sino por valor percibido, dis
 | **Estudio** | Horizonte | Productoras grandes. Colaboradores ilimitados. Suma Portal de Clientes. No se muestra hasta el lanzamiento oficial. |
 | **A medida** | Horizonte lejano | Gigantes / proyectos enormes. Cotización personalizada. |
 
+> **Cupo de colaboradores: por proyecto (reconciliación V3.6).** Las cifras de colaboradores de la tabla (4, 12, ilimitado) son **por proyecto**, no por organización. Regla canónica: **cargos = colaboradores** —cada persona que ocupa un cargo en un proyecto cuenta una vez en ese proyecto— y los **internos de la organización no consumen cupo**. Ejemplo: una productora en Producción con 10 internos y un proyecto recién creado con 0 cargos tiene los **12 cupos del proyecto libres**. Esto **corrige** la definición previa (que entendía "colaborador" como el equipo de oficina y el cupo como por organización), que chocaba con cómo se construyó el enforcement. *(Implementación: el límite se aplica en `guardar_cargos`; `invitar_a_organizacion` ya no mide este cupo; ver ADR-004 v1.8.)*
+
 **Las tres puertas de valor (gating por capacidad, no solo por plan):**
 1. **Cantidad de proyectos** — separa Gratis (1) del resto (ilimitados).
 2. **Notificaciones + Finanzas·CFO** (y con ellas el **Reporte de Cierre**) — separan Rodaje de **Producción**. Aquí está el salto de valor: es la línea premium.
@@ -803,7 +809,7 @@ El modelo es **premium**: no se compite por precio sino por valor percibido, dis
 **Lógica de precios (cifras en el One-Pager v3, fuente viva):**
 - **Mensual vs anual.** Hay precio **mensual** (mes a mes) y **anual** (se paga adelantado y trae **2 meses de regalo**: pagas 10, llevas 12). El mensual estándar es el **doble** del valor anual-por-mes.
 - **Early Bird.** Tarifa de lanzamiento de **−50%**, **aplicable tanto al pago mensual como al anual**, durante los primeros 3 meses; es una **capa promocional conmutable**, no planes separados.
-- **Definición de "colaborador":** usuario con asiento/login que **opera** el software (equipo de oficina), no todo el crew del rodaje.
+- **Definición de "colaborador" (para efectos de cupo) — corregida en V3.6.** Un colaborador que **consume cupo** es una persona que **ocupa un cargo en un proyecto** (regla **cargos = colaboradores**). Los **miembros internos de la organización** (el equipo de oficina/internos) **no consumen cupo**. El cupo se cuenta **por proyecto**, no por organización: el número del plan (ej. 12 en Producción) es el máximo de cargos por cada proyecto. *(Esto reemplaza la definición anterior, que contaba al "equipo de oficina"; ver nota de reconciliación abajo.)*
 
 > **El moat:** El **Reporte de Cierre agregado** (cuatrimestral/anual/multi-año) es el moat: la data propia compone valor con el tiempo y eleva el costo de cambio (ver §14). No es una feature suelta; es la razón por la que un cliente se queda años.
 

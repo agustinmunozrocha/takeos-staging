@@ -1,12 +1,32 @@
 # TakeOS — Roadmap Operativo y Modelo de Trabajo entre Chats
 
-**Versión:** 1.6
+**Versión:** 1.8
 **Fecha:** Junio 2026
 **Autor:** Agustín Ignacio Muñoz Rocha · La Hectárea SpA / Primate Films
 **Asesoría:** arquitectura de backend
 **Estado:** Borrador para revisión.
 
-> **Documento canónico.** Versiónalo y consolídalo como el PRD y el ADR (ver §4). Esta es la v1.6.
+> **Documento canónico.** Versiónalo y consolídalo como el PRD y el ADR (ver §4). Esta es la v1.8.
+
+---
+
+## Changelog — v1.7 → v1.8
+
+- **Prioridad #3 (modularización del frontend) — avance real, corte por corte.** Con la bitácora de Juan + Code verificada contra el código vivo en staging: **Etapa 0 hecha** (Vite + deploy + CSS extraído), **Etapa 1 hecha y verificada en staging** (el *cimiento*: 12 funciones a `frontend/src/lib/` —helpers, supabase, rates, state, auth— más el "puente" `main.js`), **Etapa 2 pendiente**. **La magnitud, sin maquillaje:** el cimiento es **<1% de las funciones** (12 de ~1.290); el monolito sigue con ~1.278 funciones / 23.369 líneas. **El ~88% del trabajo es la Etapa 2** (módulos de negocio + pegamento de UI), y es lo que ahora se reparte entre Juan (estructural) y Agustín (dominio) tras el **SYNC**. El detalle vive en **Arquitectura §3.4 y §7**; el despliegue con Vite en **ADR-015**.
+- **Esto vive en staging; producción sigue siendo el monolito.** El **corte de producción** a la build de Vite está **pendiente** (junto con el diagnóstico del "404 real"), registrado en `PENDIENTES_Migracion_Vite.md`. No cambia ninguna decisión previa; es un agregado.
+- **Objetivo de seguridad ligado a la modularización:** quitar `'unsafe-inline'` del CSP recién será posible al terminar la Etapa 2 (cruza con el hub OWASP A05).
+
+---
+
+## Changelog — v1.6 → v1.7
+
+- **§5.1 y D-11 — flujo "BD en código" cerrado y operativamente explícito.** Tras el incidente del 17-jun (una migración aplicada a prod antes que al repo, reconciliada a mano) y la ratificación de Flujo de Trabajo y Metodología, queda **una sola secuencia canónica**: **Orden A** (repo primero, producción después), con la integración de **Branching de Supabase** que aplica la migración a producción **al mergear a `main`** (merge = deploy). El **Orden B (prod-first) se descarta de forma definitiva.** Se prescribe la configuración limpia (los 3 settings de la integración GitHub→Supabase en "encendido": deploy-on-merge, preview branches por PR, required check). Se agregan tres reglas: **R1** (el merge es el deploy; la revisión de la PR es la última compuerta humana), **R2** (la excepción "solo/rápido" relaja la revisión, nunca el orden, y solo para migraciones aditivas/no bloqueantes/reversibles que no toquen RLS, policies, auth, aislamiento de tenant ni drops/renames/cambios de tipo/backfills) y **R3** (no se canoniza excepción de "saltar staging": si la prueba es gratis por preview branches, se corre siempre). El detalle del flujo y su diagrama viven en **Arquitectura y Flujo de Trabajo v1.4 §2.2/§7**; el porqué técnico en **ADR-023**.
+- **§2 Fase B/C — corrección de estado del frontend (verificado contra el build vivo V11.16.0).** Varios frentes que figuraban abiertos **ya están en producción**: el *auth gate* del cliente valida con `getUser()` (cierra el fail-open) y `authNivelModulo` **falla cerrado** (devuelve `'none'` para módulos no mapeados) —cerrados V11.15.0—; el **bug de refresco** (vuelve a proyecto + pestaña) cerrado V11.15.0; los **límites de plan como momento de venta** (handler central `manejarErrorPlan`), el **acceso restringido a externos** (lente `personas_de_mis_proyectos`) y **transferir administración**, cerrados V11.16.0; y el **Centro de Privacidad** con los **cinco flujos de derechos** (exportar, consentimientos/revocar, eliminar, edad, cookies) **con UI construida y en producción**. *Importante: el detalle de seguridad (auth gate, fail-closed) vive en el hub OWASP con punteros, no duplicado aquí.*
+- **§2 Gate C — qué falta NO es más UI.** Con los cinco flujos ya construidos, lo pendiente del Gate C es la **aprobación legal de los textos** (hoy provisionales), el **backlog de endurecimiento** y el header **`frame-ancestors`**. No canonizar el Gate C como "listo".
+- **§2 — backlog de endurecimiento (ADR-024) cerrado salvo `frame-ancestors`.** El 17-jun entró la migración de endurecimiento: REVOKE de `anon` en las RPC de escritura, `search_path` en ~11 utilitarias y la decisión de `app_config`. Quedan **7 migraciones** (eran 5) calzando local↔remoto.
+- **§2 — cupo de colaboradores: por proyecto.** El límite es **por proyecto** (en `guardar_cargos`); `invitar_a_organizacion` ya no mide cupo; `rpc_assert_cupo_colaborador` quedó deprecada. Regla: **cargos = colaboradores**, y los internos no consumen cupo (detalle en PRD §22).
+- **Pendientes — normalización de teléfono.** En `_perfilGuardar`, el teléfono se guarda en crudo: falta aplicar el formateador `+56`. La validación de RUT sí se agregó (V11.15.0). Menor y despriorizado, pero registrado.
+- **Prioridad #3 — modularización activa.** Vite incremental (vanilla JS se mantiene), `frontend/src/lib` + `frontend/src/modules`, con cada módulo auto-registrando sus funciones en `window`; Etapa 0 (andamiaje + **deploy automático por GitHub Action**, que reemplaza el deploy manual frágil) → Etapa 1 (`src/lib`) → Etapa 2+ (módulos en paralelo). Es refactor que preserva comportamiento.
 
 ---
 
@@ -110,9 +130,9 @@ Implementar el sistema de perfiles del handoff de permisos: `memberships`, `perm
 > **Estado a junio 2026 (handoffs BD Expert + Code).** El **motor de organización activa en el cliente ya está construido** (`_setOrgActiva`, desde la V10.9.0): deriva la organización de la membresía activa del usuario y reemplaza el `ORG_ID` fijo, con una bandera que impide mostrar el Control Room a un usuario sin empresa. Lo que **queda para cerrar el Gate B** es el **RLS real por organización y por rol** (reemplazar las `mvp_`) y la **validación del aislamiento con varias organizaciones** (QA). En la base ya están las funciones de aprovisionamiento (ahora **autocontenidas**, ADR-022) y queda pendiente `consentir_invitacion`, que espera la aprobación legal del Instrumento 2 (ver Fase C). Detalle técnico en el ADR.
 > **Infraestructura endurecida (Prioridad #1 y #2, cerradas).** La base quedó **"en código"** (5 migraciones, reproducible) y el **entorno de prueba** está levantado como **branch de Supabase** (`staging`); la **seguridad basal del beta** se cerró (contraseñas filtradas, toggle de registro, OAuth External, CSP, revocación de funciones internas, auditoría dirigida). El detalle vive en el documento de **Arquitectura y Flujo de Trabajo v1.3**.
 > **Pen-test interno: cerrado.** Todos los hallazgos de BD remediados y verificados. El **XSS ya estaba cerrado** (la función `safeUrl` es robusta; no requería parche) y el **toggle de registro está cerrado** (hecho por Agustín).
-> **Hallazgos de testing a corregir (pulido de MVP).** Probando el software aparecieron dos cosas que arreglar, ninguna grave pero ambas visibles para el usuario:
-> 1. **La página siempre vuelve al panel personal al refrescar.** Probado con varios usuarios y de varias maneras: al recargar, a un usuario externo lo lleva a su panel personal y a un interno de Primate al Control Room, sin importar dónde estaba. Lo deseable es que el refresco **te deje donde estabas** (si estabas dentro de un proyecto, en Documentos, que vuelvas ahí). Trabajo del dev (frontend).
-> 2. **La cuenta bancaria acepta cualquier número.** En una prueba, un invitado se creó el perfil y puso números al azar en la cuenta bancaria, y el sistema lo dejó guardar. Falta **validación / estándares de cuentas bancarias** en la base de datos, para que no se pueda guardar cualquier cosa. (Caso concreto del ítem transversal "validación de contenido a nivel de campo"; ver ADR.)
+> **Hallazgos de testing (estado actualizado contra el build vivo V11.16.0).** De los dos que aparecieron probando el software:
+> 1. **Refresco — RESUELTO (V11.15.0).** El refresco ahora **te deja donde estabas** (vuelve al proyecto + la pestaña). Ya no manda siempre al panel personal.
+> 2. **Validación de campos — parcial.** Se agregó **validación de RUT** (V11.15.0). Queda pendiente la **normalización de teléfono** en `_perfilGuardar` (guarda en crudo; falta el formateador `+56`) y, en general, la validación de cuentas bancarias / contenido a nivel de campo en el servidor (ítem transversal; ver ADR-002). Menor y despriorizado, pero registrado para que no se pierda.
 
 ### Fase C — Endurecer para multi-tenant + cumplimiento · *GATE CRÍTICO (recomendado, antes del beta)*
 **Esta fase es la intervención principal de este roadmap.** Es lo que hay que construir *antes* de que entre la primera productora externa, porque ahí los datos confidenciales de terceros (tu competencia) entran al sistema.
@@ -123,11 +143,11 @@ Implementar el sistema de perfiles del handoff de permisos: `memberships`, `perm
 - [ ] **Decisión de acceso del fundador (ADR-A)** tomada: modelo de no-abuso (break-glass + audit + reputación + legal) y, idealmente, **separación societaria** de TakeOS + términos de servicio y consentimiento claros para las productoras beta.
 - [ ] **Aprobación legal de los dos instrumentos.** Existen en borrador (`terminos-cuenta-2026-06-09-v0.1-borrador` y `consentimiento-incorporacion-2026-06-09-v0.1-borrador`) y **no son aptos para producción ni venta** hasta que un abogado habilitado los apruebe.
 - [ ] **Cinco flujos de derechos del titular construidos** (Ley 21.719): (1) borrado/supresión de cuenta, (2) exportación/portabilidad, (3) revocar el consentimiento de incorporación a una productora, (4) verificación de edad (si aplica) y (5) aviso de cookies/analytics. *Prometer un derecho que la UI no entrega es, en sí mismo, un riesgo legal.*
-- [ ] **Backlog de endurecimiento cerrado** (antes del beta externo): revocar a `anon` el `EXECUTE` en las RPC de escritura como capa externa, fijar `search_path` en ~11 funciones utilitarias, decidir la policy de `app_config`, y resolver el header **`frame-ancestors`** (anti-clickjacking) del hosting. Sin hallazgos críticos; es endurecimiento. Detalle en ADR-024 y Arquitectura §6.
+- [~] **Backlog de endurecimiento — cerrado salvo un ítem.** El 17-jun entró la migración de endurecimiento: ✅ revocado a `anon` el `EXECUTE` en las RPC de escritura (capa externa; cada función ya valida `auth.uid()` por dentro y los flujos de invitación quedaron anon-ejecutables), ✅ `search_path` fijado en ~11 funciones utilitarias, ✅ decidida la policy de `app_config`. **Queda solo** el header **`frame-ancestors`** (anti-clickjacking) del hosting. Sin hallazgos críticos. Detalle en ADR-024 y Arquitectura §6.
 
 **🚪 Gate C — "Listo para datos de terceros":** los siete puntos de arriba, cumplidos y probados. Sin este gate, el beta pone en riesgo lo más caro de todo el plan: la confianza y el cumplimiento legal.
 
-> **Estado a junio 2026.** El audit log ya es inmutable desde el cliente y el aislamiento por organización está construido en la base (ver ADR); falta endurecerlo con tests de cruce de tenant que deban fallar. La **infraestructura técnica de cumplimiento** (consentimiento versionado + copia exacta del texto, auditoría inmutable) está lista; lo que bloquea es la **aprobación legal de los textos** y la **construcción de los cinco flujos de derechos**. **Deadline Ley 21.719: 1 de diciembre de 2026 (inamovible).**
+> **Estado a junio 2026 (verificado contra el build vivo V11.16.0).** El audit log ya es inmutable desde el cliente y el aislamiento por organización está construido en la base (ver ADR); falta endurecerlo con tests de cruce de tenant que deban fallar. La **infraestructura técnica de cumplimiento** (consentimiento versionado + copia exacta del texto, auditoría inmutable) está lista, y el **Centro de Privacidad con los cinco flujos de derechos** (exportar, consentimientos/revocar, eliminar, edad, cookies) **ya está construido y en producción** (UI). Por lo tanto, lo que falta del Gate C **NO es más UI**: es la **aprobación legal de los textos** (hoy provisionales), el **backlog de endurecimiento** (cerrado salvo `frame-ancestors`) y el header **`frame-ancestors`**. **Deadline Ley 21.719: 1 de diciembre de 2026 (inamovible).**
 > **Pen-test externo: desbloqueado** (el XSS ya estaba cerrado y el registro está cerrado en Auth). Puede arrancar sin esperar a que multi-tenant esté completo.
 
 ### Fase D — Beta de feedback con productoras (~4 meses, en definición)
@@ -307,11 +327,11 @@ Los chats y agentes que construyen TakeOS operan sobre **conectores**: puentes h
 Mensaje para **todos los chats y agentes que usan Supabase directamente**. Con la base ya **"en código"** (ADR-023), el protocolo cambió de raíz:
 
 - **Leer / inspeccionar:** sin restricción. Se puede consultar con normalidad.
-- **Cambios de esquema o datos a producción por el conector MCP: jamás.** Ningún agente aplica un cambio directo a la base de producción por el conector. Eso desincronizaría la base respecto del código versionado. **Todo cambio de base de datos va por migración** (archivo versionado → revisión → `db reset` local → merge → `db push`).
-- **Pruebas:** lo que un agente necesite probar contra datos, lo hace en la **branch `staging`** o en una **transacción que se revierte** (`BEGIN … ROLLBACK`), nunca con escritura persistente a producción.
+- **Cambios de esquema o datos a producción por el conector MCP: jamás.** Ningún agente aplica un cambio directo a la base de producción por el conector. Eso desincronizaría la base respecto del código versionado. **Todo cambio de base de datos va por migración, en el Orden A (repo primero, producción después).** Secuencia canónica única: **(1)** migración en una rama de feature → **(2)** PR + prueba sobre datos de prueba (con *required check* activo: una migración que falla no se puede mergear) → **(3)** revisión de Juan → **(4)** merge a `main` → **(5)** la integración de **Branching de Supabase** aplica la migración **a producción al mergear** (merge = deploy; sin `db push` manual). El **Orden B (aplicar a prod antes de mergear) se descarta de forma definitiva**: fue el atajo que causó la desincronización del 17-jun y contradice cómo opera la integración. Detalle completo y diagrama en **Arquitectura y Flujo de Trabajo §2.2/§7**.
+- **Pruebas:** lo que un agente necesite probar contra datos, lo hace en la **branch `staging`** (o en el preview branch de la PR) o en una **transacción que se revierte** (`BEGIN … ROLLBACK`), nunca con escritura persistente a producción.
 - **Eliminar o modificar algo grave: jamás.** Bajo ninguna circunstancia un agente borra o altera datos fundamentales —**organizaciones**, estructuras core, configuración crítica—.
 
-**Por qué cambió.** El protocolo anterior permitía escribir en el SQL Editor bajo checkpoints. Eso servía cuando la base vivía solo en el servidor; ahora que la base es código reproducible, cualquier escritura fuera de una migración rompe la única fuente de verdad. La regla nueva es más simple y más segura: **el conector es para mirar, no para tocar producción.**
+**Por qué cambió.** El protocolo anterior permitía escribir en el SQL Editor bajo checkpoints. Eso servía cuando la base vivía solo en el servidor; ahora que la base es código reproducible **y producción se actualiza por el merge a `main`**, cualquier escritura fuera de una migración rompe la única fuente de verdad. La regla nueva es más simple y más segura: **el conector es para mirar, no para tocar producción.**
 
 La idea de fondo se mantiene: Agustín como árbitro y guardián, y los agentes como ejecutores **con guardarriel**, no autónomos. *(Coherente con ADR-023 y con la inmutabilidad del audit log descrita en el ADR.)*
 
@@ -342,4 +362,4 @@ Terminar la migración con red (Gate A) → permisos reales para Primate (Gate B
 
 ---
 
-*Documento canónico · v1.6 · Junio 2026 · Primate Films / La Hectárea SpA. Versiónalo y consolídalo como el PRD y el ADR.*
+*Documento canónico · v1.8 · Junio 2026 · Primate Films / La Hectárea SpA. Versiónalo y consolídalo como el PRD y el ADR.*

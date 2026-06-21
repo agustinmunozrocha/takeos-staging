@@ -1,12 +1,26 @@
 # TakeOS — Arquitectura Técnica y Flujo de Trabajo de Equipo
 
-**Versión:** 1.3
-**Fecha:** 16 de junio de 2026
+**Versión:** 1.5
+**Fecha:** 19 de junio de 2026
 **Autor:** Chat de Profesor/Asesor de Software (Claude), por encargo de Agustín Muñoz Rocha
-**Estado:** **Aprobada y en ejecución** — Prioridad #1 y #2 **cerradas**; Prioridad #3 (modularización) **en arranque**.
+**Estado:** **Aprobada y en ejecución** — Prioridad #1 y #2 **cerradas**; Prioridad #3 (modularización con Vite) **en curso: Etapas 0 y 1 hechas en staging, Etapa 2 pendiente (el grueso)**.
 **Para quién es:** Agustín (product owner) y Juan de la Cuadra (CTO del proyecto)
-**Documentos relacionados:** PRD V3.5 · ADR de Backend v1.7 · Roadmap Operativo v1.6
+**Documentos relacionados:** PRD V3.6 · ADR de Backend v1.9 · Roadmap Operativo v1.8
 
+> **Cambios respecto a v1.4** (esta versión):
+> 1. **Modularización — estado real, corte por corte (§3 y §7).** Con la bitácora de Juan + Code verificada contra el código vivo: **Etapa 0 hecha** (Vite + deploy automático + CSS extraído a `src/styles.css`), **Etapa 1 hecha y verificada en staging** (el *cimiento*: 12 funciones a `src/lib/` + el "puente" `main.js`), **Etapa 2 pendiente**. Se actualiza el árbol del repo (§3.4) a la estructura real con `src/`.
+> 2. **La magnitud, sin maquillaje (§7).** El cimiento es **<1% de las funciones** (12 de ~1.290); el monolito sigue con ~1.278 funciones / 23.369 líneas. **El 88% del trabajo es la Etapa 2** (módulos de negocio + pegamento de UI). Lo hecho es chico en volumen pero crítico: es lo que destraba el trabajo en paralelo.
+> 3. **Esto vive en staging; producción sigue siendo el monolito (§5).** El corte de producción a la build de Vite está **pendiente** (junto con el diagnóstico del "404 real"). El `base: './'` de Vite es el arreglo de fondo del 404; se matiza la nota previa sobre la ubicación del `index.html`.
+> 4. **Patrones de diseño de la migración (§7 + glosario):** el puente a `window`, el estado mutable cruzando la frontera módulo/clásico, el timing de módulos diferidos, las credenciales por entorno (`import.meta.env`) y `base: './'`. El objetivo final de seguridad es **quitar `'unsafe-inline'` del CSP** (cruza con OWASP A05).
+>
+> **Cambios respecto a v1.3** (versión anterior):
+> 1. **Flujo "BD en código" cerrado y diagramado (§2.2 y §7).** Tras el incidente del 17-jun y la ratificación de Flujo de Trabajo y Metodología, queda **una sola secuencia canónica** (Orden A, repo primero), con la integración de **Branching de Supabase** que aplica la migración a producción **al mergear** (merge = deploy). Se agrega el **diagrama del flujo** (§2.2). Se descarta el Orden B. Detalle del porqué técnico en ADR-023.
+> 2. **Ubicación del `index.html` corregida (§2.4/§5):** vive en la **raíz** del repo (`/index.html`), **no** en `frontend/`. El 404 del 17-jun fue por servir GitHub Pages desde la carpeta equivocada.
+> 3. **Despliegue (§5):** el frontend pasa a **deploy automático por GitHub Action** (Etapa 0 de la modularización), que reemplaza el "arrastrar el archivo" manual y frágil.
+> 4. **Modularización activa (§3.3/§7):** Vite incremental ya arrancó. Estructura `frontend/src/lib` + `frontend/src/modules`, con cada módulo auto-registrando sus funciones en `window`. Etapas 0→1→2+.
+> 5. **Seguridad basal — backlog cerrado salvo `frame-ancestors` (§6).** Entró la migración de endurecimiento (REVOKE de `anon`, `search_path`, `app_config`). El *auth gate* del cliente quedó fail-closed (detalle en el hub OWASP).
+> 6. **Cifras vivas:** build **V11.16.0**, **7 migraciones** (eran 5).
+>
 > **Cambios respecto a v1.2** (esta versión — el plan dejó de ser propuesta y pasó a ejecutado):
 > 1. **Prioridad #1 y #2 cerradas.** La base ya está **en código** y es reproducible (5 migraciones registradas; ver §2.2 y §7); el **entorno de prueba** está levantado y la **seguridad basal del beta** quedó cerrada, incluida la auditoría dirigida (§6). El documento cambia de tono: de *plan a futuro* a *registro de lo hecho*.
 > 2. **Cifras vivas actualizadas:** **77 tablas** (no 76), 77 con RLS, 147 políticas, 71 funciones, 31 triggers, 6 extensiones, **5 migraciones**. *(Verificado contra la base viva el 16 jun 2026.)*
@@ -95,8 +109,38 @@ Hasta esta sesión, toda la base de datos existía **únicamente en el servidor 
 **Hoy la base está "en código" y es reproducible.** Qué se hizo (detalle de ejecución en §7):
 
 - Se montó el **monorepo** en el Mac de Agustín (`frontend/`, `supabase/`, `docs/`), ligado al proyecto de producción.
-- Se **capturó la base como migración base** y se verificó **reproducible** (se reconstruye desde cero con `db reset`). Quedaron **5 migraciones registradas**: el esquema completo, los triggers, el job de cron de eliminaciones, la revocación de funciones internas y la provisión autocontenida.
-- **Flujo nuevo, ya en vigencia (regla permanente):** todo cambio de base de datos se hace por **archivo de migración → revisión → `db reset` local → merge a `main` → `db push` a producción**. **Nunca** se aplica un cambio directo a producción por el conector MCP (eso desincronizaría la base respecto del código); el conector queda solo para inspección de solo lectura y pruebas en transacción revertida.
+- Se **capturó la base como migración base** y se verificó **reproducible** (se reconstruye desde cero con `db reset`). A junio 2026 hay **7 migraciones registradas**: el esquema completo, los triggers, el job de cron, la revocación de funciones internas, la provisión autocontenida, el **endurecimiento** (`anon`/`search_path`/`app_config`) y el **fix de cupo por proyecto** (las dos últimas, del 17-jun).
+- **Flujo nuevo, cerrado y en vigencia (regla permanente) — Orden A, repo primero.** Todo cambio de base de datos entra **al repositorio antes que a producción**, y producción se actualiza **sola al mergear** gracias a la integración de **Branching de Supabase** (merge = deploy). **Nunca** se aplica un cambio directo a producción por el conector MCP ni por el editor SQL.
+
+**El flujo, en una receta (la versión simple):** el repositorio (`main`) es el **libro de recetas oficial**; producción es **el plato que comen los clientes**. Solo cambiás el plato actualizando primero la receta; una vez que la receta entra al libro, una máquina recocina el plato sola. Nunca tocás el plato directo en la mesa —porque ahí el libro y el plato dirían cosas distintas (eso fue la desincronización del 17-jun)—.
+
+**El flujo, paso a paso:**
+
+```
+  1. RAMA          2. PR + PRUEBA        3. REVISIÓN      4. MERGE         5. PRODUCCIÓN
+  (migración   ──► (preview branch;  ──► (Juan mira   ──► a `main`    ──► (Branching aplica
+   en su rama)      required check:       la PR)           (punto de        la migración SOLA
+                    si falla, no se                        no retorno)       al mergear =
+                    puede mergear)                                           "merge = deploy")
+
+  Tocar producción a mano (editor SQL / conector MCP) = PROHIBIDO.
+  El conector MCP solo lee/inspecciona y prueba en transacción revertida (BEGIN … ROLLBACK).
+```
+
+```mermaid
+flowchart LR
+    A["1 · Migración<br/>en una rama"] --> B["2 · PR + prueba<br/>(preview branch)<br/>required check"]
+    B -->|falla| X["No se puede<br/>mergear"]
+    B -->|pasa| C["3 · Revisión<br/>de Juan"]
+    C --> D["4 · Merge a main<br/>(punto de no retorno)"]
+    D --> E["5 · Branching aplica<br/>a producción SOLA<br/>(merge = deploy)"]
+    P["Editor SQL /<br/>conector MCP a prod"] -.->|PROHIBIDO| E
+    style E fill:#A71E26,color:#fff
+    style P fill:#343436,color:#fff
+    style X fill:#343436,color:#fff
+```
+
+> **Lección registrada (incidente 17-jun).** El **Orden B** —aplicar a producción *antes* de mergear— fue el atajo que dejó la base y el código diciendo cosas distintas, reconciliado a mano. **Se descarta de forma definitiva**: deja una ventana de desincronización y, además, pelea con la integración (que aplica al mergear). **Reglas asociadas:** *R1* — el merge es el deploy; la revisión de la PR es la última compuerta humana. *R2* — la excepción "solo/rápido" de Agustín relaja la revisión, **nunca** el orden, y solo para migraciones aditivas/no bloqueantes/reversibles que no toquen RLS, policies, auth, aislamiento de tenant ni drops/renames/cambios de tipo/backfills (criterio: radio de impacto, no "tamaño"). *R3* — no se salta la prueba en staging: si probar es gratis por preview branches, se prueba siempre. *(El porqué técnico vive en ADR-023.)*
 
 Una **migración** es un archivo de texto que describe un cambio en la base de datos, guardado junto al código (ver Glosario). Tenerlas da lo que antes faltaba: **historia** (qué cambió, cuándo y por qué), **reproducibilidad** (recrear la base en otro lado), **revisión** (que alguien mire un cambio antes de aplicarlo) y **un entorno de prueba que se mantiene sincronizado** con producción en el tiempo.
 
@@ -217,7 +261,27 @@ takeos/
 └── README.md              # Puerta de entrada para el equipo
 ```
 
-Esta forma permite que **las dos personas trabajen en paralelo sin chocar**: Juan vive sobre todo en `supabase/`, `tests/` y `frontend/src/lib` (la infraestructura); el trabajo de módulos de Agustín entra en `frontend/src/modules/<módulo>`.
+> **Estado real hoy (v1.5) vs. destino.** El árbol de arriba es el **destino** (post-modularización). **Hoy, en la rama de staging**, ya existe el esqueleto de Vite con esta forma real (Etapas 0 y 1):
+>
+> ```
+> frontend/
+> ├── index.html            # el monolito (~23.369 líneas), ya carga /src/main.js y /src/styles.css
+> ├── package.json          # "takeos-frontend", type: module, Vite ^7
+> ├── vite.config.js        # base: './'  (rutas relativas → mata el 404 en prod y staging)
+> └── src/
+>     ├── main.js           # el "puente": importa lib/* y los re-expone en window
+>     ├── styles.css        # CSS extraído del monolito (Etapa 0)
+>     └── lib/              # el cimiento (Etapa 1), todo verificado en staging:
+>         ├── helpers.js    #   escapeHtml, safeUrl, showToast
+>         ├── supabase.js   #   cliente sb + supabaseInit (URL/KEY por import.meta.env)
+>         ├── rates.js      #   IVA y tasas + dalBootTaxRates
+>         ├── state.js      #   STATE (objeto) + ORG_ID, usuario, perfil, acceso, identidad/sesión
+>         └── auth.js       #   authNivel, authNivelModulo, authPuedeVer/Editar, authEsAdmin, MODULE_PERM_CODE
+> ```
+>
+> Es decir: el CSS y el cimiento ya están afuera del monolito; el resto de la app (los **módulos de negocio** y el **pegamento de UI**) sigue dentro del `index.html` y se extrae en la **Etapa 2** (ver §7). **Producción todavía corre el monolito**: el corte de producción a la build de Vite está pendiente (§5).
+
+Esta forma permite que **las dos personas trabajen en paralelo sin chocar**: Juan vive sobre todo en `supabase/`, `tests/` y `frontend/src/lib` (la infraestructura); el trabajo de módulos de Agustín entra en `frontend/src/modules/<módulo>` cuando arranque la Etapa 2.
 
 ---
 
@@ -297,7 +361,7 @@ Esta separación es el corazón del mandato de Juan, y ya **está montada y func
 ### 5.2. Cómo se trabaja y cómo accede otra persona
 
 - **Hacer un cambio en staging:** se edita el `index.html` en `/Software-staging` (no en `/Software`, que es producción), `git add/commit/push` a `main`, y GitHub Pages reconstruye en ~1–2 minutos (verificar con refresh duro, Cmd+Shift+R).
-- **Sincronizar producción ↔ staging:** hoy se hace **a mano** (copiar el `index.html` de un lado a otro y cambiar esas dos líneas). Es frágil (ver deuda en §6 / Roadmap).
+- **Sincronizar producción ↔ staging:** **el modelo cambió con Vite (Etapa 0+).** En staging, el frontend ya **se construye con Vite** (`vite build` → carpeta `dist/`) con **`base: './'`** (rutas relativas, para que la misma build sirva en producción y en staging sin tocar nada — el arreglo de fondo del 404), y las credenciales de cada entorno entran por **`import.meta.env`** (`VITE_SUPABASE_URL` / `VITE_SUPABASE_KEY`), no editando dos líneas a mano. La BD se aplica por **Branching al mergear** (merge = deploy, §2.2). **Pendiente:** el **corte de producción** a esta build de Vite (hoy producción aún corre el monolito servido directo) y el **diagnóstico del "404 real"** de ese corte, ambos registrados en `PENDIENTES_Migracion_Vite.md`. Mientras tanto, producción y staging viven con modelos distintos: monolito directo vs. build de Vite.
 - **Acceso por persona, no "por cuenta de Claude".** Para que Juan (u otro) trabaje el frontend, Agustín lo agrega como **colaborador** del repo en GitHub; cada quien clona el repo y autentica con **su propia cuenta de GitHub**. Si usa Claude Code, este opera con las credenciales de esa persona.
 
 > **Datos de prueba.** La base de staging se puebla con nombres ficticios tomados de **ambos mundos de ejemplo (El Señor de los Anillos y Game of Thrones)**, con montos reales pero RUTs y cuentas bancarias falseados. Nunca datos reales de terceros.
@@ -322,8 +386,9 @@ El backend ya es fuerte. La lista corta para el **beta** se trabajó completa en
 
 **Pendiente antes de abrir el beta a terceros:**
 
-- **Header `frame-ancestors`** (anti-clickjacking): la CSP por `<meta>` no puede fijarlo; va como header del hosting (`frame-ancestors 'self'` o `X-Frame-Options: SAMEORIGIN`). GitHub Pages no deja headers custom con facilidad → puede requerir un proxy/hosting con headers, o aceptarse como limitación conocida del beta.
-- **Backlog de endurecimiento** (del linter de seguridad de Supabase; sin hallazgos críticos): revocar a `anon` el `EXECUTE` en las RPC de escritura como capa externa (cada función ya valida `auth.uid()` por dentro, así que no es puerta abierta; los flujos de invitación deben quedar anon-ejecutables); fijar `search_path` en ~11 funciones utilitarias; y decidir la policy de `app_config` (hoy con RLS pero sin policy: confirmar si el frontend la lee directo o solo server-side). Se hará como una migración por el flujo en código.
+- **Header `frame-ancestors`** (anti-clickjacking): la CSP por `<meta>` no puede fijarlo; va como header del hosting (`frame-ancestors 'self'` o `X-Frame-Options: SAMEORIGIN`). GitHub Pages no deja headers custom con facilidad → puede requerir un proxy/hosting con headers, o aceptarse como limitación conocida del beta. **Es lo único que queda del endurecimiento.**
+
+> **Backlog de endurecimiento — HECHO (migración `…144834`, 17-jun).** Lo que antes figuraba pendiente del linter de Supabase ya entró como migración (flujo en código): ✅ revocado a `anon` el `EXECUTE` en las RPC de escritura (los flujos de invitación quedaron anon-ejecutables), ✅ `search_path` fijado en ~11 utilitarias, ✅ decidida la policy de `app_config`. Sin hallazgos críticos. *(El detalle de seguridad —auth gate fail-closed, fail-open deliberado de los guardas de escritura— vive en el hub OWASP A01/A05/A10, no se duplica acá.)*
 
 **Deuda de la fase de reportería (no bloquea hoy):**
 
@@ -359,15 +424,42 @@ Con la base "en código", el entorno de prueba (la branch `staging`, §5) quedó
 
 *Al terminar, existe un lugar seguro para probar y la seguridad basal está cerrada.*
 
-### Prioridad #3 — Modularización del código del frontend · 🚧 EN ARRANQUE
+### Prioridad #3 — Modularización del código del frontend · 🚧 EN CURSO (Etapas 0 y 1 hechas en staging)
 
-Es el frente que sigue, y arranca ahora (probablemente esta semana, con la introducción de Vite). Partir el monolito de ~26.700 líneas en módulos: un archivo que tocan Juan, Agustín y Code a la vez es una fábrica de choques, y *todos* los frentes de frontend del beta son trabajo sobre este código. Va **después** de la base en código y el entorno de prueba, que ya están.
+Es el frente activo. Partir el monolito en módulos: un archivo que tocan Juan, Agustín y Code a la vez es una fábrica de choques, y *todos* los frentes de frontend del beta son trabajo sobre este código. Va **después** de la base en código y el entorno de prueba, que ya están. Es un **refactor que preserva comportamiento** (sin features mezcladas), con **Vite incremental** (vanilla JS se mantiene; sin framework). **Todo se hace y se verifica en staging primero; producción sigue siendo el monolito** (el corte de producción está pendiente, §5).
 
-- Juan introduce **Vite** y monta la estructura.
-- Se extrae **primero la librería compartida** (`src/lib`: cliente de Supabase, auth, carga de tasas).
-- Después se extrae **un módulo a la vez**, en PRs chicos y revisables, dejando el resto del monolito intacto hasta que le toque. **Nunca todo de golpe.** El trabajo de módulos de Agustín va aterrizando en cada módulo ya extraído.
+**La estrategia: de afuera hacia adentro, de fácil a difícil.** Las funciones se ordenan en un espectro por **acoplamiento** (cuánto arrastran al moverse):
 
-> **Por qué es prioridad #3 y no seguridad (alineado con Agustín y Juan):** modularizar cambia el **empaque** y da **claridad** para razonar el código; **no esconde** la lógica de interfaz ni la "mueve al backend" —lo que el usuario necesita correr, le llega igual (ver 3.0)—. Se justifica por **mantenibilidad y trabajo de a dos**, no por seguridad. La claridad que da, eso sí, es lo que **habilita** la auditoría dirigida de la prioridad #2.
+```
+FÁCIL ──────────────────────────────────────────────────────────► DIFÍCIL
+scalars            funciones puras    funciones con estado   funciones acopladas
+(IVA, ORG_ID,      (escapeHtml,       (dalBootTaxRates,      a UI + datos + otras
+ identidad)         authPuedeVer)      supabaseInit)          (login, cargadores, render)
+└──────────────────────── el "cimiento" (Etapa 1) ──────────┘  └─── módulos (Etapa 2) ───┘
+```
+
+El **orden de las etapas no es casualidad: copia ese espectro**, por dos razones que apuntan al mismo lado: **dependencias** (los módulos *importan* el cimiento, no al revés → el cimiento va primero por obligación) y **riesgo** (lo puro es lo más seguro → se prueba el patrón del puente en piezas inofensivas antes que en las peligrosas).
+
+- **Etapa 0 — andamiaje + CSS · ✅ HECHA.** Juan introdujo **Vite**, montó la estructura y el **deploy automático**, y extrajo el **CSS** del monolito a `src/styles.css`. El CSS es como un *scalar gigante*: datos puros, sin comportamiento, sin dependencias → lo primero y lo más seguro. El `index.html` ya carga `/src/main.js` y `/src/styles.css`.
+- **Etapa 1 — el cimiento · ✅ HECHA y verificada en staging.** Se extrajo a `frontend/src/lib/` **lo de bajo acople** —lo que *todos* los módulos importan—: `helpers.js` (escapeHtml, safeUrl, showToast), `supabase.js` (cliente `sb` + supabaseInit), `rates.js` (IVA/tasas + dalBootTaxRates), `state.js` (el objeto `STATE` + scalars de organización, usuario, perfil, acceso e identidad) y `auth.js` (authNivel, authNivelModulo, authPuedeVer/Editar, authEsAdmin, MODULE_PERM_CODE). El `main.js` importa todo y lo **puentea a `window`**. Son **12 funciones** + el estado compartido.
+  - **Diferido a Etapa 2 a propósito (no es olvido):** el **login** (`cloudGate`, que es una vista) y los **cargadores de identidad** (`dalResolveIdentidad`, `dalLoadPermisos`, acoplados a contactos + UI) y la **sesión**. El *estado* de identidad ya quedó coherente en `state.js`; las *funciones* que lo escriben se sacan limpio con sus vecinos cuando toque su módulo.
+- **Etapa 2 — los módulos de negocio · ⬜ PENDIENTE (el grueso).** Cotización, Legal, Finanzas, Kanban, Plan de Rodaje… más el **pegamento de UI** (login, cargadores, funciones de render). Es *la app misma* interconectada. Se extrae **un módulo a la vez** a `frontend/src/modules/<módulo>`, en PRs chicos y revisables, dejando el resto del monolito intacto hasta que le toque. **Nunca todo de golpe.** Cada módulo tiene su **propio mini-espectro** (sus scalars, sus puras, su estado, su UI), así que el patrón de la Etapa 1 se repite adentro de cada uno.
+
+> **La magnitud real, sin maquillaje.** Lo hecho es **el cimiento, no la casa**. Por funciones: **12 de ~1.290 extraídas → <1%**. Por líneas: el monolito bajó de 26.685 a 23.369 (~12%, y buena parte fue el CSS de la Etapa 0). Lo hecho es chico en volumen pero **crítico**: es lo que *destraba* todo lo demás (sin `state.js`, no se puede extraer Cotización). **El 88% del trabajo está en la Etapa 2** — y es justo lo que ahora se puede repartir entre Juan y Agustín.
+
+**Patrones de diseño de la migración** (el "cómo" reutilizable, ya probado en staging):
+- **Puente a `window`.** El monolito usa miles de `onclick` inline que llaman funciones globales. Cada pieza que se mueve a un módulo se **re-publica en `window`** desde `main.js` (`window.fn = fn`) para no romper la interfaz. El puente se quita recién cuando ya no queden consumidores clásicos de esa función (gradual, no de golpe).
+- **Estado mutable cruzando la frontera.** El objeto `STATE` se comparte **por referencia** (leer/mutar propiedades propaga solo). Los scalars (IVA, ORG_ID…) viven en `window`: el código clásico los lee/escribe como globales, pero un módulo (modo estricto) que quiera escribirlos debe hacerlo vía `window.X`.
+- **Credenciales por entorno.** La URL/clave de Supabase se inyectan por `import.meta.env` (Vite las reemplaza en build): producción usa la base real, staging la de staging, sin filtrar una en la otra.
+- **`base: './'` y el 404.** Vite construye con **rutas relativas**, así la misma build funciona en producción y en staging sin cambios — el arreglo de fondo del 404.
+
+> **Reparto (el "SYNC").** Cerrado el cimiento, el plan dice: muéstrale a Agustín la estructura nueva y acuerden el **reparto de módulos** de la Etapa 2. Ahí arranca el trabajo en paralelo: **Juan toma lo estructural** (infraestructura, librería compartida) y **Agustín entra en la Etapa 2** con los módulos de dominio, uno por vez. *(Plan de detalle en `docs/Planes/Plan_Modularizacion_Vite.md`; pendientes operativos del corte de producción en `PENDIENTES_Migracion_Vite.md`.)*
+
+> **El objetivo final de seguridad.** Cuando ya no queden `onclick` inline ni `<script>` inline (fin de la Etapa 2), se podrá **quitar `'unsafe-inline'` del CSP** — el premio de seguridad real de toda la modularización (cruza con OWASP A05; hoy `'unsafe-inline'` es necesario *porque* el monolito usa código inline).
+
+> **Por qué es prioridad #3 y no seguridad (alineado con Agustín y Juan):** modularizar cambia el **empaque** y da **claridad** para razonar el código; **no esconde** la lógica de interfaz ni la "mueve al backend" —lo que el usuario necesita correr, le llega igual (ver 3.0)—. Esconder funciones de `window` **no es** un muro de seguridad en el navegador. Se justifica por **mantenibilidad y trabajo de a dos**; el premio de seguridad concreto (quitar `'unsafe-inline'`) llega **al final** del camino, no por modularizar una función suelta.
+
+
 
 ### Más adelante (horizonte)
 
@@ -392,7 +484,7 @@ Es el frente que sigue, y arranca ahora (probablemente esta semana, con la intro
 | D-8 | Orden de la migración | **Por prioridades:** #1 base en código · #2 staging + seguridad basal (incl. auditoría dirigida) · #3 modularización del frontend. El trabajo de producto de Agustín corre en paralelo. | La base sin reproducibilidad es el mayor riesgo; la modularización es mantenibilidad, no seguridad, y va después. |
 | D-10 | Frontend vs backend | **Modelo de "dos baldes" (ver 3.0):** la interfaz (HTML/CSS/JS) viaja y es visible; lo autoritativo/secreto se hace RPC/RLS (no viaja). | El JS de interfaz no "se mueve al backend"; lo que se protege se hace backend desde el diseño. |
 | D-9 | Hosting *(a ratificar)* | **Recomendado:** mover a Cloudflare Pages o Netlify (gratis, build automático, vistas previas por PR). GitHub Pages sigue siendo viable con un paso de build. | Las vistas previas por PR son muy útiles para revisar de a dos. |
-| D-11 | Flujo de cambios de BD | **Todo por migración** (migración → reset → merge → push); **nunca** cambio directo a producción por el conector MCP | Mantiene la base sincronizada con el código; el MCP queda para lectura/inspección y pruebas en transacción revertida. |
+| D-11 | Flujo de cambios de BD | **Orden A, repo primero** (rama → PR + prueba con required check → revisión → merge → **Branching aplica a prod al mergear**, sin `db push` manual). **Nunca** cambio directo a producción por el conector MCP. Se descarta el Orden B. | Mantiene la base sincronizada con el código y deja el orden **forzado por la herramienta**; el MCP queda para lectura/inspección y pruebas en transacción revertida (ADR-023, §2.2). |
 | D-12 | Provisión de organizaciones | **Autocontenida:** 5 catálogos globales `default_*` con los valores canónicos; las funciones de provisión leen de ahí, no de Primate como plantilla | Un entorno limpio puede crear su primera productora sin depender de Primate — requisito de un SaaS multi-tenant. |
 
 ---
@@ -459,11 +551,35 @@ Parte del trato en este equipo es la franqueza. Estos son los puntos donde convi
 
 **Módulo.** Un archivo (o carpeta) de código con una responsabilidad acotada. Partir el monolito en módulos = pasar de un archivo de 26.000 líneas a muchos archivos chicos y entendibles.
 
+**Puente / bridge (`window.fn = fn`).** Re-exponer en el global (`window`) una función que se movió a un módulo, para que el código clásico y los `onclick` inline la sigan encontrando como antes. Es el truco que permite modularizar **sin romper** la interfaz mientras dure la migración; se quita recién cuando ya nadie clásico llama a esa función.
+
+**Cimiento.** Lo que **todos** los módulos importan: el estado compartido, el cliente de base de datos, las utilidades y los permisos. Por definición es de bajo acoplamiento, por eso se extrae primero (Etapa 1).
+
+**Scalar.** Un valor único (un número, un texto, un booleano) sin dependencias —por ejemplo `IVA` o `ORG_ID`—. Es lo más fácil de mover entre archivos.
+
+**Acoplado a la UI.** Lógica que toca la pantalla (el DOM) directamente. Es lo más difícil de mover, porque al sacarla arrastra las funciones de dibujo y media app con ella → se deja para la Etapa 2.
+
+**Modo estricto.** Los módulos de JavaScript lo son: no dejan reasignar una variable global "a secas". Por eso, cuando un módulo necesita **escribir** un global (como una tasa de impuesto), lo hace vía `window.X` y no a secas.
+
+**`import.meta.env`.** La forma en que Vite inyecta valores por entorno (como la URL y la clave de Supabase) en el momento de construir: producción recibe los de producción, staging los de staging, sin que se filtre uno en el otro.
+
 **Framework de frontend (React, Vue, Svelte).** Una tecnología que impone una forma estructurada de construir interfaces. Son potentes, pero traen una curva de aprendizaje y, en nuestro caso, obligarían a reescribir todo. Por eso, por ahora, **no** los usamos.
 
 **Staging.** Un entorno espejo del sistema real, separado, donde se prueba y se ataca sin riesgo. Lo opuesto a producción.
 
 **Branch de Supabase.** Una copia-rama del proyecto de base de datos, efímera y separada, que se paga solo por las horas que está activa. La usamos como entorno de prueba (`staging`): nace de las mismas migraciones que producción, pero con datos ficticios y cero datos reales.
+
+**Branching (la integración de Supabase con GitHub).** Una conexión que Supabase mantiene con el repositorio: vigila las Pull Requests y, cuando una toca la carpeta `supabase/`, actúa sola. En nuestra config: al **mergear** una PR con una migración a `main`, **aplica esa migración a producción automáticamente**. Por eso producción se actualiza con el merge y no hay que aplicarla a mano.
+
+**Preview branch.** Una branch de prueba que Supabase crea/actualiza sola para cada PR, para probar la migración sobre datos de prueba antes de mergear. Es lo que hace que "probar" y "abrir la PR" sean el mismo momento.
+
+**Required check (chequeo obligatorio).** Una regla en GitHub que impide mergear una PR si una verificación no pasó. En nuestro caso: si la migración falla en la prueba, la PR **no se puede mergear** → una migración rota nunca llega a `main`, y por tanto nunca llega a producción.
+
+**Merge = deploy.** Como producción se actualiza al mergear, el botón de **merge es el momento en que el cambio sale a producción** (el punto de no retorno). La última revisión humana es la de la PR, antes de mergear; después no hay un paso manual extra.
+
+**GitHub Action.** Una automatización que vive en el repositorio y corre sola ante un evento (ej. un merge a `main`). La usamos para **publicar el frontend automáticamente** en vez de "arrastrar el archivo" a mano.
+
+**`db push`.** El comando de la Supabase CLI que aplica migraciones a una base remota. Con la integración de Branching aplicando al mergear, el `db push` **manual a producción queda prohibido** (aplicaría dos veces). Sigue sirviendo para empujar a una branch de prueba si no hay preview branches.
 
 **Producción.** El sistema real que usan los usuarios de verdad. Acá no se experimenta.
 
@@ -493,8 +609,8 @@ Parte del trato en este equipo es la franqueza. Estos son los puntos donde convi
 
 Las prioridades #1 y #2 ya están cerradas, igual que los *quick wins* de un clic. Lo que queda, en orden:
 
-1. **Prioridad #3 — modularización del frontend:** es el frente que arranca ahora. El próximo entregable es el **handoff de arranque de modularización para Juan**: introducir **Vite** y extraer **primero la librería compartida** (`src/lib`: cliente de Supabase, auth, carga de tasas), y de ahí un módulo a la vez en PRs chicos. Probablemente comience esta semana.
-2. **Antes de abrir el beta a terceros:** cerrar el **backlog de endurecimiento** (§6) y resolver el header `frame-ancestors` del hosting; en paralelo, avanzar el **Gate C** (los cinco flujos de la Ley 21.719 y la aprobación legal de los dos instrumentos).
+1. **Prioridad #3 — modularización del frontend (EN CURSO):** Etapas 0 (Vite + deploy + CSS) y 1 (el cimiento en `src/lib`) **ya hechas y verificadas en staging**. Lo que sigue: el **SYNC** (mostrarle a Agustín la estructura nueva y acordar el reparto de módulos) y arrancar la **Etapa 2** —los módulos de negocio, el grueso del trabajo, en paralelo—; además, el **corte de producción** a la build de Vite (pendiente, §5).
+2. **Antes de abrir el beta a terceros:** resolver el header `frame-ancestors` del hosting (lo único que queda del endurecimiento; el resto del backlog ya entró como migración, §6); y avanzar el **Gate C**, que ahora es sobre todo **legal**: la aprobación de los textos de los dos instrumentos (los **cinco flujos de derechos ya están construidos en UI**, solo con textos provisionales) y el endurecimiento del aislamiento multi-tenant con tests de cruce.
 3. **Deuda de reportería** (cuando se construya el `reporte_cierre`): la RPC `cerrar_proyecto` que congele totales del lado servidor, y el recálculo del reporte desde las líneas (§6).
 4. En paralelo a todo, el **trabajo de producto y módulos de Agustín** (con los chats + Code) sigue corriendo.
 
@@ -502,4 +618,4 @@ Las prioridades #1 y #2 ya están cerradas, igual que los *quick wins* de un cli
 
 ---
 
-*Documento canónico v1.3 — aprobado y en ejecución. Toda decisión registrada aquí se tomó contra la información viva del 16 de junio de 2026 (archivo `index.html` en producción y base de datos Supabase `zplcgetquwxybkrpmcvl`: 77 tablas con RLS, 147 políticas, 5 migraciones, base reproducible, una organización real —Primate, plan producción—, enforcement de planes cableado).*
+*Documento canónico v1.5 — aprobado y en ejecución. Toda decisión registrada aquí se tomó contra la información viva (build de producción **V11.16.0** —el monolito— y base de datos Supabase `zplcgetquwxybkrpmcvl`: 77 tablas con RLS, 147 políticas, **7 migraciones**, base reproducible, producción que se actualiza por Branching al mergear, una organización real —Primate, plan producción—, enforcement de planes cableado). Modularización verificada contra la rama de staging: **Etapas 0 y 1 hechas** (CSS + cimiento de 12 funciones en `frontend/src/lib`; monolito en 23.369 líneas), **Etapa 2 pendiente**. Verificado 19 de junio de 2026.*

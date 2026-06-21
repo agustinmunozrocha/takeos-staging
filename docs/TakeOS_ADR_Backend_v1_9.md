@@ -1,14 +1,32 @@
 # TakeOS — ADR de Backend (Architecture Decision Record)
 
-**Versión:** 1.7
+**Versión:** 1.9
 **Fecha:** Junio 2026
 **Autor de las decisiones:** Agustín Ignacio Muñoz Rocha · Primate Films / La Hectárea SpA
 **Asesoría técnica:** sesión de arquitectura de backend
-**Estado del documento:** Borrador alineado al **PRD V3.5** (autoritativo), al **Roadmap Operativo v1.6**, al **Arquitectura y Flujo de Trabajo v1.3** y a los **handoffs de BD Expert (cierre de Prioridad #1 y #2) y Code**.
+**Estado del documento:** Borrador alineado al **PRD V3.6** (autoritativo), al **Roadmap Operativo v1.8**, al **Arquitectura y Flujo de Trabajo v1.5** y a los **handoffs de Flujo de Trabajo y Metodología (flujo BD en código), Dev (deltas de frontend), Code y la bitácora de modularización Vite (Juan + Code)**.
 
-> **Autoridad documental.** Donde el PRD y este ADR hablen del mismo tema, **el PRD manda en lo conceptual y de producto; el ADR manda en lo técnico**. El PRD V3.5 es la fuente de verdad de las decisiones; este documento detalla el *cómo* y el *porqué* técnico. El **Roadmap Operativo v1.6** define la secuencia de ejecución y el modelo de trabajo entre chats; el **Arquitectura y Flujo de Trabajo v1.3** documenta la infraestructura (BD en código, entornos) y el flujo de equipo.
+> **Autoridad documental.** Donde el PRD y este ADR hablen del mismo tema, **el PRD manda en lo conceptual y de producto; el ADR manda en lo técnico**. El PRD V3.6 es la fuente de verdad de las decisiones; este documento detalla el *cómo* y el *porqué* técnico. El **Roadmap Operativo v1.8** define la secuencia de ejecución y el modelo de trabajo entre chats; el **Arquitectura y Flujo de Trabajo v1.5** documenta la infraestructura (BD en código, entornos, flujo de despliegue, modularización del frontend) y el flujo de equipo.
 
 ---
+
+## Changelog — v1.8 → v1.9
+
+Consolida la **bitácora de modularización del frontend** (Juan + Code), verificada contra el código vivo en la rama de staging. No cambia ninguna decisión previa; es un agregado técnico. Alineado a **PRD V3.6**, **Roadmap Operativo v1.8** y **Arquitectura y Flujo de Trabajo v1.5** (donde vive el detalle de la modularización).
+- **ADR-015 (actualizado) — despliegue del frontend con Vite.** La build pasa a `vite build` → carpeta `dist/`, con **`base: './'`** (rutas relativas: la misma build sirve en producción y staging, arreglo de fondo del 404) y **credenciales por entorno vía `import.meta.env`** (`VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY`), no por edición manual. **Esto vive en staging; el corte de producción a la build de Vite está pendiente** (junto con el diagnóstico del "404 real"), registrado en `PENDIENTES_Migracion_Vite.md`. Producción aún corre el monolito servido directo.
+- **Modularización — estado y patrones (detalle en Arquitectura §7).** Etapa 0 hecha (Vite + deploy + CSS a `src/styles.css`), Etapa 1 hecha y verificada en staging (el **cimiento**: 12 funciones a `src/lib/` + el "puente" `main.js`), Etapa 2 pendiente (el ~88% del trabajo: módulos de negocio + pegamento de UI). Patrón técnico clave: **puente a `window`** para no romper los `onclick` inline, estado compartido por referencia, y escritura de globales desde módulos vía `window.X` (modo estricto). El **objetivo final de seguridad** es quitar `'unsafe-inline'` del CSP al terminar la Etapa 2 (cruza con el hub OWASP A05).
+- **Nota de magnitud (anti-sobreventa):** lo modularizado es **<1% de las funciones** (el cimiento), no "casi toda la app". El grueso es la Etapa 2.
+
+## Changelog — v1.7 → v1.8
+
+Consolida el cierre del **flujo "BD en código"** (handoff de Flujo de Trabajo y Metodología, ratificando a Code), los **deltas de frontend** del handoff de Dev (verificados contra el build vivo **V11.16.0**) y el cierre del backlog de endurecimiento. Alineado a **PRD V3.6**, **Roadmap Operativo v1.7** y **Arquitectura y Flujo de Trabajo v1.4**.
+- **ADR-023 (reescrito) — flujo BD en código cerrado.** Secuencia canónica única en **Orden A** (repo primero, prod después), con la integración de **Branching de Supabase** que aplica la migración a producción **al mergear a `main`** (merge = deploy; sin `db push` manual). Se descarta el Orden B (prod-first). Tabla de migraciones actualizada a **7** (entran `…144834_endurecimiento_anon_y_search_path` y `…160000_fix_cupo_colaboradores_por_proyecto`). Reglas nuevas: R1 (merge = deploy), R2 (excepción solo/rápido acotada por radio de impacto y reversibilidad), R3 (no se canoniza "saltar staging").
+- **ADR-024 (actualizado) — backlog de endurecimiento cerrado salvo `frame-ancestors`.** La migración `…144834` ejecutó: REVOKE de `anon` en las RPC de escritura (flujos de invitación quedaron anon-ejecutables), `search_path` en ~11 utilitarias y la policy de `app_config`. Pendiente: solo el header `frame-ancestors` (hosting).
+- **ADR-004 (actualizado) — cupo de colaboradores por proyecto.** `invitar_a_organizacion` ya **no mide cupo**; el límite se aplica **por proyecto** en `guardar_cargos`; `rpc_assert_cupo_colaborador` quedó **deprecada**. Regla de producto: **cargos = colaboradores**, internos no consumen cupo (PRD §22). El *auth gate* del cliente quedó fail-closed (ver punteros al hub OWASP).
+- **ADR-015 (actualizado) — despliegue automatizado.** Producción de BD se aplica por **Branching al mergear**; el frontend pasa a **deploy automático por GitHub Action** (Etapa 0 de la modularización), reemplazando el deploy manual frágil. El `index.html` canónico vive en la **raíz** del repo (no en `frontend/`).
+- **ADR-002 (validación):** se agregó **validación de RUT** (V11.15.0); queda pendiente la **normalización de teléfono** (`+56`) en `_perfilGuardar`.
+- **ADR-005 (actualizado):** cifras vivas — **7 migraciones** registradas; `rpc_assert_cupo_colaborador` deprecada por el cambio de cupo.
+- **Nota de disciplina:** el detalle de seguridad (auth gate, fail-closed, fail-open deliberado de los guardas de escritura) vive en el **hub OWASP** con punteros, no duplicado en este ADR.
 
 ## Changelog — v1.6 → v1.7
 
@@ -154,6 +172,8 @@ Lo que **falta** (resumen): 15 tablas (proyectos+presupuesto, finanzas, operacio
 **Consecuencias.** Reglas duplicadas (cliente=UX, servidor=autoridad). Las reglas de negocio deben especificarse **exhaustivas** (lo no listado como permitido se asume prohibido).
 
 > **Caso concreto (V3.4) — cuentas bancarias.** En una prueba, un usuario guardó números al azar como cuenta bancaria y el sistema lo aceptó. Las cuentas bancarias (`user_bank_accounts` y `contact_bank_accounts`) deben **validarse en el servidor** con estándares de formato (largo y estructura según tipo de cuenta), no solo en el frontend. Es una instancia del ítem transversal "validación de contenido a nivel de campo".
+>
+> **Progreso (v1.8).** Se agregó **validación de RUT** (V11.15.0). Queda pendiente la **normalización de teléfono** en `_perfilGuardar`: hoy guarda en crudo, falta aplicar el formateador `+56`. Menor y despriorizado, pero registrado (ver Roadmap, pendientes).
 
 ---
 
@@ -214,6 +234,10 @@ La autorización se aplica **server-side y vía RLS, en cada request**. El front
 
 **Actualización v1.7 — enforcement de planes cableado.** Además del control de acceso por perfil, el sistema ahora aplica el **plan** de la organización (`organizations.plan`). Existe el helper **`auth_plan_permite`** y guardas en las RPC de escritura: hoy el plan se exige en `guardar_proyecto`, `invitar_a_organizacion` y `guardar_pagos_cliente`. **Pendiente:** cablearlo en `reporte_cierre` y `notificaciones` cuando esas funciones existan. El mapeo "qué capacidad entra en qué plan" es decisión de Marketing + producto (PRD §22).
 
+**Actualización v1.8 — cupo de colaboradores por proyecto + auth gate del cliente.**
+- **Cupo por proyecto.** El cupo de colaboradores que da cada plan (ej. 12 en Producción) se mide **por proyecto**, en `guardar_cargos`. `invitar_a_organizacion` **dejó de medir cupo** de colaboradores y `rpc_assert_cupo_colaborador` quedó **deprecada** (migración `…160000`). Regla de producto canonizada en PRD §22: **cargos = colaboradores**, y los **internos no consumen cupo** (una organización con internos y un proyecto con cero cargos tiene todo el cupo del plan libre para repartir en ese proyecto). El enforcement de plan en `invitar_a_organizacion` que queda es el de **membresía/asiento**, no el de cupo de cargos.
+- **Auth gate del cliente (fail-closed).** El portero de autorización del frontend valida la identidad con `getUser()` y `authNivelModulo` **falla cerrado** (devuelve `'none'` para módulos no mapeados) — cerrados V11.15.0. **Excepción deliberada:** los guardas de **escritura** del cliente siguen **fail-open a propósito**, porque la seguridad real de escritura es el RPC `SECURITY DEFINER` (Gate C); no es un hueco. *(Detalle de seguridad en el hub OWASP, A01/A07/A10 — no se duplica aquí.)*
+
 ---
 
 ## ADR-005 — Modelo de datos relacional en PostgreSQL (esquema de 24 tablas)
@@ -232,7 +256,7 @@ La autorización se aplica **server-side y vía RLS, en cada request**. El front
 
 **Actualización v1.5 — el esquema creció más allá de las 24 tablas.** Se incorporaron las tablas de **identidad global** (`user_profiles`, `user_bank_accounts` — ADR-019), **consentimiento** (`data_consents` — ADR-020) y **notificaciones** (`notification_templates`, `notification_sends`, `notification_send_recipients` — ADR-021).
 
-**Actualización v1.7 — cifras vivas del esquema.** Conviene distinguir dos cosas: el **modelo de dominio conceptual** (las ≈24 tablas de negocio que estructuran este ADR) y el **conteo vivo de la base**, que incluye además las tablas de infraestructura, permisos, catálogos globales, auditoría y soporte. Verificado contra producción el 16 jun 2026: **77 tablas / 77 con RLS / 147 políticas / 71 funciones / 31 triggers / 6 extensiones**, y **5 migraciones** registradas (ADR-023). El número grande no contradice el modelo de ≈24: son las mismas entidades de negocio más todo lo que las rodea.
+**Actualización v1.8 — cifras vivas del esquema.** Conviene distinguir dos cosas: el **modelo de dominio conceptual** (las ≈24 tablas de negocio que estructuran este ADR) y el **conteo vivo de la base**, que incluye además las tablas de infraestructura, permisos, catálogos globales, auditoría y soporte. Verificado contra producción el 16 jun 2026: **77 tablas / 77 con RLS / 147 políticas / ~71 funciones / 31 triggers / 6 extensiones**. A junio 2026 hay **7 migraciones** registradas (ADR-023; las dos últimas, del 17-jun: endurecimiento y cupo por proyecto). El cambio de cupo **deprecó `rpc_assert_cupo_colaborador`** y movió el límite a `guardar_cargos` (ver ADR-004). El número grande de tablas no contradice el modelo de ≈24: son las mismas entidades de negocio más todo lo que las rodea.
 
 **Hallazgos del build a registrar:**
 - `organizations` tiene `slug` (NOT NULL) y `plan` (default `'free'`), previendo la distinción de plan desde el esquema (ver PRD §22 y ADR-022).
@@ -378,7 +402,10 @@ La autorización se aplica **server-side y vía RLS, en cada request**. El front
 
 **Decisión.** Deployment seguro: **entorno de staging para probar antes de publicar** y **rollback** si una versión sale mala. **Observabilidad** (logs, métricas, alertas) para enterarse de fallas antes que el cliente.
 
-**Entorno de prueba — resuelto (v1.7).** El staging es una **branch de Supabase** llamada `staging` (ref `jovroabtwysliryppthh`), **no un proyecto aparte**: un entorno efímero que se paga por horas activas y nace de las mismas migraciones que producción (ADR-023). El frontend se sirve desde un dominio real (GitHub Pages, repo `takeos-staging`), no `file://`, para no romper auth/persistencia. Detalle de repos, carpetas, URLs y claves publicables en **Arquitectura y Flujo de Trabajo §5**. *Deuda:* la sincronización producción ↔ staging del `index.html` es manual hoy (frágil); la observabilidad (logs/métricas/alertas) sigue pendiente.
+**Entorno de prueba y despliegue — actualizado (v1.8).** El staging es una **branch de Supabase** llamada `staging` (ref `jovroabtwysliryppthh`), **no un proyecto aparte**: un entorno efímero que se paga por horas activas y nace de las mismas migraciones que producción (ADR-023). El frontend se sirve desde un dominio real (GitHub Pages), no `file://`, para no romper auth/persistencia. Detalle de repos, carpetas, URLs y claves publicables en **Arquitectura y Flujo de Trabajo §5**.
+- **Despliegue de BD (resuelto):** producción se actualiza por la integración de **Branching de Supabase al mergear a `main`** (merge = deploy; ver ADR-023). No hay `db push` manual a producción.
+- **Despliegue de frontend (con Vite, v1.9):** en staging, el frontend se **construye con Vite** (`vite build` → `dist/`) con **`base: './'`** (rutas relativas → la misma build sirve en producción y staging sin tocar nada; arreglo de fondo del 404) y **credenciales por entorno vía `import.meta.env`** (`VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY`), no por edición manual de dos líneas. **Pendiente:** el **corte de producción** a esta build (hoy producción aún corre el monolito servido directo) y el **diagnóstico del "404 real"** de ese corte, ambos en `PENDIENTES_Migracion_Vite.md`. El detalle de la estructura (`frontend/src/`, el "puente" `main.js`, el cimiento en `src/lib/`) vive en **Arquitectura §3.4 y §7**.
+- *Deuda:* la observabilidad (logs/métricas/alertas) sigue pendiente (ver hub OWASP A09).
 
 **Consecuencias.** Misma lógica que probar migraciones en copia (ADR-009): nunca se prueba sobre producción. La branch, al nacer de las migraciones, es fiel al esquema real.
 
@@ -496,7 +523,7 @@ LIMIT 1;
 
 **Contexto.** Hasta junio 2026, toda la base (las 77 tablas, RLS, RPCs, triggers) existía **solo en el servidor vivo de Supabase**, construida a mano en el editor web, con **cero migraciones**. No había forma de recrearla si se corrompía, ni historia de cambios, ni revisión previa, ni un entorno de prueba que se mantuviera fiel en el tiempo. Era el mayor riesgo silencioso del proyecto (ver Arquitectura y Flujo de Trabajo §2.2).
 
-**Decisión.** La base pasa a estar **"en código"**: el esquema se captura como migración base y, de ahí en adelante, **cada cambio de base de datos es un archivo de migración versionado** en el repositorio, aplicado con la Supabase CLI. Quedaron **5 migraciones** registradas:
+**Decisión.** La base pasa a estar **"en código"**: el esquema se captura como migración base y, de ahí en adelante, **cada cambio de base de datos es un archivo de migración versionado** en el repositorio, aplicado con la Supabase CLI. A junio 2026 hay **7 migraciones** registradas:
 
 | Migración | Qué hace |
 |---|---|
@@ -505,21 +532,38 @@ LIMIT 1;
 | `…150836_cron_eliminaciones` | El job de cron de eliminaciones programadas. |
 | `…160154_revoke_funciones_internas` | `REVOKE EXECUTE` sobre 20 funciones internas (ver ADR-024). |
 | `…170000_seed_permisos_autocontenido` | Los 5 catálogos globales `default_*`, 144 filas (ver ADR-022). |
+| `20260617144834_endurecimiento_anon_y_search_path` | Cierre del backlog de endurecimiento: REVOKE de `anon` en las RPC de escritura, `search_path` en ~11 utilitarias, policy/COMMENT de `app_config` (ver ADR-024). |
+| `20260617160000_fix_cupo_colaboradores_por_proyecto` | El límite de colaboradores pasa a ser **por proyecto** en `guardar_cargos`; `invitar_a_organizacion` deja de medir cupo; `rpc_assert_cupo_colaborador` deprecada (ver ADR-004 y PRD §22). |
 
-**Flujo permanente (regla, no excepción):** todo cambio de BD se hace por **archivo de migración → revisión → `db reset` local (verifica que reproduce) → merge a `main` → `db push` a producción**. **Nunca** se aplica un cambio directo a producción por el conector MCP de Supabase: eso desincronizaría la base respecto del código. El conector MCP queda para **inspección de solo lectura** y pruebas **en transacción revertida** (probar y deshacer), nunca para escribir el esquema de producción.
+**Flujo permanente (regla, no excepción) — Orden A, ratificado.** Todo cambio de BD entra **al repo antes que a producción**. Secuencia canónica única:
+
+1. **Migración en una rama de feature** (nunca en `main`, nunca por el editor SQL).
+2. **PR + prueba sobre datos de prueba** (preview branch del PR, o la branch `staging`), con **required check** activo: una migración que falla **no se puede mergear**.
+3. **Revisión de Juan** sobre la PR (última compuerta humana — ver R1).
+4. **Merge a `main`** (punto de no retorno).
+5. **Aplicación a producción por la integración de Branching de Supabase**: producción se actualiza **al mergear** (merge = deploy). Con "deploy to production" activo, el `db push` manual queda **prohibido** (riesgo de doble aplicación).
+
+**Configuración prescrita** (Project Settings → Integrations → GitHub): "deploy to production" **ON**, preview branches por PR **ON**, required check **ON**. Con eso el Orden A deja de ser solo doctrina y queda **forzado por la herramienta**: tocar producción fuera de un merge se vuelve imposible. *(Versión en lenguaje simple y diagrama del flujo: Arquitectura y Flujo de Trabajo §2.2/§7.)*
+
+**Reglas asociadas:**
+- **R1 — Merge = deploy.** No hay un paso manual de aplicación que revisar al final; la revisión de la PR (paso 3) es la última compuerta humana, y el botón de merge es el punto de no retorno.
+- **R2 — Excepción "solo/rápido" acotada.** El auto-aprobado de Agustín relaja la **revisión**, nunca el **orden**, y solo aplica a migraciones **aditivas, no bloqueantes, reversibles** que **no** toquen RLS, policies, auth, aislamiento de tenant, ni drops/renames/cambios de tipo/backfills. El criterio es **radio de impacto y reversibilidad**, no "tamaño". Todo lo demás espera revisión de Juan, sin excepción, incluso en modo solo y con deadline.
+- **R3 — No se canoniza "saltar staging".** Idempotente ≠ seguro (un `CREATE INDEX` sin `CONCURRENTLY` es idempotente y bloquea una tabla grande). Con preview branches activos, probar es gratis: se prueba **siempre**.
+
+**Lección registrada (incidente 17-jun).** El **Orden B** (aplicar a prod antes de mergear) fue el atajo que causó la **desincronización repo↔prod** del 17-jun, reconciliada a mano. **Se descarta de forma definitiva**: además de dejar una ventana de desincronización, contradice cómo opera la integración. **Nunca** se aplica un cambio directo a producción por el conector MCP de Supabase ni por el editor SQL; el conector MCP queda para **inspección de solo lectura** y pruebas **en transacción revertida**.
 
 **Consecuencias.** La base es **reproducible** (se reconstruye desde cero), tiene **historia** y **revisión**, y el entorno de prueba (branch `staging`, ADR-015) nace de las mismas migraciones. El costo es disciplina: ningún atajo por el editor web ni por el MCP. Es la fundación sobre la que se apoyan el staging, la seguridad basal y la modularización (Arquitectura §7, Prioridad #1).
 
 ---
 
 ## ADR-024 — Endurecimiento de permisos de ejecución de funciones *(NUEVO en v1.7)*
-**Estado:** Parcial · revocación de funciones internas **hecha**; backlog de advisors **pendiente** antes del beta externo · **Etapa:** Seguridad basal
+**Estado:** revocación de funciones internas **hecha**; backlog de advisors **cerrado** (migración `…144834`, 17-jun); pendiente solo el header `frame-ancestors` del hosting · **Etapa:** Seguridad basal
 
 **Contexto.** En PostgreSQL/Supabase una función puede ser ejecutable por `anon` (público) o `authenticated`. Varias funciones **internas** (de trigger y utilitarias con prefijo `_`) quedaban invocables desde internet sin necesidad, y el linter de seguridad de Supabase levantó un conjunto de avisos (ninguno crítico, pero a cerrar antes de exponer el producto a terceros).
 
 **Decisión.**
 - **Funciones internas sin acceso público (hecho).** La migración `revoke_funciones_internas` revoca `EXECUTE` a `public`/`anon`/`authenticated` sobre **20 funciones internas** (14 de trigger + 6 con prefijo `_`). **Convención hacia adelante:** toda función interna nace ya revocada (la migración la crea sin GRANT público).
-- **Backlog de endurecimiento (pendiente, antes del beta externo).** (a) Revocar a `anon` el `EXECUTE` en las RPC de **escritura** como capa externa —cada función ya valida `auth.uid()` por dentro, así que no es una puerta abierta; **cuidar que los flujos de invitación sigan anon-ejecutables**—; (b) fijar `search_path` explícito en ~11 funciones utilitarias que no lo tienen; (c) decidir la **policy de `app_config`** (hoy con RLS activo pero sin policy: confirmar si el frontend la lee directo o solo se usa server-side). Todo se aplica **como migración**, por el flujo del ADR-023.
+- **Backlog de endurecimiento — ejecutado (migración `…144834`, 17-jun).** ✅ (a) Revocado a `anon` el `EXECUTE` en las RPC de **escritura** como capa externa —cada función ya valida `auth.uid()` por dentro; **los flujos de invitación quedaron anon-ejecutables**—; ✅ (b) `search_path` explícito fijado en ~11 funciones utilitarias; ✅ (c) decidida la **policy de `app_config`** (se documentó vía COMMENT). Se aplicó **como migración**, por el flujo del ADR-023. **Pendiente (no es migración):** el header **`frame-ancestors`** (anti-clickjacking) del hosting, antes del beta externo.
 
 **Consecuencias.** La superficie de ataque de las funciones se reduce a lo necesario. El control de acceso de datos ya estaba cubierto por RLS + RPC; esto es endurecimiento de la capa de ejecución, no un hueco abierto. Se cierra antes de abrir el beta a productoras externas.
 
