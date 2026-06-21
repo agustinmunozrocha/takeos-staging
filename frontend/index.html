@@ -2261,9 +2261,9 @@ function buildDefaultProjectData() {
       extras: []
     },
     servicios: {},
-    gastos: DEFAULT_GASTOS.map(g => ({ nombre: '', item: g.item, valor: g.valor, cantidad: 0, unidad: g.unidad, dte: null, confirmado: false, costoReal: null })),
-    equipos: DEFAULT_EQUIPOS.map(e => ({ nombre: '', item: e.item, valor: e.valor, cantidad: 0, unidad: e.unidad, dte: null, confirmado: false, costoReal: null })),
-    talentos: DEFAULT_TALENTOS.map(t => ({ nombre: '', item: t.item, valor: t.valor, cantidad: 0, unidad: t.unidad, dte: null, confirmado: false, costoReal: null })),
+    gastos: DEFAULT_GASTOS.map(g => ({ nombre: '', item: g.item, valor: g.valor, cantidad: 0, unidad: g.unidad, dte: null, confirmado: false, costoReal: null, clientUuid: _clientUuid(), version: null, _dirty: true, _dirtySeq: 1 })),
+    equipos: DEFAULT_EQUIPOS.map(e => ({ nombre: '', item: e.item, valor: e.valor, cantidad: 0, unidad: e.unidad, dte: null, confirmado: false, costoReal: null, clientUuid: _clientUuid(), version: null, _dirty: true, _dirtySeq: 1 })),
+    talentos: DEFAULT_TALENTOS.map(t => ({ nombre: '', item: t.item, valor: t.valor, cantidad: 0, unidad: t.unidad, dte: null, confirmado: false, costoReal: null, clientUuid: _clientUuid(), version: null, _dirty: true, _dirtySeq: 1 })),
     crewExtra: {},  // nombre → { medioTransporte }
     responsables: {},  // V8.5: responsable por sección (key de módulo → nombre BD)
     tareas: [],        // V8.6: tareas del proyecto (con sección, asignado, comentarios, adjuntos)
@@ -6052,8 +6052,32 @@ function renderPersonContactSub(personData) {
   `;
 }
 
+/* ── Pasada 1 · marcas de cambio granulares (tracking para el diff por fila) ──
+   El chokepoint de edición de campo es updateRowField; pero altas/bajas/arrastre/
+   renombrar-depto/notas son onclick o escrituras directas que NO pasan por ahí,
+   así que marcan el cambio explícitamente con estos helpers. _dirtySeq permite,
+   al guardar OK, limpiar la marca solo si nadie volvió a editar durante el viaje
+   del RPC (sin perder una segunda edición). */
+function _markRowDirty(row) {
+  if (row) { row._dirty = true; row._dirtySeq = (row._dirtySeq || 0) + 1; }
+  return row;
+}
+function _markHeaderDirty(project) {
+  if (project) { project._headerDirty = true; project._headerDirtySeq = (project._headerDirtySeq || 0) + 1; }
+}
+/* Encola para borrado en el servidor solo las filas que YA existían (version != null);
+   una fila nueva sin guardar (version == null) simplemente se descarta de memoria. */
+function _budgetQueueDeletes(project, rows) {
+  if (!project) return;
+  if (!project._budgetPendingDeletes) project._budgetPendingDeletes = [];
+  (rows || []).forEach(function (r) {
+    if (r && r.version != null && r.clientUuid) project._budgetPendingDeletes.push({ clientUuid: r.clientUuid, version: r.version });
+  });
+}
+
 function updateInfoField(field, value) {
   STATE.currentProject.data.infoProyecto[field] = value;
+  _markHeaderDirty(STATE.currentProject);   // Pasada 1 · cabecera tocada (se versiona como unidad bajo info_proyecto)
   // Para campos que afectan el resumen financiero, re-render del KPI bar.
   // Para campos que no, ningún re-render (el usuario está tipeando).
 }
@@ -6063,6 +6087,7 @@ function updateDerechos(field, value) {
   const ip = STATE.currentProject.data.infoProyecto;
   if (!ip.derechos || typeof ip.derechos !== 'object') ip.derechos = { tiempo: '', plataformas: '', territorio: '' };
   ip.derechos[field] = value;
+  _markHeaderDirty(STATE.currentProject);   // Pasada 1 · derechos es parte de la cabecera comercial
   markDirty();
 }
 
@@ -6995,6 +7020,7 @@ function _renameServiceDeptCore(idx, rawNew) {
   const rebuilt = {};
   names.forEach(n => { rebuilt[n === oldName ? newName : n] = d[n]; });
   project.data.servicios = rebuilt;
+  (rebuilt[newName] || []).forEach(_markRowDirty);   // Pasada 1 · cambió el departamento de estas filas → re-enviarlas (su department_id se resuelve por nombre en el RPC)
   markDirty();
   return { oldName, newName };
 }
@@ -7025,6 +7051,7 @@ function deleteServiceDept(idx) {
     return;
   }
   const doDelete = () => {
+    _budgetQueueDeletes(project, project.data.servicios[dept]);   // Pasada 1 · borrar en el servidor las filas existentes del depto (si no, reaparecen al recargar)
     delete project.data.servicios[dept];
     markDirty();
     renderServiciosBody();
@@ -7352,8 +7379,10 @@ function updateRowField(sectionKey, dept, idx, field, value) {
   const project = STATE.currentProject;
   if (sectionKey === 'servicios') {
     project.data.servicios[dept][idx][field] = value;
+    _markRowDirty(project.data.servicios[dept][idx]);   // Pasada 1 · chokepoint de edición de campo de fila
   } else {
     project.data[sectionKey][idx][field] = value;
+    _markRowDirty(project.data[sectionKey][idx]);
   }
 }
 
@@ -7407,6 +7436,7 @@ function rowDrop(ev) {
   if (from !== to) {
     const moved = arr.splice(from, 1)[0];
     arr.splice(to, 0, moved);
+    arr.forEach(_markRowDirty);   // Pasada 1 · cambió la posición de las filas → re-enviarlas para persistir el orden
     markDirty();
   }
   _budgetDrag = null;
@@ -7546,6 +7576,7 @@ function saveRowNote(sectionKey, dept, idx, clear) {
     const v = t ? t.value.trim() : '';
     if (v) { item.nota = v; item.notaFecha = new Date().toLocaleDateString('es-CL'); item.notaAutor = 'Tú'; } else { delete item.nota; delete item.notaFecha; delete item.notaAutor; }
   }
+  _markRowDirty(item);   // Pasada 1 · la nota se escribe por fuera de updateRowField → marcar la fila
   markDirty();
   closeModal();
   if (sectionKey === 'servicios') renderServiciosBody(); else renderSimpleSection(sectionKey);
@@ -7673,14 +7704,29 @@ function afterRowConfirmToggle(sectionKey, dept, idx) {
 
 /* ─── AGREGAR / ELIMINAR (sí requieren re-render limitado) ──────────── */
 
+/* Pasada 1 · id estable de fila puesto por el cliente. crypto.randomUUID exige
+   contexto seguro (https/localhost) — staging y prod lo cumplen; el fallback
+   evita un crash en entornos sin él. Es un id de correlación/idempotencia, no
+   una clave de seguridad (la autoridad es el RPC + organization_id + RLS). */
+function _clientUuid() {
+  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    var r = (window.crypto && crypto.getRandomValues) ? (crypto.getRandomValues(new Uint8Array(1))[0] % 16) : Math.floor(Math.random() * 16);
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
 function addRow(sectionKey, dept) {
   const project = STATE.currentProject;
   // V5.2.2: si el proyecto ya está aprobado, las nuevas filas son
   // "extras" — editables, no afectan la cotización original.
   const isExtra = cotizadoLocked(project);
+  // Pasada 1 · la fila nueva nace con identidad estable (clientUuid), version=null
+  // (marca de "nueva, nunca guardada") y sucia. El RPC le asigna version:1 al guardar.
+  const ident = { clientUuid: _clientUuid(), version: null, _dirty: true, _dirtySeq: 1 };
   const blank = sectionKey === 'servicios'
-    ? { nombre: '', rol: '', valor: null, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: isExtra }
-    : { nombre: '', item: '', valor: null, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: isExtra };
+    ? { nombre: '', rol: '', valor: null, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: isExtra, ...ident }
+    : { nombre: '', item: '', valor: null, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: isExtra, ...ident };
 
   if (sectionKey === 'servicios') {
     project.data.servicios[dept].push(blank);
@@ -7705,12 +7751,15 @@ function addRow(sectionKey, dept) {
 function deleteRow(sectionKey, dept, idx) {
   const project = STATE.currentProject;
   if (sectionKey === 'servicios') {
+    _budgetQueueDeletes(project, [project.data.servicios[dept][idx]]);   // Pasada 1 · encolar baja en el servidor (solo si la fila ya existía)
     project.data.servicios[dept].splice(idx, 1);
     renderServiciosBody();
   } else {
+    _budgetQueueDeletes(project, [project.data[sectionKey][idx]]);
     project.data[sectionKey].splice(idx, 1);
     renderSimpleSection(sectionKey);
   }
+  markDirty();   // Pasada 1 · la baja debe disparar el guardado (antes deleteRow no lo hacía)
   recalcDeptSummary(sectionKey);
   recalcKPIs();
   recalcAlerts();
@@ -15704,7 +15753,7 @@ function _heRecalcProjectRows() {
   // el cálculo del proyecto (las override mantienen su valor).
   const d = STATE.currentProject && STATE.currentProject.data;
   if (!d) return;
-  const recalc = (item) => { const c = item.heConfig; if (c && c.usaProyecto !== false) item.horaExtra = _heComputeCosto(c, item) || null; };
+  const recalc = (item) => { const c = item.heConfig; if (c && c.usaProyecto !== false) { item.horaExtra = _heComputeCosto(c, item) || null; _markRowDirty(item); } };   // Pasada 1 · cambió el cache HE de la fila
   for (const dept in d.servicios) (d.servicios[dept] || []).forEach(recalc);
   ['gastos', 'equipos', 'talentos'].forEach(sk => (d[sk] || []).forEach(recalc));
 }
@@ -15735,6 +15784,7 @@ function setHeHoras(sectionKey, dept, idx, raw) {
     item.heConfig = cfg;
     item.horaExtra = _heComputeCosto(cfg, item) || null;
   }
+  _markRowDirty(item);   // Pasada 1 · HE escrita por fuera de updateRowField
   markDirty();
   _heRefreshAll(sectionKey);
 }
@@ -15898,6 +15948,7 @@ function _hecConfirm() {
   } else {
     item.heConfig = cfg; item.horaExtra = costo;
   }
+  _markRowDirty(item);   // Pasada 1 · HE escrita por fuera de updateRowField
   markDirty();
   closeModal();
   _heRefreshAll(st.sectionKey);
@@ -15905,7 +15956,7 @@ function _hecConfirm() {
 function _hecClear() {
   const st = window._hec; if (!st) { closeModal(); return; }
   const item = _rowNoteItem(st.sectionKey, st.dept, st.idx);
-  if (item) { item.heConfig = null; item.horaExtra = null; }
+  if (item) { item.heConfig = null; item.horaExtra = null; _markRowDirty(item); }   // Pasada 1
   markDirty();
   closeModal();
   _heRefreshAll(st.sectionKey);
@@ -16982,6 +17033,7 @@ function onUnidadSelectChange(selectEl, sectionKey, dept, idx) {
   const item = sectionKey === 'servicios'
     ? project.data.servicios[dept][idx]
     : project.data[sectionKey][idx];
+  _markRowDirty(item);   // Pasada 1 · cambio de unidad por fuera de updateRowField
 
   if (selectEl.value === '__custom__') {
     item.unidad = '';  // limpia para permitir custom
@@ -17003,6 +17055,7 @@ function onUnidadInputChange(inputEl, sectionKey, dept, idx) {
     ? project.data.servicios[dept][idx]
     : project.data[sectionKey][idx];
   item.unidad = inputEl.value;
+  _markRowDirty(item);   // Pasada 1 · cambio de unidad por fuera de updateRowField
 }
 
 function onUnidadReset(btnEl, sectionKey, dept, idx) {
@@ -17011,6 +17064,7 @@ function onUnidadReset(btnEl, sectionKey, dept, idx) {
     ? project.data.servicios[dept][idx]
     : project.data[sectionKey][idx];
   item.unidad = 'Tarifa Plana';
+  _markRowDirty(item); markDirty();   // Pasada 1 · onclick: no dispara el listener global → marcar la fila y guardar
   const td = btnEl.closest('td');
   td.innerHTML = renderUnidadCellSelect(sectionKey, dept, idx, 'Tarifa Plana');
 }
@@ -17577,6 +17631,35 @@ function updateUndoButton() {
   const b = document.getElementById('undoBtn');
   if (b) b.disabled = UNDO_STACK.length === 0;
 }
+/* Pasada 1 · reinicia los flags de runtime que NO deben sobrevivir a un undo/redo
+   (el snapshot serializa el proyecto entero, incluidos estos). Sin esto, un undo
+   tomado durante un guardado restauraría _saving=true y trabaría el autosave. */
+/* Pasada 1 · la VERSIÓN (cabecera y por fila) es metadata de concurrencia del
+   servidor, no contenido del usuario. Tras un undo/redo (que restaura un snapshot
+   viejo) se conserva la versión VIVA por clientUuid y la línea base de concurrencia
+   (_headerVersion/_budgetPendingDeletes/_snap) del estado vivo, para que el
+   contenido restaurado se reenvíe con la versión correcta, sin conflicto falso. */
+function _reconcileVersionsFromLive(restored, live) {
+  if (!restored || !live) return;
+  var liveVers = {};
+  function scan(arr) { (arr || []).forEach(function (r) { if (r && r.clientUuid) liveVers[r.clientUuid] = r.version; }); }
+  var ld = live.data || {};
+  for (var dep in (ld.servicios || {})) scan(ld.servicios[dep]);
+  scan(ld.gastos); scan(ld.equipos); scan(ld.talentos);
+  function apply(arr) { (arr || []).forEach(function (r) { if (r && r.clientUuid && Object.prototype.hasOwnProperty.call(liveVers, r.clientUuid)) r.version = liveVers[r.clientUuid]; }); }
+  var rd = restored.data || {};
+  for (var dep2 in (rd.servicios || {})) apply(rd.servicios[dep2]);
+  apply(rd.gastos); apply(rd.equipos); apply(rd.talentos);
+  restored._headerVersion = live._headerVersion;
+  restored._budgetPendingDeletes = (live._budgetPendingDeletes || []).slice();
+  restored._snap = live._snap;
+}
+function _resetFlagsRuntime(project) {
+  if (!project) return;
+  project._saving = false; project._resaveQueued = false;
+  project._autosaveSuspendedByConflict = false; project._conflictoModalAbierto = false;
+  try { _conflictoBannerHide(); } catch (e) {}
+}
 function undoLast() {
   if (UNDO_STACK.length === 0) {
     showToast({ kind: 'info', title: 'Nada que deshacer', body: 'No hay una acción reciente para revertir en este proyecto.' });
@@ -17586,8 +17669,11 @@ function undoLast() {
   if (UNDO_BASELINE && UNDO_BASELINE.id === prev.id) REDO_STACK.push(UNDO_BASELINE);
   const restored = JSON.parse(prev.snap);
   const idx = PROJECTS.findIndex(x => x.id === prev.id);
+  const _live = (idx !== -1) ? PROJECTS[idx] : ((STATE.currentProject && STATE.currentProject.id === prev.id) ? STATE.currentProject : null);
   if (idx !== -1) PROJECTS[idx] = restored;
   if (STATE.currentProject && STATE.currentProject.id === prev.id) STATE.currentProject = restored;
+  _reconcileVersionsFromLive(restored, _live);   // Pasada 1 · conserva la versión viva (server) → evita conflicto falso tras undo
+  _resetFlagsRuntime(restored);   // Pasada 1 · no resucitar flags transitorios (evita deadlock de _saving)
   UNDO_BASELINE = { id: restored.id, snap: prev.snap };
   STATE.dirty = true;
   const sb = document.getElementById('saveBtn'); if (sb) sb.classList.add('is-dirty');
@@ -17603,8 +17689,11 @@ function redoLast() {
   if (UNDO_BASELINE && UNDO_BASELINE.id === next.id) UNDO_STACK.push(UNDO_BASELINE);
   const restored = JSON.parse(next.snap);
   const idx = PROJECTS.findIndex(x => x.id === next.id);
+  const _live = (idx !== -1) ? PROJECTS[idx] : ((STATE.currentProject && STATE.currentProject.id === next.id) ? STATE.currentProject : null);
   if (idx !== -1) PROJECTS[idx] = restored;
   if (STATE.currentProject && STATE.currentProject.id === next.id) STATE.currentProject = restored;
+  _reconcileVersionsFromLive(restored, _live);   // Pasada 1 · conserva la versión viva (server) → evita conflicto falso tras redo
+  _resetFlagsRuntime(restored);   // Pasada 1 · idem undo
   UNDO_BASELINE = { id: restored.id, snap: next.snap };
   STATE.dirty = true;
   const sb = document.getElementById('saveBtn'); if (sb) sb.classList.add('is-dirty');
@@ -18712,6 +18801,8 @@ function _dalBudgetRow(r, esServicio) {
     prontoPago: !!r.es_pp,   // V9.2.0: el campo real del cliente es 'prontoPago' (no 'pp')
     horaExtra: (r.hora_extra != null ? Number(r.hora_extra) : 0),
     heConfig: (r.he_config != null ? r.he_config : null),   // V10.5.0: inputs HE persistidos (jsonb); hora_extra es el cache del costo empresa
+    clientUuid: r.client_uuid || null,   // Pasada 1 · identidad estable de fila (concurrencia por fila)
+    version: (r.version != null ? r.version : null),   // Pasada 1 · sello de versión por fila (null = fila nueva sin guardar)
     _contactId: r.contact_id || ''
   };
   if (esServicio) row.rol = r.concepto || ''; else row.item = r.concepto || '';
@@ -18940,6 +19031,7 @@ function _dalProyectoPartes(p) {
   const cot = _dalCotizacionPartes(p);
   return {
     estado: p.estado || 'venta', nombre: p.nombre_proyecto || '', cliente: cliente, pe: info.productorEjecutivo,
+    headerVersion: (p.version != null ? p.version : null),   // Pasada 1 · versión de cabecera (projects.version)
     cotizacion: cot ? cot.cotizacion : null, cotizaciones: cot ? cot.cotizaciones : null,
     operaciones4a: _dalOperaciones4aPartes(p),
     operaciones4b: _dalOperaciones4bPartes(p),
@@ -18988,19 +19080,25 @@ function _dalFusionarProyecto(target, partes) {
   if (partes.documentos && partes.documentos.items) {               // V9.6.0: Documentos (4e) desde Supabase
     d.documentos = { items: partes.documentos.items };
   }
+  // ── Pasada 1 · concurrencia por fila: línea base tras (re)cargar de Supabase ──
+  target._headerVersion = (partes.headerVersion != null ? partes.headerVersion : null);   // versión de cabecera cargada
+  target._headerDirty = false; target._headerDirtySeq = 0;
+  target._budgetPendingDeletes = [];   // las filas vienen frescas del servidor → nada pendiente de borrar
+  target._snap = _snapSecciones(target);   // línea base de las secciones no migradas (snapshot-diff)
   // locaciones/tareas/senales/crewExtra/responsables/asistentes/crewExternos/gastosOp: intactos (estado actual). rodajes/planRodaje/hojaLlamado: desde Supabase (4a).
 }
 
-async function dalLoadProyectos(soloBorrados) {
-  if (!sb) return null;
-  const sel = 'id,nombre_proyecto,categoria,es_remunerado,servicio,productora,fecha_entrega_final,estado,aprobado_at,cerrado_at,deleted_at,'
+/* Select compartido para cargar/recargar proyectos (incluye las columnas de
+   concurrencia: projects.version y budget_line_items.client_uuid/version). */
+function _dalProyectoSelect() {
+  return 'id,nombre_proyecto,categoria,es_remunerado,servicio,productora,fecha_entrega_final,estado,version,aprobado_at,cerrado_at,deleted_at,'
     + 'project_commercial(cliente_empresa_id,cliente_contacto_id,agencia_empresa_id,cliente_texto,agencia_texto,derechos_tiempo,derechos_plataformas,derechos_territorio,contacto_cliente,mail_contacto_cliente,telefono_contacto_cliente,contacto_agencia,mail_contacto_agencia,telefono_contacto_agencia,condicion_pago,fecha_cotizacion,fecha_aprobacion,fecha_pago),'
     + 'project_assignments(contact_id,function_id,project_functions(nombre)),'
     + 'project_financials(presupuesto_cliente,gastos_admin_pct,he_recargo_default,frozen),'
     + 'project_commissions(label,mode,value,posicion),'
     + 'project_risks(label,mode,value,posicion),'
     + 'project_income_extras(label,monto,posicion),'
-    + 'budget_line_items(section,department_id,contact_id,nombre,concepto,valor,cantidad,unidad,dte,confirmado,costo_real,es_extra,es_pp,hora_extra,he_config,posicion,departments(nombre)),'
+    + 'budget_line_items(client_uuid,version,section,department_id,contact_id,nombre,concepto,valor,cantidad,unidad,dte,confirmado,costo_real,es_extra,es_pp,hora_extra,he_config,posicion,departments(nombre)),'
     + 'project_quotation(fecha_emision,representante_cliente,condiciones,descripcion_proyecto,jornadas_rodaje,meta),'
     + 'quotation_offers(id_externo,es_base,nombre,valor_cliente,descripcion,incluye,no_incluye,entregables,presupuesto_alt,posicion),'
     + 'quotation_versions(numero,es_activa,snapshot,nota),'
@@ -19016,6 +19114,11 @@ async function dalLoadProyectos(soloBorrados) {
     + 'project_tasks(id,seccion,texto,asignado_a,creado_por,estado,creada_ts,posicion,task_comments(id,autor,texto,ts,posicion),task_attachments(nombre_original,storage_path,posicion)),'
     + 'project_signals(id,tipo,seccion,descripcion,creada_ts,visto_por,meta,posicion),'
     + 'project_documents(id,categoria,titulo,url,notas,archivo_nombre,archivo_path,archivo_size,ts,posicion)';
+}
+
+async function dalLoadProyectos(soloBorrados) {
+  if (!sb) return null;
+  const sel = _dalProyectoSelect();
   try {
     let q = sb.from('projects').select(sel).eq('organization_id', ORG_ID);
     q = soloBorrados ? q.not('deleted_at', 'is', null) : q.is('deleted_at', null);
@@ -19023,6 +19126,26 @@ async function dalLoadProyectos(soloBorrados) {
     if (error) throw error;
     return data || [];
   } catch (e) { console.error('[dal] cargar proyectos', e); return null; }
+}
+
+/* Pasada 1 · recarga UN solo proyecto desde Supabase y lo re-fusiona. La fusión
+   trae versiones frescas (cabecera y por fila) y reinicia la línea base (_snap,
+   _headerVersion, _budgetPendingDeletes y marcas de sucio). Usado por "Recargar
+   ahora" al resolver un conflicto. */
+async function dalReloadProyecto(id) {
+  if (!sb || !id) return false;
+  try {
+    const { data, error } = await sb.from('projects').select(_dalProyectoSelect())
+      .eq('organization_id', ORG_ID).eq('id', id).is('deleted_at', null).limit(1);
+    if (error) throw error;
+    const row = (data && data[0]) || null;
+    if (!row) return false;
+    const tgt = PROJECTS.find(function (x) { return x.id === id; });
+    if (!tgt) return false;
+    _dalFusionarProyecto(tgt, _dalProyectoPartes(row));
+    DAL_KNOWN_PROJECT_IDS.add(id);
+    return true;
+  } catch (e) { console.error('[dal] recargar proyecto', id, e); return false; }
 }
 
 async function dalBootProyectos() {
@@ -19098,39 +19221,34 @@ function _dalResolveContactId(nombre, hintId) {
   return '';
 }
 
-/* Proyecto canónico -> payload para la RPC (inverso de la lectura). */
-function _dalProyectoPayload(project) {
-  const d = project.data || {};
+/* ── Pasada 1 · secciones aún NO migradas a por-fila (asignaciones, finanzas,
+   cotización, versiones): se arman igual que antes, pero ahora se reusan tanto
+   para el payload como para el snapshot-diff que decide si la sección cambió (y
+   por ende si su clave se envía). El RPC, por presencia de clave, no toca lo que
+   no se manda → un autosave de presupuesto ya no reescribe estas secciones. ── */
+function _payloadAsignaciones(d) {
   const ip = d.infoProyecto || {};
-  const fin = d.finanzas || {};
   const asign = [];
   [['Productor Ejecutivo', ip.productorEjecutivo], ['Director', ip.director], ['Jefe de Producción', ip.jefeProduccion]].forEach(function(par){
     const nom = (par[1] || '').trim();
     if (nom) asign.push({ funcion: par[0], contactId: _dalResolveContactId(nom, ''), nombre: nom });
   });
-  const pres = [];
-  function pushRow(section, r, pos, dep) {
-    const concepto = (section === 'servicios') ? (r.rol || '') : (r.item || '');
-    pres.push({
-      section: section, departamento: dep || null,
-      contactId: _dalResolveContactId(r.nombre, r._contactId), nombre: r.nombre || '',
-      concepto: concepto, valor: (r.valor != null ? r.valor : null), cantidad: (r.cantidad != null ? r.cantidad : 0),
-      unidad: r.unidad || '', dte: r.dte || null, confirmado: !!r.confirmado, costoReal: (r.costoReal != null ? r.costoReal : null),
-      esExtra: !!r.extra, esPp: !!r.prontoPago, horaExtra: (r.horaExtra != null ? r.horaExtra : 0),
-      heConfig: (r.heConfig != null ? r.heConfig : null),   // V10.5.0: inputs HE -> he_config (jsonb); hora_extra sigue como cache del costo empresa
-      dteReal: r.dteReal || null, nota: r.nota || null, notaFecha: r.notaFecha || null, notaAutor: r.notaAutor || null, posicion: pos
-    });
-  }
-  const serv = d.servicios || {};
-  for (const dep in serv) (serv[dep] || []).forEach(function(r,i){ pushRow('servicios', r, i, dep); });
-  (d.gastos || []).forEach(function(r,i){ pushRow('gastos', r, i); });
-  (d.equipos || []).forEach(function(r,i){ pushRow('tecnica', r, i); });   // equipos(cliente)==tecnica(BD)
-  (d.talentos || []).forEach(function(r,i){ pushRow('talentos', r, i); });
-  // cotización viva (solo si hay al menos una oferta)
-  let cot;   /* V11.8.3 · undefined (no null) para que JSON.stringify lo omita y el RPC no choque */
+  return asign;
+}
+function _payloadFinanzas(d) {
+  const fin = d.finanzas || {};
+  return {
+    presupuestoCliente: (fin.presupuestoCliente != null ? fin.presupuestoCliente : 0),
+    gastosAdminPct: (fin.gastosAdminPct != null ? fin.gastosAdminPct : 0.05),
+    heRecargoPct: (fin.heRecargoPct != null ? fin.heRecargoPct : 150),
+    frozen: (fin.frozen != null ? fin.frozen : null),
+    comisiones: fin.comisiones || [], riesgos: fin.riesgos || [], extras: fin.extras || []
+  };
+}
+function _payloadCotizacion(d) {
   const c = d.cotizacion;
   if (c && Array.isArray(c.ofertas) && c.ofertas.length) {
-    cot = {
+    return {
       fechaEmision: c.fechaEmision || '', representanteCliente: c.representanteCliente || '',
       condiciones: c.condiciones || {}, descripcionProyecto: c.descripcionProyecto || '', jornadasRodaje: c.jornadasRodaje || '',
       meta: { id: c.id || '', numero: (c.numero != null ? c.numero : 1), label: c.label || '', nota: c.nota || '', createdAt: c.createdAt || '', resumen: (c.resumen != null ? c.resumen : null) },
@@ -19140,42 +19258,129 @@ function _dalProyectoPayload(project) {
         entregables: o.entregables || { videos: [], fotografia: [], otros: [] }, presupuestoAlt: (o.presupuestoAlt != null ? o.presupuestoAlt : null), posicion: i }; })
     };
   }
-  // versiones (historial)
-  let versiones;   /* V11.8.3 · idem: undefined cuando no hay historial */
+  return undefined;
+}
+function _payloadVersiones(d) {
   const cs = d.cotizaciones;
   if (cs && Array.isArray(cs.versiones) && cs.versiones.length) {
-    versiones = cs.versiones.map(function(v){ return { numero: (v.numero != null ? v.numero : 1), esActiva: (v.id === cs.activoId), snapshot: v, nota: v.nota || '' }; });
+    return cs.versiones.map(function(v){ return { numero: (v.numero != null ? v.numero : 1), esActiva: (v.id === cs.activoId), snapshot: v, nota: v.nota || '' }; });
   }
+  return undefined;
+}
+/* Snapshot normalizado de las secciones no migradas: el JSON contra el que se
+   compara al armar el payload. Si difiere → la sección cambió → se manda. Se
+   toma al cargar (línea base) y se re-toma tras cada guardado exitoso. */
+function _snapSecciones(project) {
+  const d = (project && project.data) || {};
   return {
-    id: project.id, organizationId: ORG_ID, estado: project.state || 'venta',
-    nombreProyecto: ip.nombreProyecto || project.name || '', categoria: 'publicidad', esRemunerado: true,
-    clienteEmpresaId: ip.clienteEmpresaId || null, clienteContactoId: null, agenciaEmpresaId: null,
-    clienteTexto: ip.cliente || '', agenciaTexto: ip.agencia || '',
-    servicio: ip.servicio || '', productora: ip.productora || '',
-    derechosTiempo: (ip.derechos && ip.derechos.tiempo) || '', derechosPlataformas: (ip.derechos && ip.derechos.plataformas) || '', derechosTerritorio: (ip.derechos && ip.derechos.territorio) || '',
-    contactoCliente: ip.contactoCliente || '', mailContactoCliente: ip.mailContactoCliente || '', telefonoContactoCliente: ip.telefonoContactoCliente || '',
-    contactoAgencia: ip.contactoAgencia || '', mailContactoAgencia: ip.mailContactoAgencia || '', telefonoContactoAgencia: ip.telefonoContactoAgencia || '',
-    condicionPago: ip.condicionPago || '', fechaCotizacion: ip.fechaCotizacion || '', fechaAprobacion: ip.fechaAprobacion || '',
-    fechaEntregaFinal: ip.fechaEntregaFinal || '', fechaPago: ip.fechaPago || '',
-    asignaciones: asign,
-    finanzas: {
-      presupuestoCliente: (fin.presupuestoCliente != null ? fin.presupuestoCliente : 0),
-      gastosAdminPct: (fin.gastosAdminPct != null ? fin.gastosAdminPct : 0.05),
-      heRecargoPct: (fin.heRecargoPct != null ? fin.heRecargoPct : 150),
-      frozen: (fin.frozen != null ? fin.frozen : null),
-      comisiones: fin.comisiones || [], riesgos: fin.riesgos || [], extras: fin.extras || []
-    },
-    presupuesto: pres, cotizacion: cot, versiones: versiones
+    asignaciones: JSON.stringify(_payloadAsignaciones(d)),
+    finanzas: JSON.stringify(_payloadFinanzas(d)),
+    cotizacion: JSON.stringify(_payloadCotizacion(d) || null),
+    versiones: JSON.stringify(_payloadVersiones(d) || null)
   };
+}
+
+/* Proyecto canónico -> payload para la RPC (inverso de la lectura). */
+/* Proyecto canónico -> payload DIFF para la RPC (Pasada 1). Devuelve
+   { payload, meta } o null si no hay nada que mandar (no-op: el autosave no
+   dispara el RPC). meta registra LO QUE SE ENVIÓ (seq por fila, seq de cabecera,
+   deletes, snapshots) para que el guardado exitoso limpie las marcas SOLO de lo
+   enviado, sin pisar una edición hecha durante el viaje del RPC. */
+function _dalProyectoPayload(project) {
+  const d = project.data || {};
+  const ip = d.infoProyecto || {};
+  const payload = { id: project.id, organizationId: ORG_ID };
+  const meta = { headerSent: false, headerSeq: 0, rowsSent: [], deletesSent: [], snapSent: {} };
+  let hayAlgo = false;
+
+  // ── CABECERA (projects + project_commercial, versionada como unidad). Se manda
+  // si está sucia, o si el proyecto aún no existe en el servidor (el RPC exige
+  // header para crearlo). ──
+  const esNuevo = !DAL_KNOWN_PROJECT_IDS.has(project.id);
+  if (project._headerDirty || esNuevo) {
+    payload.header = {
+      version: (project._headerVersion != null ? project._headerVersion : null),
+      nombreProyecto: ip.nombreProyecto || project.name || '', categoria: 'publicidad', esRemunerado: true,
+      estado: project.state || 'venta',
+      clienteEmpresaId: ip.clienteEmpresaId || null, clienteContactoId: null, agenciaEmpresaId: null,
+      clienteTexto: ip.cliente || '', agenciaTexto: ip.agencia || '',
+      servicio: ip.servicio || '', productora: ip.productora || '',
+      derechosTiempo: (ip.derechos && ip.derechos.tiempo) || '', derechosPlataformas: (ip.derechos && ip.derechos.plataformas) || '', derechosTerritorio: (ip.derechos && ip.derechos.territorio) || '',
+      contactoCliente: ip.contactoCliente || '', mailContactoCliente: ip.mailContactoCliente || '', telefonoContactoCliente: ip.telefonoContactoCliente || '',
+      contactoAgencia: ip.contactoAgencia || '', mailContactoAgencia: ip.mailContactoAgencia || '', telefonoContactoAgencia: ip.telefonoContactoAgencia || '',
+      condicionPago: ip.condicionPago || '', fechaCotizacion: ip.fechaCotizacion || '', fechaAprobacion: ip.fechaAprobacion || '',
+      fechaEntregaFinal: ip.fechaEntregaFinal || '', fechaPago: ip.fechaPago || ''
+    };
+    meta.headerSent = true; meta.headerSeq = (project._headerDirtySeq || 0);
+    hayAlgo = true;
+  }
+
+  // ── PRESUPUESTO POR FILA (diff): upserts (filas sucias o nuevas no vacías) +
+  // deletes (filas existentes ya removidas de memoria). ──
+  const upserts = [];
+  function considerRow(section, r, pos, dep) {
+    if (!r) return;
+    const esFilaNueva = (r.version == null);
+    if (!r._dirty && !esFilaNueva) return;   // sin cambios → no se envía
+    const concepto = (section === 'servicios') ? (r.rol || '') : (r.item || '');
+    // No insertar filas nuevas totalmente vacías (placeholder sin contenido).
+    if (esFilaNueva && !(r.nombre || '').trim() && !concepto.trim() && r.valor == null && r.costoReal == null) return;
+    if (!r.clientUuid) r.clientUuid = _clientUuid();   // Pasada 1 · red de seguridad: nunca enviar una fila sin id estable (filas no creadas por addRow: defaults del proyecto nuevo, goSavePresup, importadas…)
+    upserts.push({
+      clientUuid: r.clientUuid, version: (r.version != null ? r.version : null),
+      section: section, departamento: dep || null,
+      contactId: _dalResolveContactId(r.nombre, r._contactId), nombre: r.nombre || '',
+      concepto: concepto, valor: (r.valor != null ? r.valor : null), cantidad: (r.cantidad != null ? r.cantidad : 0),
+      unidad: r.unidad || '', dte: r.dte || null, confirmado: !!r.confirmado, costoReal: (r.costoReal != null ? r.costoReal : null),
+      esExtra: !!r.extra, esPp: !!r.prontoPago, horaExtra: (r.horaExtra != null ? r.horaExtra : 0),
+      heConfig: (r.heConfig != null ? r.heConfig : null),   // se manda aunque el RPC aún no la persista (futuro-proof; ver handoff)
+      dteReal: r.dteReal || null, nota: r.nota || null, notaFecha: r.notaFecha || null, notaAutor: r.notaAutor || null, posicion: pos
+    });
+    meta.rowsSent.push({ row: r, clientUuid: r.clientUuid, seq: (r._dirtySeq || 0) });
+  }
+  const serv = d.servicios || {};
+  for (const dep in serv) (serv[dep] || []).forEach(function (r, i) { considerRow('servicios', r, i, dep); });
+  (d.gastos   || []).forEach(function (r, i) { considerRow('gastos',   r, i); });
+  (d.equipos  || []).forEach(function (r, i) { considerRow('tecnica',  r, i); });   // equipos(cliente)==tecnica(BD)
+  (d.talentos || []).forEach(function (r, i) { considerRow('talentos', r, i); });
+  const deletes = (project._budgetPendingDeletes || []).slice();
+  if (upserts.length || deletes.length) {
+    payload.presupuestoDiff = { upserts: upserts, deletes: deletes };
+    meta.deletesSent = deletes;
+    hayAlgo = true;
+  }
+
+  // ── SECCIONES AÚN NO MIGRADAS (asignaciones/finanzas/cotización/versiones):
+  // se incluye la clave SOLO si su snapshot cambió. Sin la clave, el RPC no toca
+  // la sección (un autosave de presupuesto ya no la reescribe). ──
+  const snap = project._snap || {};
+  const curAsig = _payloadAsignaciones(d), sAsig = JSON.stringify(curAsig);
+  if (sAsig !== snap.asignaciones) { payload.asignaciones = curAsig; meta.snapSent.asignaciones = sAsig; hayAlgo = true; }
+  const curFin = _payloadFinanzas(d), sFin = JSON.stringify(curFin);
+  if (sFin !== snap.finanzas) { payload.finanzas = curFin; meta.snapSent.finanzas = sFin; hayAlgo = true; }
+  const curCot = _payloadCotizacion(d), sCot = JSON.stringify(curCot || null);
+  if (curCot !== undefined && sCot !== snap.cotizacion) { payload.cotizacion = curCot; meta.snapSent.cotizacion = sCot; hayAlgo = true; }
+  const curVer = _payloadVersiones(d), sVer = JSON.stringify(curVer || null);
+  if (curVer !== undefined && sVer !== snap.versiones) { payload.versiones = curVer; meta.snapSent.versiones = sVer; hayAlgo = true; }
+
+  if (!hayAlgo) return null;   // no-op: nada cambió → no se llama al RPC
+  return { payload: payload, meta: meta };
 }
 
 async function dalGuardarProyecto(project) {
   if (!sb || !project || PROJECTS_SOURCE !== 'supabase') return true;
   if (!authPuedeGuardarProyecto()) { _authBlockWriteToast(); return false; }   // V10.4.0 (Gate B)
+  // Pasada 1 · mutex por proyecto: si ya hay un guardado en vuelo, no se solapa
+  // (evita chocar contra la propia escritura anterior y generar un conflicto falso);
+  // se reintenta al terminar.
+  if (project._saving) { project._resaveQueued = true; return true; }
+  const built = _dalProyectoPayload(project);
+  if (!built) return true;   // Pasada 1 · no-op: nada cambió → no se llama al RPC
+  project._saving = true;
   try {
-    const payload = _dalProyectoPayload(project);
-    const { error } = await sb.rpc('guardar_proyecto', { p: payload });
+    const { data, error } = await sb.rpc('guardar_proyecto', { p: built.payload });
     if (error) throw error;
+    _dalAdoptarRespuesta(project, built.meta, data);   // adopta versiones nuevas + limpia las marcas de lo enviado
     DAL_KNOWN_PROJECT_IDS.add(project.id);
     return true;
   } catch (e) {
@@ -19194,8 +19399,127 @@ async function dalGuardarProyecto(project) {
       } catch (x) {}
       return 'plan';   // señal: manejado por Frente D (no es fallo de sync genérico)
     }
+    if (manejarConflicto(e, project)) return 'conflict';   // Pasada 1 · choque de versión (cabecera o presupuesto)
     return false;   // el aviso lo coordina dalFlushProyectos (un solo toast)
+  } finally {
+    project._saving = false;
+    if (project._resaveQueued) {
+      project._resaveQueued = false;
+      if (!project._autosaveSuspendedByConflict) dalTouchProyecto(project);   // re-disparar el guardado encolado
+    }
   }
+}
+
+/* Pasada 1 · adopta la respuesta de guardar_proyecto. La versión (cabecera y por
+   fila) se adopta SIEMPRE; la marca de "sucio" se limpia SOLO si la fila/cabecera
+   no se volvió a editar durante el viaje del RPC (seq sin cambios), para no perder
+   esa segunda edición. Snapshots de secciones: se re-baselinan con LO ENVIADO. */
+function _dalAdoptarRespuesta(project, meta, data) {
+  data = data || {};
+  if (data.headerVersion != null) project._headerVersion = data.headerVersion;
+  if (meta.headerSent && (project._headerDirtySeq || 0) === meta.headerSeq) project._headerDirty = false;
+  const vers = (data.budget && data.budget.versions) || {};
+  (meta.rowsSent || []).forEach(function (s) {
+    const r = s.row; if (!r) return;
+    if (vers[s.clientUuid] != null) {
+      r.version = vers[s.clientUuid];                       // adopción incondicional de la versión nueva
+      if ((r._dirtySeq || 0) === s.seq) r._dirty = false;   // limpieza condicional de la marca de sucio
+    }
+  });
+  if (meta.deletesSent && meta.deletesSent.length && project._budgetPendingDeletes) {
+    const enviados = new Set(meta.deletesSent.map(function (x) { return x.clientUuid + '@' + x.version; }));
+    project._budgetPendingDeletes = project._budgetPendingDeletes.filter(function (x) { return !enviados.has(x.clientUuid + '@' + x.version); });
+  }
+  if (!project._snap) project._snap = {};
+  Object.keys(meta.snapSent || {}).forEach(function (k) { project._snap[k] = meta.snapSent[k]; });
+}
+
+/* Pasada 1 · choque de versión: el RPC lanza 'TAKEOS_CONFLICT:{seccion,ids}'.
+   Suspende el autosave del proyecto (para no reabrir el aviso cada 1,5 s) y muestra
+   UNA sola vez el modal apuntando a las filas/cabecera en conflicto. Hermano de
+   manejarErrorPlan. Devuelve true si manejó un conflicto. */
+function manejarConflicto(e, project) {
+  var raw = (e && e.message) ? String(e.message) : String(e || '');
+  var m = raw.match(/TAKEOS_CONFLICT:\s*(\{[\s\S]*\})/);
+  if (!m) return false;
+  var info; try { info = JSON.parse(m[1]); } catch (x) { info = { seccion: '', ids: [] }; }
+  if (!project) return true;
+  project._autosaveSuspendedByConflict = true;        // no reintentar hasta que el usuario recargue
+  if (project._conflictoModalAbierto) return true;    // ya se mostró: una sola vez por conflicto
+  project._conflictoModalAbierto = true;
+  _mostrarModalConflicto(project, info);
+  return true;
+}
+
+/* Busca una fila de presupuesto por su clientUuid en las cuatro secciones. */
+function _budgetFindRow(project, clientUuid) {
+  const d = (project && project.data) || {}; let found = null;
+  function scan(arr) { (arr || []).forEach(function (r) { if (r && r.clientUuid === clientUuid) found = r; }); }
+  for (const dep in (d.servicios || {})) scan(d.servicios[dep]);
+  scan(d.gastos); scan(d.equipos); scan(d.talentos);
+  return found;
+}
+
+function _mostrarModalConflicto(project, info) {
+  var esCabecera = (info && info.seccion === 'cabecera');
+  var cuerpo;
+  if (esCabecera) {
+    cuerpo = '<p style="margin:0;font-size:13.5px;color:var(--ink-secondary);line-height:1.6;">Otra sesión guardó cambios en la <strong>información del proyecto</strong> (cliente, agencia, derechos, fechas…) mientras la editabas. Para no pisar su trabajo, recarga la versión más nueva y vuelve a aplicar tu cambio.</p>';
+  } else {
+    var ids = (info && Array.isArray(info.ids)) ? info.ids : [];
+    var li = ids.map(function (cu) {
+      var r = _budgetFindRow(project, cu); if (!r) return null;
+      var concepto = escapeHtml(r.rol || r.item || r.nombre || '(sin concepto)');
+      var val = (r.valor != null) ? escapeHtml(fmtMoney(r.valor)) : '—';
+      return '<li style="margin:3px 0;"><strong>' + concepto + '</strong> — intentabas guardar: ' + val + '</li>';
+    }).filter(Boolean);
+    cuerpo = '<p style="margin:0 0 8px;font-size:13.5px;color:var(--ink-secondary);line-height:1.6;">Otra sesión guardó cambios en estas filas del presupuesto mientras las editabas:</p>'
+      + '<ul style="margin:0 0 10px;padding-left:18px;font-size:13px;color:var(--ink-primary);">' + (li.length ? li.join('') : '<li>(no se pudieron ubicar las filas)</li>') + '</ul>'
+      + '<p style="margin:0;font-size:12.5px;color:var(--ink-faint);line-height:1.55;">Al recargar se trae la versión del servidor y se descartan tus cambios sin guardar de este presupuesto. Anota lo que necesites antes de recargar.</p>';
+  }
+  showModal({
+    title: esCabecera ? 'Hay una versión más nueva (cabecera)' : 'Hay una versión más nueva (presupuesto)',
+    body: cuerpo,
+    confirmLabel: 'Recargar ahora',
+    cancelLabel: 'Recargar en un momento',
+    onConfirm: function () { _conflictoRecargarAhora(project); },
+    onCancel: function () { _conflictoMasTarde(project); }
+  });
+}
+
+async function _conflictoRecargarAhora(project) {
+  project._conflictoModalAbierto = false;
+  _conflictoBannerHide();
+  var ok = await dalReloadProyecto(project.id);   // re-fusión: versiones frescas + línea base limpia
+  if (ok) {
+    project._autosaveSuspendedByConflict = false;   // reanuda el autosave
+    try { if (STATE.currentView === 'project' && STATE.currentModule && STATE.currentProject && STATE.currentProject.id === project.id) renderModule(STATE.currentModule); } catch (x) {}
+    try { showToast({ kind: 'success', title: 'Proyecto recargado', body: 'Trajimos la versión más nueva. Vuelve a aplicar tu cambio.', duration: 6000 }); } catch (x) {}
+  } else {
+    try { showToast({ kind: 'error', title: 'No se pudo recargar', body: 'Revisa tu conexión e inténtalo de nuevo.', duration: 6000 }); } catch (x) {}
+    _conflictoBannerShow(project);   // sigue pendiente
+  }
+}
+
+function _conflictoMasTarde(project) {
+  project._conflictoModalAbierto = false;
+  _conflictoBannerShow(project);   // autosave sigue suspendido + banner persistente
+}
+
+function _conflictoBannerShow(project) {
+  _conflictoBannerHide();
+  var b = document.createElement('div');
+  b.id = 'conflictoBanner';
+  b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9999;max-width:92vw;background:var(--bg-card,#1a1a1c);border:1px solid var(--accent,#B03A2F);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:13px;color:var(--ink-secondary);';
+  b.innerHTML = '<span>Tienes una versión más nueva sin cargar. <strong>Tus cambios no se están guardando</strong> hasta que recargues.</span>'
+    + '<button class="btn btn-primary btn-sm" id="conflictoBannerBtn" style="white-space:nowrap;">Recargar ahora</button>';
+  document.body.appendChild(b);
+  var btn = document.getElementById('conflictoBannerBtn');
+  if (btn) btn.onclick = function () { _conflictoRecargarAhora(project); };
+}
+function _conflictoBannerHide() {
+  var b = document.getElementById('conflictoBanner');
+  if (b && b.parentNode) b.parentNode.removeChild(b);
 }
 
 /* Operaciones 4a (rodajes + plan de rodaje + hoja de llamado) -> payload para
@@ -19346,6 +19670,7 @@ const _dalDirtyProjects = new Set();
 let _dalProyFlushTimer = null;
 function dalTouchProyecto(project) {
   if (PROJECTS_SOURCE !== 'supabase' || !project || !project.id) return;
+  if (project._autosaveSuspendedByConflict) return;   // Pasada 1 · autosave suspendido por conflicto (hasta recargar)
   _dalDirtyProjects.add(project.id);
   clearTimeout(_dalProyFlushTimer);
   _dalProyFlushTimer = setTimeout(dalFlushProyectos, 1500);
@@ -19355,8 +19680,9 @@ async function dalFlushProyectos() {
   for (const id of ids) {
     const p = PROJECTS.find(function(x){ return x.id === id; });
     if (!p) continue;
+    if (p._autosaveSuspendedByConflict) continue;        // Pasada 1 · proyecto con conflicto pendiente: no autosalvar
     const okCore = await dalGuardarProyecto(p);          // núcleo: cabecera+finanzas+presupuesto+cotización
-    if (okCore === 'plan') continue;                     // V11.16.0 · Frente D: rechazado por tope de plan, ya manejado (modal + rollback)
+    if (okCore === 'plan' || okCore === 'conflict') continue;   // ya manejado (plan: modal+rollback; conflict: aviso+suspensión)
     const okOps  = await dalGuardarOperaciones4a(p);     // operaciones 4a: rodajes+plan+hoja
     const okOps2 = await dalGuardarOperaciones4b(p);     // operaciones 4b: locaciones+crew+responsables+asistentes+gastos op
     const okOps3 = await dalGuardarOperaciones4c(p);     // operaciones 4c: tareas+señales
@@ -22481,7 +22807,7 @@ function goSavePresup() {
     const gastos = project.data.gastos = Array.isArray(project.data.gastos) ? project.data.gastos : [];
     const existe = gastos.some(r => (r.item || '').trim().toLowerCase() === linea.toLowerCase());
     if (!existe) {
-      gastos.push({ nombre: '', item: linea, valor: 0, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: true });
+      gastos.push({ nombre: '', item: linea, valor: 0, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: true, clientUuid: _clientUuid(), version: null, _dirty: true, _dirtySeq: 1 });
     }
     if (!CHIPAX_CUENTA[linea]) CHIPAX_CUENTA[linea] = 'Gastos de Producción';
   }
