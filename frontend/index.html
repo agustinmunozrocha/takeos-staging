@@ -6052,8 +6052,32 @@ function renderPersonContactSub(personData) {
   `;
 }
 
+/* ── Pasada 1 · marcas de cambio granulares (tracking para el diff por fila) ──
+   El chokepoint de edición de campo es updateRowField; pero altas/bajas/arrastre/
+   renombrar-depto/notas son onclick o escrituras directas que NO pasan por ahí,
+   así que marcan el cambio explícitamente con estos helpers. _dirtySeq permite,
+   al guardar OK, limpiar la marca solo si nadie volvió a editar durante el viaje
+   del RPC (sin perder una segunda edición). */
+function _markRowDirty(row) {
+  if (row) { row._dirty = true; row._dirtySeq = (row._dirtySeq || 0) + 1; }
+  return row;
+}
+function _markHeaderDirty(project) {
+  if (project) { project._headerDirty = true; project._headerDirtySeq = (project._headerDirtySeq || 0) + 1; }
+}
+/* Encola para borrado en el servidor solo las filas que YA existían (version != null);
+   una fila nueva sin guardar (version == null) simplemente se descarta de memoria. */
+function _budgetQueueDeletes(project, rows) {
+  if (!project) return;
+  if (!project._budgetPendingDeletes) project._budgetPendingDeletes = [];
+  (rows || []).forEach(function (r) {
+    if (r && r.version != null && r.clientUuid) project._budgetPendingDeletes.push({ clientUuid: r.clientUuid, version: r.version });
+  });
+}
+
 function updateInfoField(field, value) {
   STATE.currentProject.data.infoProyecto[field] = value;
+  _markHeaderDirty(STATE.currentProject);   // Pasada 1 · cabecera tocada (se versiona como unidad bajo info_proyecto)
   // Para campos que afectan el resumen financiero, re-render del KPI bar.
   // Para campos que no, ningún re-render (el usuario está tipeando).
 }
@@ -6063,6 +6087,7 @@ function updateDerechos(field, value) {
   const ip = STATE.currentProject.data.infoProyecto;
   if (!ip.derechos || typeof ip.derechos !== 'object') ip.derechos = { tiempo: '', plataformas: '', territorio: '' };
   ip.derechos[field] = value;
+  _markHeaderDirty(STATE.currentProject);   // Pasada 1 · derechos es parte de la cabecera comercial
   markDirty();
 }
 
@@ -6995,6 +7020,7 @@ function _renameServiceDeptCore(idx, rawNew) {
   const rebuilt = {};
   names.forEach(n => { rebuilt[n === oldName ? newName : n] = d[n]; });
   project.data.servicios = rebuilt;
+  (rebuilt[newName] || []).forEach(_markRowDirty);   // Pasada 1 · cambió el departamento de estas filas → re-enviarlas (su department_id se resuelve por nombre en el RPC)
   markDirty();
   return { oldName, newName };
 }
@@ -7025,6 +7051,7 @@ function deleteServiceDept(idx) {
     return;
   }
   const doDelete = () => {
+    _budgetQueueDeletes(project, project.data.servicios[dept]);   // Pasada 1 · borrar en el servidor las filas existentes del depto (si no, reaparecen al recargar)
     delete project.data.servicios[dept];
     markDirty();
     renderServiciosBody();
@@ -7352,8 +7379,10 @@ function updateRowField(sectionKey, dept, idx, field, value) {
   const project = STATE.currentProject;
   if (sectionKey === 'servicios') {
     project.data.servicios[dept][idx][field] = value;
+    _markRowDirty(project.data.servicios[dept][idx]);   // Pasada 1 · chokepoint de edición de campo de fila
   } else {
     project.data[sectionKey][idx][field] = value;
+    _markRowDirty(project.data[sectionKey][idx]);
   }
 }
 
@@ -7407,6 +7436,7 @@ function rowDrop(ev) {
   if (from !== to) {
     const moved = arr.splice(from, 1)[0];
     arr.splice(to, 0, moved);
+    arr.forEach(_markRowDirty);   // Pasada 1 · cambió la posición de las filas → re-enviarlas para persistir el orden
     markDirty();
   }
   _budgetDrag = null;
@@ -7546,6 +7576,7 @@ function saveRowNote(sectionKey, dept, idx, clear) {
     const v = t ? t.value.trim() : '';
     if (v) { item.nota = v; item.notaFecha = new Date().toLocaleDateString('es-CL'); item.notaAutor = 'Tú'; } else { delete item.nota; delete item.notaFecha; delete item.notaAutor; }
   }
+  _markRowDirty(item);   // Pasada 1 · la nota se escribe por fuera de updateRowField → marcar la fila
   markDirty();
   closeModal();
   if (sectionKey === 'servicios') renderServiciosBody(); else renderSimpleSection(sectionKey);
@@ -7720,12 +7751,15 @@ function addRow(sectionKey, dept) {
 function deleteRow(sectionKey, dept, idx) {
   const project = STATE.currentProject;
   if (sectionKey === 'servicios') {
+    _budgetQueueDeletes(project, [project.data.servicios[dept][idx]]);   // Pasada 1 · encolar baja en el servidor (solo si la fila ya existía)
     project.data.servicios[dept].splice(idx, 1);
     renderServiciosBody();
   } else {
+    _budgetQueueDeletes(project, [project.data[sectionKey][idx]]);
     project.data[sectionKey].splice(idx, 1);
     renderSimpleSection(sectionKey);
   }
+  markDirty();   // Pasada 1 · la baja debe disparar el guardado (antes deleteRow no lo hacía)
   recalcDeptSummary(sectionKey);
   recalcKPIs();
   recalcAlerts();
@@ -15719,7 +15753,7 @@ function _heRecalcProjectRows() {
   // el cálculo del proyecto (las override mantienen su valor).
   const d = STATE.currentProject && STATE.currentProject.data;
   if (!d) return;
-  const recalc = (item) => { const c = item.heConfig; if (c && c.usaProyecto !== false) item.horaExtra = _heComputeCosto(c, item) || null; };
+  const recalc = (item) => { const c = item.heConfig; if (c && c.usaProyecto !== false) { item.horaExtra = _heComputeCosto(c, item) || null; _markRowDirty(item); } };   // Pasada 1 · cambió el cache HE de la fila
   for (const dept in d.servicios) (d.servicios[dept] || []).forEach(recalc);
   ['gastos', 'equipos', 'talentos'].forEach(sk => (d[sk] || []).forEach(recalc));
 }
@@ -15750,6 +15784,7 @@ function setHeHoras(sectionKey, dept, idx, raw) {
     item.heConfig = cfg;
     item.horaExtra = _heComputeCosto(cfg, item) || null;
   }
+  _markRowDirty(item);   // Pasada 1 · HE escrita por fuera de updateRowField
   markDirty();
   _heRefreshAll(sectionKey);
 }
@@ -15913,6 +15948,7 @@ function _hecConfirm() {
   } else {
     item.heConfig = cfg; item.horaExtra = costo;
   }
+  _markRowDirty(item);   // Pasada 1 · HE escrita por fuera de updateRowField
   markDirty();
   closeModal();
   _heRefreshAll(st.sectionKey);
@@ -15920,7 +15956,7 @@ function _hecConfirm() {
 function _hecClear() {
   const st = window._hec; if (!st) { closeModal(); return; }
   const item = _rowNoteItem(st.sectionKey, st.dept, st.idx);
-  if (item) { item.heConfig = null; item.horaExtra = null; }
+  if (item) { item.heConfig = null; item.horaExtra = null; _markRowDirty(item); }   // Pasada 1
   markDirty();
   closeModal();
   _heRefreshAll(st.sectionKey);
@@ -16997,6 +17033,7 @@ function onUnidadSelectChange(selectEl, sectionKey, dept, idx) {
   const item = sectionKey === 'servicios'
     ? project.data.servicios[dept][idx]
     : project.data[sectionKey][idx];
+  _markRowDirty(item);   // Pasada 1 · cambio de unidad por fuera de updateRowField
 
   if (selectEl.value === '__custom__') {
     item.unidad = '';  // limpia para permitir custom
@@ -17018,6 +17055,7 @@ function onUnidadInputChange(inputEl, sectionKey, dept, idx) {
     ? project.data.servicios[dept][idx]
     : project.data[sectionKey][idx];
   item.unidad = inputEl.value;
+  _markRowDirty(item);   // Pasada 1 · cambio de unidad por fuera de updateRowField
 }
 
 function onUnidadReset(btnEl, sectionKey, dept, idx) {
@@ -17026,6 +17064,7 @@ function onUnidadReset(btnEl, sectionKey, dept, idx) {
     ? project.data.servicios[dept][idx]
     : project.data[sectionKey][idx];
   item.unidad = 'Tarifa Plana';
+  _markRowDirty(item); markDirty();   // Pasada 1 · onclick: no dispara el listener global → marcar la fila y guardar
   const td = btnEl.closest('td');
   td.innerHTML = renderUnidadCellSelect(sectionKey, dept, idx, 'Tarifa Plana');
 }
