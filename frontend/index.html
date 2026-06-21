@@ -2261,9 +2261,9 @@ function buildDefaultProjectData() {
       extras: []
     },
     servicios: {},
-    gastos: DEFAULT_GASTOS.map(g => ({ nombre: '', item: g.item, valor: g.valor, cantidad: 0, unidad: g.unidad, dte: null, confirmado: false, costoReal: null })),
-    equipos: DEFAULT_EQUIPOS.map(e => ({ nombre: '', item: e.item, valor: e.valor, cantidad: 0, unidad: e.unidad, dte: null, confirmado: false, costoReal: null })),
-    talentos: DEFAULT_TALENTOS.map(t => ({ nombre: '', item: t.item, valor: t.valor, cantidad: 0, unidad: t.unidad, dte: null, confirmado: false, costoReal: null })),
+    gastos: DEFAULT_GASTOS.map(g => ({ nombre: '', item: g.item, valor: g.valor, cantidad: 0, unidad: g.unidad, dte: null, confirmado: false, costoReal: null, clientUuid: _clientUuid(), version: null, _dirty: true, _dirtySeq: 1 })),
+    equipos: DEFAULT_EQUIPOS.map(e => ({ nombre: '', item: e.item, valor: e.valor, cantidad: 0, unidad: e.unidad, dte: null, confirmado: false, costoReal: null, clientUuid: _clientUuid(), version: null, _dirty: true, _dirtySeq: 1 })),
+    talentos: DEFAULT_TALENTOS.map(t => ({ nombre: '', item: t.item, valor: t.valor, cantidad: 0, unidad: t.unidad, dte: null, confirmado: false, costoReal: null, clientUuid: _clientUuid(), version: null, _dirty: true, _dirtySeq: 1 })),
     crewExtra: {},  // nombre → { medioTransporte }
     responsables: {},  // V8.5: responsable por sección (key de módulo → nombre BD)
     tareas: [],        // V8.6: tareas del proyecto (con sección, asignado, comentarios, adjuntos)
@@ -17634,6 +17634,26 @@ function updateUndoButton() {
 /* Pasada 1 · reinicia los flags de runtime que NO deben sobrevivir a un undo/redo
    (el snapshot serializa el proyecto entero, incluidos estos). Sin esto, un undo
    tomado durante un guardado restauraría _saving=true y trabaría el autosave. */
+/* Pasada 1 · la VERSIÓN (cabecera y por fila) es metadata de concurrencia del
+   servidor, no contenido del usuario. Tras un undo/redo (que restaura un snapshot
+   viejo) se conserva la versión VIVA por clientUuid y la línea base de concurrencia
+   (_headerVersion/_budgetPendingDeletes/_snap) del estado vivo, para que el
+   contenido restaurado se reenvíe con la versión correcta, sin conflicto falso. */
+function _reconcileVersionsFromLive(restored, live) {
+  if (!restored || !live) return;
+  var liveVers = {};
+  function scan(arr) { (arr || []).forEach(function (r) { if (r && r.clientUuid) liveVers[r.clientUuid] = r.version; }); }
+  var ld = live.data || {};
+  for (var dep in (ld.servicios || {})) scan(ld.servicios[dep]);
+  scan(ld.gastos); scan(ld.equipos); scan(ld.talentos);
+  function apply(arr) { (arr || []).forEach(function (r) { if (r && r.clientUuid && Object.prototype.hasOwnProperty.call(liveVers, r.clientUuid)) r.version = liveVers[r.clientUuid]; }); }
+  var rd = restored.data || {};
+  for (var dep2 in (rd.servicios || {})) apply(rd.servicios[dep2]);
+  apply(rd.gastos); apply(rd.equipos); apply(rd.talentos);
+  restored._headerVersion = live._headerVersion;
+  restored._budgetPendingDeletes = (live._budgetPendingDeletes || []).slice();
+  restored._snap = live._snap;
+}
 function _resetFlagsRuntime(project) {
   if (!project) return;
   project._saving = false; project._resaveQueued = false;
@@ -17649,8 +17669,10 @@ function undoLast() {
   if (UNDO_BASELINE && UNDO_BASELINE.id === prev.id) REDO_STACK.push(UNDO_BASELINE);
   const restored = JSON.parse(prev.snap);
   const idx = PROJECTS.findIndex(x => x.id === prev.id);
+  const _live = (idx !== -1) ? PROJECTS[idx] : ((STATE.currentProject && STATE.currentProject.id === prev.id) ? STATE.currentProject : null);
   if (idx !== -1) PROJECTS[idx] = restored;
   if (STATE.currentProject && STATE.currentProject.id === prev.id) STATE.currentProject = restored;
+  _reconcileVersionsFromLive(restored, _live);   // Pasada 1 · conserva la versión viva (server) → evita conflicto falso tras undo
   _resetFlagsRuntime(restored);   // Pasada 1 · no resucitar flags transitorios (evita deadlock de _saving)
   UNDO_BASELINE = { id: restored.id, snap: prev.snap };
   STATE.dirty = true;
@@ -17667,8 +17689,10 @@ function redoLast() {
   if (UNDO_BASELINE && UNDO_BASELINE.id === next.id) UNDO_STACK.push(UNDO_BASELINE);
   const restored = JSON.parse(next.snap);
   const idx = PROJECTS.findIndex(x => x.id === next.id);
+  const _live = (idx !== -1) ? PROJECTS[idx] : ((STATE.currentProject && STATE.currentProject.id === next.id) ? STATE.currentProject : null);
   if (idx !== -1) PROJECTS[idx] = restored;
   if (STATE.currentProject && STATE.currentProject.id === next.id) STATE.currentProject = restored;
+  _reconcileVersionsFromLive(restored, _live);   // Pasada 1 · conserva la versión viva (server) → evita conflicto falso tras redo
   _resetFlagsRuntime(restored);   // Pasada 1 · idem undo
   UNDO_BASELINE = { id: restored.id, snap: next.snap };
   STATE.dirty = true;
@@ -19301,6 +19325,7 @@ function _dalProyectoPayload(project) {
     const concepto = (section === 'servicios') ? (r.rol || '') : (r.item || '');
     // No insertar filas nuevas totalmente vacías (placeholder sin contenido).
     if (esFilaNueva && !(r.nombre || '').trim() && !concepto.trim() && r.valor == null && r.costoReal == null) return;
+    if (!r.clientUuid) r.clientUuid = _clientUuid();   // Pasada 1 · red de seguridad: nunca enviar una fila sin id estable (filas no creadas por addRow: defaults del proyecto nuevo, goSavePresup, importadas…)
     upserts.push({
       clientUuid: r.clientUuid, version: (r.version != null ? r.version : null),
       section: section, departamento: dep || null,
@@ -22782,7 +22807,7 @@ function goSavePresup() {
     const gastos = project.data.gastos = Array.isArray(project.data.gastos) ? project.data.gastos : [];
     const existe = gastos.some(r => (r.item || '').trim().toLowerCase() === linea.toLowerCase());
     if (!existe) {
-      gastos.push({ nombre: '', item: linea, valor: 0, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: true });
+      gastos.push({ nombre: '', item: linea, valor: 0, cantidad: 0, unidad: 'Tarifa Plana', dte: null, dteReal: null, confirmado: false, costoReal: null, extra: true, clientUuid: _clientUuid(), version: null, _dirty: true, _dirtySeq: 1 });
     }
     if (!CHIPAX_CUENTA[linea]) CHIPAX_CUENTA[linea] = 'Gastos de Producción';
   }
