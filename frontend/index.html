@@ -17631,6 +17631,15 @@ function updateUndoButton() {
   const b = document.getElementById('undoBtn');
   if (b) b.disabled = UNDO_STACK.length === 0;
 }
+/* Pasada 1 · reinicia los flags de runtime que NO deben sobrevivir a un undo/redo
+   (el snapshot serializa el proyecto entero, incluidos estos). Sin esto, un undo
+   tomado durante un guardado restauraría _saving=true y trabaría el autosave. */
+function _resetFlagsRuntime(project) {
+  if (!project) return;
+  project._saving = false; project._resaveQueued = false;
+  project._autosaveSuspendedByConflict = false; project._conflictoModalAbierto = false;
+  try { _conflictoBannerHide(); } catch (e) {}
+}
 function undoLast() {
   if (UNDO_STACK.length === 0) {
     showToast({ kind: 'info', title: 'Nada que deshacer', body: 'No hay una acción reciente para revertir en este proyecto.' });
@@ -17642,6 +17651,7 @@ function undoLast() {
   const idx = PROJECTS.findIndex(x => x.id === prev.id);
   if (idx !== -1) PROJECTS[idx] = restored;
   if (STATE.currentProject && STATE.currentProject.id === prev.id) STATE.currentProject = restored;
+  _resetFlagsRuntime(restored);   // Pasada 1 · no resucitar flags transitorios (evita deadlock de _saving)
   UNDO_BASELINE = { id: restored.id, snap: prev.snap };
   STATE.dirty = true;
   const sb = document.getElementById('saveBtn'); if (sb) sb.classList.add('is-dirty');
@@ -17659,6 +17669,7 @@ function redoLast() {
   const idx = PROJECTS.findIndex(x => x.id === next.id);
   if (idx !== -1) PROJECTS[idx] = restored;
   if (STATE.currentProject && STATE.currentProject.id === next.id) STATE.currentProject = restored;
+  _resetFlagsRuntime(restored);   // Pasada 1 · idem undo
   UNDO_BASELINE = { id: restored.id, snap: next.snap };
   STATE.dirty = true;
   const sb = document.getElementById('saveBtn'); if (sb) sb.classList.add('is-dirty');
@@ -19053,9 +19064,10 @@ function _dalFusionarProyecto(target, partes) {
   // locaciones/tareas/senales/crewExtra/responsables/asistentes/crewExternos/gastosOp: intactos (estado actual). rodajes/planRodaje/hojaLlamado: desde Supabase (4a).
 }
 
-async function dalLoadProyectos(soloBorrados) {
-  if (!sb) return null;
-  const sel = 'id,nombre_proyecto,categoria,es_remunerado,servicio,productora,fecha_entrega_final,estado,version,aprobado_at,cerrado_at,deleted_at,'
+/* Select compartido para cargar/recargar proyectos (incluye las columnas de
+   concurrencia: projects.version y budget_line_items.client_uuid/version). */
+function _dalProyectoSelect() {
+  return 'id,nombre_proyecto,categoria,es_remunerado,servicio,productora,fecha_entrega_final,estado,version,aprobado_at,cerrado_at,deleted_at,'
     + 'project_commercial(cliente_empresa_id,cliente_contacto_id,agencia_empresa_id,cliente_texto,agencia_texto,derechos_tiempo,derechos_plataformas,derechos_territorio,contacto_cliente,mail_contacto_cliente,telefono_contacto_cliente,contacto_agencia,mail_contacto_agencia,telefono_contacto_agencia,condicion_pago,fecha_cotizacion,fecha_aprobacion,fecha_pago),'
     + 'project_assignments(contact_id,function_id,project_functions(nombre)),'
     + 'project_financials(presupuesto_cliente,gastos_admin_pct,he_recargo_default,frozen),'
@@ -19078,6 +19090,11 @@ async function dalLoadProyectos(soloBorrados) {
     + 'project_tasks(id,seccion,texto,asignado_a,creado_por,estado,creada_ts,posicion,task_comments(id,autor,texto,ts,posicion),task_attachments(nombre_original,storage_path,posicion)),'
     + 'project_signals(id,tipo,seccion,descripcion,creada_ts,visto_por,meta,posicion),'
     + 'project_documents(id,categoria,titulo,url,notas,archivo_nombre,archivo_path,archivo_size,ts,posicion)';
+}
+
+async function dalLoadProyectos(soloBorrados) {
+  if (!sb) return null;
+  const sel = _dalProyectoSelect();
   try {
     let q = sb.from('projects').select(sel).eq('organization_id', ORG_ID);
     q = soloBorrados ? q.not('deleted_at', 'is', null) : q.is('deleted_at', null);
@@ -19085,6 +19102,26 @@ async function dalLoadProyectos(soloBorrados) {
     if (error) throw error;
     return data || [];
   } catch (e) { console.error('[dal] cargar proyectos', e); return null; }
+}
+
+/* Pasada 1 · recarga UN solo proyecto desde Supabase y lo re-fusiona. La fusión
+   trae versiones frescas (cabecera y por fila) y reinicia la línea base (_snap,
+   _headerVersion, _budgetPendingDeletes y marcas de sucio). Usado por "Recargar
+   ahora" al resolver un conflicto. */
+async function dalReloadProyecto(id) {
+  if (!sb || !id) return false;
+  try {
+    const { data, error } = await sb.from('projects').select(_dalProyectoSelect())
+      .eq('organization_id', ORG_ID).eq('id', id).is('deleted_at', null).limit(1);
+    if (error) throw error;
+    const row = (data && data[0]) || null;
+    if (!row) return false;
+    const tgt = PROJECTS.find(function (x) { return x.id === id; });
+    if (!tgt) return false;
+    _dalFusionarProyecto(tgt, _dalProyectoPartes(row));
+    DAL_KNOWN_PROJECT_IDS.add(id);
+    return true;
+  } catch (e) { console.error('[dal] recargar proyecto', id, e); return false; }
 }
 
 async function dalBootProyectos() {
@@ -19373,17 +19410,91 @@ function _dalAdoptarRespuesta(project, meta, data) {
 }
 
 /* Pasada 1 · choque de versión: el RPC lanza 'TAKEOS_CONFLICT:{seccion,ids}'.
-   Suspende el autosave del proyecto (para no reabrir el aviso cada 1,5 s), avisa
-   y devuelve true. Hermano de manejarErrorPlan. (El modal de conflicto con las
-   filas afectadas y la recarga se agregan en el Paso 6.) */
+   Suspende el autosave del proyecto (para no reabrir el aviso cada 1,5 s) y muestra
+   UNA sola vez el modal apuntando a las filas/cabecera en conflicto. Hermano de
+   manejarErrorPlan. Devuelve true si manejó un conflicto. */
 function manejarConflicto(e, project) {
   var raw = (e && e.message) ? String(e.message) : String(e || '');
   var m = raw.match(/TAKEOS_CONFLICT:\s*(\{[\s\S]*\})/);
   if (!m) return false;
   var info; try { info = JSON.parse(m[1]); } catch (x) { info = { seccion: '', ids: [] }; }
-  if (project) project._autosaveSuspendedByConflict = true;   // no reintentar hasta que el usuario recargue
-  try { showToast({ kind: 'warning', title: 'Hay una versión más nueva', body: 'Otra sesión guardó cambios en ' + (info.seccion === 'cabecera' ? 'la cabecera' : 'el presupuesto') + ' de este proyecto. Recarga para traer la versión más nueva y reaplica tu cambio.', duration: 8000 }); } catch (x) {}
+  if (!project) return true;
+  project._autosaveSuspendedByConflict = true;        // no reintentar hasta que el usuario recargue
+  if (project._conflictoModalAbierto) return true;    // ya se mostró: una sola vez por conflicto
+  project._conflictoModalAbierto = true;
+  _mostrarModalConflicto(project, info);
   return true;
+}
+
+/* Busca una fila de presupuesto por su clientUuid en las cuatro secciones. */
+function _budgetFindRow(project, clientUuid) {
+  const d = (project && project.data) || {}; let found = null;
+  function scan(arr) { (arr || []).forEach(function (r) { if (r && r.clientUuid === clientUuid) found = r; }); }
+  for (const dep in (d.servicios || {})) scan(d.servicios[dep]);
+  scan(d.gastos); scan(d.equipos); scan(d.talentos);
+  return found;
+}
+
+function _mostrarModalConflicto(project, info) {
+  var esCabecera = (info && info.seccion === 'cabecera');
+  var cuerpo;
+  if (esCabecera) {
+    cuerpo = '<p style="margin:0;font-size:13.5px;color:var(--ink-secondary);line-height:1.6;">Otra sesión guardó cambios en la <strong>información del proyecto</strong> (cliente, agencia, derechos, fechas…) mientras la editabas. Para no pisar su trabajo, recarga la versión más nueva y vuelve a aplicar tu cambio.</p>';
+  } else {
+    var ids = (info && Array.isArray(info.ids)) ? info.ids : [];
+    var li = ids.map(function (cu) {
+      var r = _budgetFindRow(project, cu); if (!r) return null;
+      var concepto = escapeHtml(r.rol || r.item || r.nombre || '(sin concepto)');
+      var val = (r.valor != null) ? escapeHtml(fmtMoney(r.valor)) : '—';
+      return '<li style="margin:3px 0;"><strong>' + concepto + '</strong> — intentabas guardar: ' + val + '</li>';
+    }).filter(Boolean);
+    cuerpo = '<p style="margin:0 0 8px;font-size:13.5px;color:var(--ink-secondary);line-height:1.6;">Otra sesión guardó cambios en estas filas del presupuesto mientras las editabas:</p>'
+      + '<ul style="margin:0 0 10px;padding-left:18px;font-size:13px;color:var(--ink-primary);">' + (li.length ? li.join('') : '<li>(no se pudieron ubicar las filas)</li>') + '</ul>'
+      + '<p style="margin:0;font-size:12.5px;color:var(--ink-faint);line-height:1.55;">Al recargar se trae la versión del servidor y se descartan tus cambios sin guardar de este presupuesto. Anota lo que necesites antes de recargar.</p>';
+  }
+  showModal({
+    title: esCabecera ? 'Hay una versión más nueva (cabecera)' : 'Hay una versión más nueva (presupuesto)',
+    body: cuerpo,
+    confirmLabel: 'Recargar ahora',
+    cancelLabel: 'Recargar en un momento',
+    onConfirm: function () { _conflictoRecargarAhora(project); },
+    onCancel: function () { _conflictoMasTarde(project); }
+  });
+}
+
+async function _conflictoRecargarAhora(project) {
+  project._conflictoModalAbierto = false;
+  _conflictoBannerHide();
+  var ok = await dalReloadProyecto(project.id);   // re-fusión: versiones frescas + línea base limpia
+  if (ok) {
+    project._autosaveSuspendedByConflict = false;   // reanuda el autosave
+    try { if (STATE.currentView === 'project' && STATE.currentModule && STATE.currentProject && STATE.currentProject.id === project.id) renderModule(STATE.currentModule); } catch (x) {}
+    try { showToast({ kind: 'success', title: 'Proyecto recargado', body: 'Trajimos la versión más nueva. Vuelve a aplicar tu cambio.', duration: 6000 }); } catch (x) {}
+  } else {
+    try { showToast({ kind: 'error', title: 'No se pudo recargar', body: 'Revisa tu conexión e inténtalo de nuevo.', duration: 6000 }); } catch (x) {}
+    _conflictoBannerShow(project);   // sigue pendiente
+  }
+}
+
+function _conflictoMasTarde(project) {
+  project._conflictoModalAbierto = false;
+  _conflictoBannerShow(project);   // autosave sigue suspendido + banner persistente
+}
+
+function _conflictoBannerShow(project) {
+  _conflictoBannerHide();
+  var b = document.createElement('div');
+  b.id = 'conflictoBanner';
+  b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9999;max-width:92vw;background:var(--bg-card,#1a1a1c);border:1px solid var(--accent,#B03A2F);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:13px;color:var(--ink-secondary);';
+  b.innerHTML = '<span>Tienes una versión más nueva sin cargar. <strong>Tus cambios no se están guardando</strong> hasta que recargues.</span>'
+    + '<button class="btn btn-primary btn-sm" id="conflictoBannerBtn" style="white-space:nowrap;">Recargar ahora</button>';
+  document.body.appendChild(b);
+  var btn = document.getElementById('conflictoBannerBtn');
+  if (btn) btn.onclick = function () { _conflictoRecargarAhora(project); };
+}
+function _conflictoBannerHide() {
+  var b = document.getElementById('conflictoBanner');
+  if (b && b.parentNode) b.parentNode.removeChild(b);
 }
 
 /* Operaciones 4a (rodajes + plan de rodaje + hoja de llamado) -> payload para
