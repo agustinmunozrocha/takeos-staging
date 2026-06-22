@@ -1,5 +1,27 @@
 # Changelog — TakeOS
 
+## V11.17.0 — 22 de junio de 2026
+### Panel de Equipo: cambiar interno/externo y quitar del equipo
+
+Rama `feat/personal-cambiar-tipo-echar`. En **Configuración → Equipo**, el
+Administrador ahora puede gestionar la relación de cada persona con la productora,
+no solo invitarla. Cambio acotado al **frontend** (monolito), sin tocar la base.
+
+- **Cambiar tipo de relación (interno ↔ externo).** La columna "Tipo" pasa de
+  texto a desplegable. El tipo define qué proyectos ve la persona (ADR-004):
+  interno → todos; externo → solo los asignados. Pide confirmación antes de aplicar.
+- **Quitar del equipo.** Botón "Quitar" por fila: pasa la membresía a
+  `estado='inactivo'` (el estado "revocada" del ADR-004; **no** es borrado físico),
+  corta el acceso de inmediato y la oculta de la lista; queda registro en la
+  auditoría. Para reincorporarla hay que volver a invitarla.
+- **Guarda de coherencia tipo×perfil.** No permite dejar a alguien como externo
+  con perfil Administrador o Finanzas (misma regla que el RPC de invitación), en
+  ambos sentidos (al cambiar tipo y al cambiar perfil).
+- **Seguros (reutiliza el patrón del cambio de perfil ya existente):** UPDATE
+  directo a `memberships` protegido por la RLS (solo Administrador) y el trigger
+  del último Administrador (no se puede quitar ni degradar al único admin). Los
+  diálogos usan el modal del software (`showModal`), no el popup del navegador.
+
 ## Seguridad basal del beta (§6) — 16 de junio de 2026
 ### CSP acotada vía `<meta>` (ítem 5) + cierre confirmado del XSS de `<img src>` (ítem 3)
 

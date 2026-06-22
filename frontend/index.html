@@ -14893,7 +14893,7 @@ function openEmpresaPerfil(subInicial) {
             </div>
             <div id="empEquipoTabla" style="border:1px solid var(--rule);border-radius:8px;padding:12px;font-size:13px;color:var(--ink-secondary);">Cargando equipo…</div>
             <div id="empInvitacionesLista" style="margin-top:14px;"></div>
-            ${esAdmin ? `<p style="margin:12px 0 0;font-size:12px;color:var(--ink-faint);line-height:1.5;">Incorporar internos es facultad del Administrador. La invitación se entrega por link copiable (y en la bandeja interna si la persona ya tiene cuenta); el envío automático por correo se activa cuando esté listo el canal de email.</p>` : `<p style="margin:12px 0 0;font-size:12px;color:var(--ink-faint);line-height:1.5;">Incorporar personas y cambiar perfiles de acceso es facultad del Administrador. Aquí puedes ver quién compone el equipo, su perfil de acceso y su estado.</p>`}
+            ${esAdmin ? `<p style="margin:12px 0 0;font-size:12px;color:var(--ink-faint);line-height:1.5;">Incorporar internos es facultad del Administrador. La invitación se entrega por link copiable (y en la bandeja interna si la persona ya tiene cuenta); el envío automático por correo se activa cuando esté listo el canal de email.<br>Desde la tabla puedes cambiar el <strong>perfil de acceso</strong> de cada persona, alternar entre <strong>interno y externo</strong> (define qué proyectos ve), y <strong>quitarla del equipo</strong> (pierde todo acceso y desaparece de la lista; queda registro en la auditoría).</p>` : `<p style="margin:12px 0 0;font-size:12px;color:var(--ink-faint);line-height:1.5;">Incorporar personas y cambiar perfiles de acceso es facultad del Administrador. Aquí puedes ver quién compone el equipo, su perfil de acceso y su estado.</p>`}
           </div>
           <div id="empSubDiseno" style="display:none;">
             <p style="margin:0 0 14px;color:var(--ink-secondary);font-size:13px;line-height:1.5;">La identidad de la marca, a la vista de todo el equipo: descarga los logos, copia los colores y revisa las tipografías.${esAdmin ? '' : ' Editar la identidad es facultad del Administrador.'}</p>
@@ -14958,7 +14958,21 @@ async function _empPerfilesOrg() {
   } catch (e) {}
   return _EMP_PERFILES || [];
 }
-async function _empCambiarPerfil(memId, profileId) {
+/* V11.x · código de perfil a partir de su id (lee el cache _EMP_PERFILES). */
+function _empCodigoDePerfil(profileId) {
+  var arr = _EMP_PERFILES || [];
+  var p = arr.find(function (x) { return String(x.id) === String(profileId); });
+  return p ? p.codigo : null;
+}
+async function _empCambiarPerfil(memId, profileId, tipoActual) {
+  /* Invariante tipo×perfil: un externo no puede ser Administrador (1) ni
+     Finanzas (8) —misma regla que el RPC de invitación impone server-side—. */
+  var cod = _empCodigoDePerfil(profileId);
+  if (String(tipoActual) === 'externo' && (cod === 1 || cod === 8)) {
+    showToast({ kind: 'warning', title: 'Perfil no válido para un externo', body: 'Un colaborador externo no puede tener perfil Administrador ni Finanzas. Pásalo primero a interno si necesita ese perfil.', duration: 8000 });
+    _empCargarEquipo();
+    return;
+  }
   try {
     const r = await sb.from('memberships').update({ profile_id: profileId }).eq('id', memId);
     if (r.error) throw r.error;
@@ -14968,6 +14982,69 @@ async function _empCambiarPerfil(memId, profileId) {
     showToast({ kind: 'error', title: 'No se pudo cambiar', body: det, duration: 8000 });
     _empCargarEquipo();
   }
+}
+/* V11.x · cambiar el tipo de relación (interno ↔ externo) de un miembro ya
+   existente. Mismo patrón que el cambio de perfil: UPDATE directo a memberships
+   protegido por la RLS (solo Administrador) + trigger del último admin. El tipo
+   define qué proyectos ve la persona (ADR-004): interno → todos; externo → solo
+   los asignados. */
+async function _empCambiarTipo(memId, nuevoTipo, perfilCodigo) {
+  nuevoTipo = (nuevoTipo === 'externo') ? 'externo' : 'interno';
+  if (nuevoTipo === 'externo' && (perfilCodigo === 1 || perfilCodigo === 8)) {
+    showToast({ kind: 'warning', title: 'No se puede pasar a externo', body: 'Esta persona tiene perfil Administrador o Finanzas, que solo pueden ser internos. Cambia primero su perfil de acceso.', duration: 8000 });
+    _empCargarEquipo();
+    return;
+  }
+  var cuerpo = (nuevoTipo === 'externo')
+    ? 'Al pasar a <strong>externo</strong>, la persona dejará de ver todos los proyectos de la productora y solo verá aquellos a los que la asignes explícitamente.'
+    : 'Al pasar a <strong>interno</strong>, la persona pasará a ver todos los proyectos de la productora.';
+  showModal({
+    title: 'Cambiar tipo de relación',
+    body: cuerpo + '<br><br>¿Continuar?',
+    confirmLabel: 'Sí, cambiar',
+    cancelLabel: 'Cancelar',
+    onCancel: function () { _empCargarEquipo(); },   // el select ya mostraba el valor nuevo: recargar lo revierte
+    onConfirm: async function () {
+      try {
+        const r = await sb.from('memberships').update({ tipo: nuevoTipo }).eq('id', memId);
+        if (r.error) throw r.error;
+        showToast({ kind: 'success', title: 'Tipo actualizado', body: 'El cambio rige desde su próxima sesión.' });
+      } catch (e) {
+        var det = (e && e.message) ? String(e.message).replace(/^memberships:\s*/i, '') : 'Cambiar el tipo de relación es facultad del Administrador.';
+        showToast({ kind: 'error', title: 'No se pudo cambiar', body: det, duration: 8000 });
+      }
+      _empCargarEquipo();
+    }
+  });
+}
+/* V11.x · quitar a alguien del equipo (cortar toda relación con la productora).
+   No es borrado físico (la doctrina lo prohíbe): pasa la membresía a
+   estado='inactivo' —el estado canónico de "revocada" del ADR-004—, con lo que
+   pierde de inmediato todo acceso (los helpers de autorización filtran por
+   estado='activo') y desaparece de la vista del equipo. Queda registro en la
+   auditoría. La RLS exige Administrador y el trigger impide quitar al único
+   Administrador activo. */
+async function _empEcharMiembro(memId, nombreEnc) {
+  var quien = 'esta persona';
+  try { var d = decodeURIComponent(nombreEnc || ''); if (d) quien = d; } catch (e) {}
+  showModal({
+    title: 'Quitar del equipo',
+    body: '¿Quitar a <strong>' + escapeHtml(quien) + '</strong> del equipo?<br><br>Perderá de inmediato todo acceso a la productora y desaparecerá de la lista del equipo. Queda un registro en la auditoría (no es un borrado físico). Para reincorporarla habrá que volver a invitarla.',
+    confirmLabel: 'Quitar del equipo',
+    cancelLabel: 'Cancelar',
+    danger: true,
+    onConfirm: async function () {
+      try {
+        const r = await sb.from('memberships').update({ estado: 'inactivo' }).eq('id', memId);
+        if (r.error) throw r.error;
+        showToast({ kind: 'success', title: 'Persona quitada del equipo', body: quien + ' perdió el acceso a la productora. Su historial queda registrado en la auditoría.' });
+      } catch (e) {
+        var det = (e && e.message) ? String(e.message).replace(/^memberships:\s*/i, '') : 'Quitar personas del equipo es facultad del Administrador.';
+        showToast({ kind: 'error', title: 'No se pudo quitar', body: det, duration: 8000 });
+      }
+      _empCargarEquipo();
+    }
+  });
 }
 /* V11.6.0 · invitación de DATOS (la de las fichas de personas): pide a la
    persona crear cuenta (si no tiene) y consentir que la productora importe
@@ -15046,29 +15123,40 @@ async function _empCargarEquipo() {
       .select('id, user_id, tipo, estado, contact_id, profile_id, permission_profiles(nombre)')
       .eq('organization_id', ORG_ID);
     if (res.error) throw res.error;
-    var rows = res.data || [];
+    /* V11.x · se ocultan las membresías inactivas (personas "quitadas" del
+       equipo): siguen en la base por auditoría, pero desaparecen de la vista. */
+    var rows = (res.data || []).filter(function (r) { return r.estado !== 'inactivo'; });
     if (!rows.length) { box.textContent = 'Sin membresías visibles. (El RLS puede limitar esta vista a tu propio registro.)'; return; }
-    var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
-      + '<thead><tr>'
-      + '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Persona</th>'
-      + '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Perfil de acceso</th>'
-      + '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Tipo</th>'
-      + '<th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Estado</th>'
-      + '</tr></thead><tbody>';
     var soyAdmin = (typeof authEsAdmin === 'function') ? (!TAKEOS_PERFIL || authEsAdmin()) : true;
+    /* mapa perfil_id → código, para imponer la regla "un externo no puede ser
+       Administrador (1) ni Finanzas (8)" del lado del cliente (UX; el RPC de
+       invitación ya la impone server-side). */
+    var perfilCodPorId = {};
+    perfiles.forEach(function (p) { perfilCodPorId[String(p.id)] = p.codigo; });
     /* V11.3.1 · candado de último Administrador: si la org tiene un solo
        admin activo, su perfil no se puede cambiar desde aquí (la base además
        lo rechaza con trigger; esto evita siquiera ofrecerlo). */
     var adminIds = perfiles.filter(function (p) { return p.codigo === 1; }).map(function (p) { return p.id; });
     var adminsActivos = rows.filter(function (r) { return r.estado === 'activo' && adminIds.indexOf(r.profile_id) >= 0; });
+    var thBase = 'text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.05em;';
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+      + '<thead><tr>'
+      + '<th style="' + thBase + '">Persona</th>'
+      + '<th style="' + thBase + '">Perfil de acceso</th>'
+      + '<th style="' + thBase + '">Tipo</th>'
+      + '<th style="' + thBase + '">Estado</th>'
+      + (soyAdmin ? '<th style="' + thBase + 'text-align:right;">Acciones</th>' : '')
+      + '</tr></thead><tbody>';
     rows.forEach(function (m) {
       var nom = (m.contact_id && typeof BD_CONTACTOS !== 'undefined' && BD_CONTACTOS[m.contact_id] && BD_CONTACTOS[m.contact_id].nombre) ? BD_CONTACTOS[m.contact_id].nombre : '';
       if (!nom && typeof DAL_SESSION_UID !== 'undefined' && m.user_id === DAL_SESSION_UID) nom = ((typeof USER_NOMBRE !== 'undefined' ? USER_NOMBRE : '') + ' ' + (typeof USER_APELLIDO !== 'undefined' ? USER_APELLIDO : '')).trim();
       var perfilNom = (m.permission_profiles && m.permission_profiles.nombre) ? m.permission_profiles.nombre : '—';
       var perfilCell;
       var esUnicoAdmin = adminsActivos.length === 1 && adminsActivos[0].id === m.id;
+      var perfilCod = perfilCodPorId[String(m.profile_id)];
+      var esYo = (typeof DAL_SESSION_UID !== 'undefined' && m.user_id === DAL_SESSION_UID);
       if (soyAdmin && perfiles.length && !esUnicoAdmin) {
-        perfilCell = '<select class="select" style="font-size:12.5px;padding:4px 8px;" onchange="_empCambiarPerfil(\'' + m.id + '\', this.value)">'
+        perfilCell = '<select class="select" style="font-size:12.5px;padding:4px 8px;" onchange="_empCambiarPerfil(\'' + m.id + '\', this.value, \'' + (m.tipo || '') + '\')">'
           + perfiles.map(function (p) { return '<option value="' + p.id + '"' + (p.id === m.profile_id ? ' selected' : '') + '>' + escapeHtml(p.nombre) + '</option>'; }).join('')
           + '</select>';
       } else if (esUnicoAdmin) {
@@ -15077,11 +15165,27 @@ async function _empCargarEquipo() {
       var est = String(m.estado || '');
       var estLabel = est === 'activo' ? 'Activo' : (est === 'pendiente' ? 'Invitación pendiente' : (est || '—'));
       var estColor = est === 'activo' ? 'var(--positive)' : 'var(--warning)';
+      var tipoCell;
+      if (soyAdmin && !esUnicoAdmin) {
+        tipoCell = '<select class="select" style="font-size:12.5px;padding:4px 10px;width:auto;min-width:108px;" onchange="_empCambiarTipo(\'' + m.id + '\', this.value, ' + (perfilCod || 0) + ')">'
+          + '<option value="interno"' + (m.tipo === 'interno' ? ' selected' : '') + '>Interno</option>'
+          + '<option value="externo"' + (m.tipo === 'externo' ? ' selected' : '') + '>Externo</option>'
+          + '</select>';
+      } else {
+        tipoCell = '<span style="text-transform:capitalize;">' + escapeHtml(m.tipo || '—') + '</span>';
+      }
+      var accCell = '';
+      if (soyAdmin) {
+        if (esUnicoAdmin) accCell = '<span style="font-size:10px;color:var(--ink-faint);" title="No puedes quitar a la única persona con perfil Administrador. Transfiere la administración primero.">🔒 único admin</span>';
+        else if (esYo) accCell = '<span style="font-size:10px;color:var(--ink-faint);">tú</span>';
+        else accCell = '<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);" onclick="_empEcharMiembro(\'' + m.id + '\', \'' + encodeURIComponent(nom || '') + '\')">Quitar</button>';
+      }
       html += '<tr>'
         + '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);">' + escapeHtml(nom || '—') + '</td>'
         + '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);">' + perfilCell + '</td>'
-        + '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);text-transform:capitalize;">' + escapeHtml(m.tipo || '—') + '</td>'
+        + '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);">' + tipoCell + '</td>'
         + '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);color:' + estColor + ';font-weight:600;">' + escapeHtml(estLabel) + '</td>'
+        + (soyAdmin ? '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);text-align:right;">' + accCell + '</td>' : '')
         + '</tr>';
     });
     html += '</tbody></table>';
