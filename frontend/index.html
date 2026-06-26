@@ -23540,37 +23540,66 @@ function goSantanderBankFor(project, m) {
   const email = (bd && (bd.mail || bd.email)) || dp.email || '';
   return { nombre, banco, codigoBanco, tipoCuenta, nCuenta, rut, email };
 }
+/* ════════════════════════════════════════════════════════════════════
+   SANEO DE CAMPOS · NÓMINA OFFICE BANKING SANTANDER
+   Santander valida cuentas y RUT como strings numéricos SIN separadores
+   ni caracteres invisibles. Estas funciones se aplican SIEMPRE en la
+   serialización a Excel (no como postproceso), para que cualquier origen
+   del dato (tipeado, importado, copiado desde PDF/web/campo RTL) quede
+   normalizado al exportar.
+   ──────────────────────────────────────────────────────────────────── */
+// Número de cuenta → solo dígitos [0-9]. El replace elimina de un saque
+// guiones (incluido U+2011 NON-BREAKING HYPHEN), puntos, espacios y TODO
+// carácter de formato/control Unicode (categoría Cf: U+202A LEFT-TO-RIGHT
+// EMBEDDING, U+202C POP DIRECTIONAL FORMATTING, marcas RTL, etc.).
+function _sanCuenta(v) {
+  return String(v == null ? '' : v).replace(/[^0-9]/g, '');
+}
+// RUT → cuerpo + dígito verificador concatenados, sin puntos ni guión.
+// Conserva el DV 'K' (RUT chileno) en mayúscula; descarta todo lo demás
+// (incluidos los caracteres Cf invisibles).
+function _sanRut(v) {
+  return String(v == null ? '' : v).replace(/[^0-9kK]/g, '').toUpperCase();
+}
+// Código SBIF de Santander. RUT del beneficiario es obligatorio cuando el
+// banco destino NO es Santander (regla del formato de pagos masivos).
+const _COD_SANTANDER = '037';
+function _esBancoSantander(cod) { return _sanCuenta(cod) === _COD_SANTANDER; }
 function goExportSantander() {
   const pend = []; PROJECTS.forEach(p => goReembPend(p).forEach(m => pend.push({ project: p, m: m })));
   if (!pend.length) { showToast({ kind: 'warning', title: 'Sin reembolsos', body: 'No hay reembolsos pendientes para exportar.' }); return; }
 
-  // Cuenta de ORIGEN (cuenta Santander de la empresa).
-  let cuentaOrigen = (typeof EMPRESA_PERFIL !== 'undefined' && EMPRESA_PERFIL.bancoNumero) ? String(EMPRESA_PERFIL.bancoNumero).replace(/\s/g, '').trim() : '';
+  // Cuenta de ORIGEN (cuenta Santander de la empresa). Solo dígitos.
+  let cuentaOrigen = (typeof EMPRESA_PERFIL !== 'undefined' && EMPRESA_PERFIL.bancoNumero) ? _sanCuenta(EMPRESA_PERFIL.bancoNumero) : '';
   if (!cuentaOrigen) {
     const v = window.prompt('N° de cuenta de ORIGEN (cuenta Santander de la empresa desde donde se transfiere):', '');
     if (v === null) return;
-    cuentaOrigen = String(v).replace(/\s/g, '').trim();
+    cuentaOrigen = _sanCuenta(v);
     if (cuentaOrigen && typeof EMPRESA_PERFIL !== 'undefined') { EMPRESA_PERFIL.bancoNumero = cuentaOrigen; markDirty(); _dalPerfilSaveSoon(); }
   }
   if (!cuentaOrigen) { showToast({ kind: 'error', title: 'Falta cuenta de origen', body: 'Sin la cuenta de origen no se puede generar la nómina. Configúrala en el Perfil de empresa.' }); return; }
 
-  const rows = []; const skipped = [];
+  const rows = []; const skipped = []; const faltaRut = [];
   pend.forEach(o => {
     const b = goSantanderBankFor(o.project, o.m);
     /* V11.4.0 · cuentas extranjeras NO entran a la nómina bancaria (el
        formato de pagos masivos no las soporta): se omiten con aviso al CFO. */
     const _pl = (typeof BD_PERSONAS !== 'undefined' && BD_PERSONAS[b.nombre]) || {};
     if (_pl.cuentaExtranjera || b.cuentaExtranjera) { skipped.push((b.nombre || '(sin nombre)') + ' (CUENTA EXTRANJERA: transferir por banca internacional)'); return; }
-    const cuentaDestino = String(b.nCuenta || '').replace(/\s/g, '').trim();
+    const cuentaDestino = _sanCuenta(b.nCuenta);
     if (!cuentaDestino) { skipped.push(b.nombre || '(sin nombre)'); return; }
-    const rut = String(b.rut || '').replace(/\./g, '').trim();   // sin puntos, conserva el dígito verificador
+    const codigoBanco = _sanCuenta(b.codigoBanco);
+    const rut = _sanRut(b.rut);   // cuerpo + DV concatenados, sin puntos ni guión
+    // RUT obligatorio si el banco destino NO es Santander: abortar antes de generar.
+    if (!_esBancoSantander(codigoBanco) && !rut) { faltaRut.push(b.nombre || '(sin nombre)'); return; }
     const glosa = ('Reembolso ' + goProjName(o.project)).slice(0, 40);
     rows.push([
       cuentaOrigen, 'CLP', cuentaDestino, 'CLP',
-      b.codigoBanco || '', rut, b.nombre || '',
+      codigoBanco, rut, b.nombre || '',
       o.m.monto || 0, glosa, b.email || '', '', glosa, ''
     ]);
   });
+  if (faltaRut.length) { showToast({ kind: 'error', title: 'Falta RUT de beneficiario', body: 'El RUT es obligatorio cuando el banco destino no es Santander. Completa el RUT en la Base de Datos de: ' + faltaRut.join(', ') + '. No se generó el archivo.' }); return; }
   if (!rows.length) { showToast({ kind: 'error', title: 'Sin datos bancarios', body: 'Ningún reembolso pendiente tiene cuenta de destino. Completa los datos de pago de los beneficiarios en la Base de Datos.' }); return; }
 
   const header = [
@@ -23642,11 +23671,11 @@ const _SANTANDER_HEADER = [
   'Glosa cartola originador\n(opcional)', 'Glosa cartola beneficiario\n(opcional, solo aplica si cuenta destino es Santander)'
 ];
 function _santanderOrigin() {
-  let cuentaOrigen = (typeof EMPRESA_PERFIL !== 'undefined' && EMPRESA_PERFIL.bancoNumero) ? String(EMPRESA_PERFIL.bancoNumero).replace(/\s/g, '').trim() : '';
+  let cuentaOrigen = (typeof EMPRESA_PERFIL !== 'undefined' && EMPRESA_PERFIL.bancoNumero) ? _sanCuenta(EMPRESA_PERFIL.bancoNumero) : '';
   if (!cuentaOrigen) {
     const v = window.prompt('N° de cuenta de ORIGEN (cuenta Santander de la empresa desde donde se transfiere):', '');
     if (v === null) return null;
-    cuentaOrigen = String(v).replace(/\s/g, '').trim();
+    cuentaOrigen = _sanCuenta(v);
     if (cuentaOrigen && typeof EMPRESA_PERFIL !== 'undefined') { EMPRESA_PERFIL.bancoNumero = cuentaOrigen; markDirty(); _dalPerfilSaveSoon(); }
   }
   if (!cuentaOrigen) { showToast({ kind: 'error', title: 'Falta cuenta de origen', body: 'Sin la cuenta de origen no se puede generar la nómina. Configúrala en el Perfil de empresa.' }); return null; }
@@ -23655,15 +23684,19 @@ function _santanderOrigin() {
 function _santanderExport(items, fname, label) {
   if (!items.length) { showToast({ kind: 'warning', title: 'Sin ' + label, body: 'No hay ' + label + ' para exportar.' }); return; }
   const cuentaOrigen = _santanderOrigin(); if (cuentaOrigen === null) return;
-  const rows = []; const skipped = [];
+  const rows = []; const skipped = []; const faltaRut = [];
   items.forEach(o => {
     const b = goSantanderBankFor(o.project, o.mov || { quien: o.nombre, datosPago: {} });
-    const cuentaDestino = String(b.nCuenta || '').replace(/\s/g, '').trim();
+    const cuentaDestino = _sanCuenta(b.nCuenta);
     if (!cuentaDestino) { skipped.push(b.nombre || '(sin nombre)'); return; }
-    const rut = String(b.rut || '').replace(/\./g, '').trim();
+    const codigoBanco = _sanCuenta(b.codigoBanco);
+    const rut = _sanRut(b.rut);
+    // RUT obligatorio si el banco destino NO es Santander: abortar antes de generar.
+    if (!_esBancoSantander(codigoBanco) && !rut) { faltaRut.push(b.nombre || '(sin nombre)'); return; }
     const glosa = ((o.glosaPrefix || 'Pago') + ' ' + goProjName(o.project)).slice(0, 40);
-    rows.push([cuentaOrigen, 'CLP', cuentaDestino, 'CLP', b.codigoBanco || '', rut, b.nombre || '', o.monto || 0, glosa, b.email || '', '', glosa, '']);
+    rows.push([cuentaOrigen, 'CLP', cuentaDestino, 'CLP', codigoBanco, rut, b.nombre || '', o.monto || 0, glosa, b.email || '', '', glosa, '']);
   });
+  if (faltaRut.length) { showToast({ kind: 'error', title: 'Falta RUT de beneficiario', body: 'El RUT es obligatorio cuando el banco destino no es Santander. Completa el RUT en la Base de Datos de: ' + faltaRut.join(', ') + '. No se generó el archivo.' }); return; }
   if (!rows.length) { showToast({ kind: 'error', title: 'Sin datos bancarios', body: 'Ninguno tiene cuenta de destino. Completa los datos de pago de los beneficiarios en la Base de Datos.' }); return; }
   try {
     if (typeof XLSX === 'undefined') throw new Error('SheetJS no disponible');
@@ -23692,8 +23725,13 @@ function goCfoProntosPagos() {
   const pp = goPPPend();
   const rows = pp.length ? pp.map(o => {
     const b = goSantanderBankFor(o.project, { quien: o.nombre, datosPago: {} });
-    const tieneCuenta = !!String(b.nCuenta || '').trim();
-    const estado = tieneCuenta ? '<span class="go-est validado">\u2713 datos OK</span>' : '<span class="go-est en_observacion">falta cuenta</span>';
+    const tieneCuenta = !!_sanCuenta(b.nCuenta);
+    // RUT obligatorio si el banco destino NO es Santander (misma regla que el exportador).
+    const faltaRut = !_esBancoSantander(b.codigoBanco) && !_sanRut(b.rut);
+    const _faltas = []; if (!tieneCuenta) _faltas.push('falta cuenta'); if (faltaRut) _faltas.push('falta RUT');
+    const estado = _faltas.length
+      ? '<span class="go-est en_observacion" data-tip="El RUT es obligatorio cuando el banco destino no es Santander.">' + _faltas.join(' \u00b7 ') + '</span>'
+      : '<span class="go-est validado">\u2713 datos OK</span>';
     const montoCell = o.tieneReal
       ? (fmtMoney(o.monto) + (o.completo ? '' : '<div class="go-sub" data-tip="Algunas filas de esta persona aún no tienen costo real; el monto es parcial.">parcial · faltan costos reales</div>'))
       : '<span class="go-proforma" data-tip="Aún no hay costo real ingresado. El monto se calcula desde el costo real y su DTE real, no desde el cotizado.">Proforma</span>';
