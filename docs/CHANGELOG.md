@@ -1,5 +1,27 @@
 # Changelog — TakeOS
 
+## V11.25.0 — 28 de junio de 2026
+### Hoja de Llamado: override de campos, filas movibles, previsualizador y columnas redimensionables
+
+Rama `feat/hoja-llamado-filas-movibles-override` (Pasada 7 del plan). Solo **frontend**.
+
+**Citaciones del crew**
+- **Override de campos**: Rol, Número y Nombre del crew pasan a ser editables para
+  ese día (la identidad interna no cambia). Cada campo editado muestra un **↺** para
+  restablecer al valor de origen (Presupuesto/BD), con tooltip.
+- **Filas movibles**: reordenar con drag & drop (agarre ⠿, patrón del Plan de Rodaje)
+  en las tablas de Crew y Externas; el orden del crew se guarda por día.
+- **Columnas redimensionables**: el ancho de cada columna se ajusta a mano (arrastrar
+  el borde, doble clic restablece, se persiste), reutilizando el sistema del Presupuesto.
+
+**Exportar PDF**
+- "Exportar PDF" abre un **previsualizador** (motor `CotPreview` + shell de la
+  cotización) alimentado por el mismo HTML de siempre — **el PDF no cambia**.
+- Panel lateral con control de **márgenes** (se refleja en el preview y en el PDF, vía
+  `padding` en pantalla y `@page` en impresión); el resto (color, tipografía, logo)
+  queda como placeholder para ir poblándolo.
+- El documento se muestra con **paspartú** (margen visible) en el preview.
+
 ## V11.24.0 — 28 de junio de 2026
 ### Plan de Scouting: rediseño completo (línea de tiempo, alternancia, Maps y previsualizador)
 

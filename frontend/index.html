@@ -7603,7 +7603,14 @@ var _BUDGET_COL_CFG = {
   gr_doc:        { min: 70,  def: 95,  max: 150 },
   gr_comp:       { min: 60,  def: 80,  max: 140 },
   gr_estado:     { min: 100, def: 150, max: 260 },
-  gr_acc:        { min: 70,  def: 90,  max: 150 }
+  gr_acc:        { min: 70,  def: 90,  max: 150 },
+  /* Pasada 7 · columnas de las tablas de citaciones (Hoja de Llamado), prefijo hl_. */
+  hl_rol:        { min: 90,  def: 150, max: 280 },
+  hl_nombre:     { min: 110, def: 180, max: 320 },
+  hl_numero:     { min: 90,  def: 120, max: 200 },
+  hl_call:       { min: 80,  def: 110, max: 160 },
+  hl_loc:        { min: 110, def: 160, max: 300 },
+  hl_notas:      { min: 110, def: 180, max: 420 }
 };
 var BUDGET_MENU_W = 36;
 function _budgetColCfg(colId) { return _BUDGET_COL_CFG[colId] || { min: 60, def: 120, max: 300 }; }
@@ -7684,6 +7691,7 @@ function budgetColResizeReset(ev, sectionKey, colId) {
      renderSimpleSection / renderGastos preservan el scroll horizontal, así la columna
      vuelve a su ancho por defecto sin que la vista salte a la izquierda. */
   if (sectionKey === 'gastosReg') { if (typeof renderGastos === 'function') renderGastos(); }
+  else if (sectionKey === 'hlCrew' || sectionKey === 'hlExt') { if (typeof renderHojaLlamado === 'function') renderHojaLlamado(); }
   else if (sectionKey === 'servicios') { if (typeof renderServiciosBody === 'function') renderServiciosBody(); }
   else if (typeof renderSimpleSection === 'function') renderSimpleSection(sectionKey);
 }
@@ -12454,7 +12462,8 @@ function ensureHojaDia(diaId) {
         wrapCamara: '', wrapLocacion: '', hospital: '', clima: ''
       },
       citacionesExternas: [],
-      crewOverrides: {},   // nombre → { call, locacionId, notas }
+      crewOverrides: {},   // nombre → { call, locacionId, notas, presente, rol, numero }
+      crewOrden: [],       // V11.25 (Pasada 7): orden manual del crew por día (nombres)
       version: 0,
       lastExport: null     // { version, at } | null
     };
@@ -12463,6 +12472,7 @@ function ensureHojaDia(diaId) {
   const dia = hl.dias[diaId];
   if (dia.version === undefined) dia.version = 0;
   if (dia.lastExport === undefined) dia.lastExport = null;
+  if (!Array.isArray(dia.crewOrden)) dia.crewOrden = [];
   return dia;
 }
 
@@ -14131,7 +14141,10 @@ function renderHojaLlamado() {
   const exportInfo = dia.lastExport
     ? `Exportada ${ 'V.' + dia.lastExport.version } · ${escapeHtml(dia.lastExport.at)}`
     : 'Sin exportar aún';
-  const crew = getConfirmedCrew(project);
+  const crew = getCrewOrdenado(project, dia);
+  const _hlCols = ['hl_rol', 'hl_nombre', 'hl_numero', 'hl_call', 'hl_loc', 'hl_notas'];
+  const _hlCrewW = 26 + 54 + _hlCols.reduce((s, c) => s + _budgetColWGet('hlCrew', c), 0);
+  const _hlExtW = 26 + _hlCols.reduce((s, c) => s + _budgetColWGet('hlExt', c), 0) + 40;
 
   // V5.5 (Nota 3): horas en 24h SIEMPRE. Los <input type="time"> muestran
   // 12h/24h según el SO del usuario, así que no son confiables. Usamos
@@ -14174,7 +14187,7 @@ function renderHojaLlamado() {
           <span class="hl-version-badge">${verLabel}</span>
           <span class="hl-export-stamp">${exportInfo}</span>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="exportHojaLlamadoPDF()" data-tip="Exportar genera el PDF y AVANZA la versión automáticamente (no se puede desactivar): cada export es una versión oficial distribuible.">Exportar PDF</button>
+        <button class="btn btn-primary btn-sm" onclick="hojaPreviewPDF()" data-tip="Abre el previsualizador. Al exportar desde ahí se genera el PDF y AVANZA la versión automáticamente: cada export es una versión oficial distribuible.">Exportar PDF</button>
         <button class="btn btn-secondary btn-sm" onclick="ntfOpenFromHoja()" data-tip="Abre Notificaciones › Enviar con la plantilla «Envío de Hoja de Llamado» y los destinatarios ya cargados. El PDF adjunto real llega con el backend.">Exportar y Enviar</button>
       </div>
     </div>
@@ -14246,22 +14259,29 @@ function renderHojaLlamado() {
           <div class="hl-empty">No hay crew confirmado todavía. Marca personas como confirmadas en <strong>Presupuesto</strong> para que aparezcan aquí.</div>
         ` : `
           <div style="overflow-x: auto;">
-            <table class="data-table hl-cit-table">
+            <table class="data-table hl-cit-table budget-table" data-bsec-table="hlCrew" style="width:${_hlCrewW}px;">
               <thead>
-                <tr><th class="ctr" style="width:54px;">Citar</th><th>Cargo / Rol</th><th>Nombre</th><th>Número</th><th style="width:110px;">Call <span class="th-24h">24h</span></th><th style="width:160px;">Locación</th><th>Notas</th></tr>
+                <tr><th style="width:26px;"></th><th class="ctr" style="width:54px;">Citar</th>${_budgetColTh('hlCrew', 'hl_rol', '', 'Cargo / Rol')}${_budgetColTh('hlCrew', 'hl_nombre', '', 'Nombre')}${_budgetColTh('hlCrew', 'hl_numero', '', 'Número')}${_budgetColTh('hlCrew', 'hl_call', '', 'Call <span class="th-24h">24h</span>')}${_budgetColTh('hlCrew', 'hl_loc', '', 'Locación')}${_budgetColTh('hlCrew', 'hl_notas', '', 'Notas')}</tr>
               </thead>
               <tbody>
-                ${crew.map(c => {
+                ${crew.map((c, _vi) => {
                   const ov = dia.crewOverrides[c.nombre] || {};
                   const bd = BD_PERSONAS[c.nombre] || null;
                   const nm = escapeHtml(c.nombre);
                   const presente = isCrewPresente(dia, c.nombre);
+                  const rolOrig = c.rol || '';
+                  const rolEd = (ov.rol != null && String(ov.rol) !== '' && ov.rol !== rolOrig);
+                  const numOrig = bd?.telefono || '';
+                  const numEd = (ov.numero != null && String(ov.numero) !== '' && ov.numero !== numOrig);
+                  const nomOrig = c.nombre || '';
+                  const nomEd = (ov.nombre != null && String(ov.nombre) !== '' && ov.nombre !== nomOrig);
                   return `
-                  <tr class="${presente ? '' : 'crew-no-citado'}">
+                  <tr class="${presente ? '' : 'crew-no-citado'}" ondragover="hlDragOver(event)" ondragleave="hlDragLeave(event)" ondrop="hlDrop(event,'crew',${_vi})">
+                    <td class="hl-drag-cell"><button class="hl-drag" draggable="true" ondragstart="hlDragStart(event,'crew',${_vi})" ondragend="hlDragEnd(event)" title="Arrastrar para reordenar">⠿</button></td>
                     <td class="ctr"><input type="checkbox" ${presente ? 'checked' : ''} title="Citar a esta persona este día" onchange="toggleCrewPresente('${sel}','${nm}', this.checked);"></td>
-                    <td class="auto">${escapeHtml(c.rol || '—')}</td>
-                    <td><strong>${nm}</strong>${bd ? '' : ' <span class="cell-name-warn" data-tip="No está en la BD: sin número disponible.">●</span>'}</td>
-                    <td class="auto">${bd?.telefono || '—'}</td>
+                    <td><div class="hl-ovwrap"><input class="cell-input" value="${escapeHtml(_hlOvVal(ov.rol, rolOrig))}" placeholder="${escapeHtml(rolOrig || 'Rol')}" ${presente ? '' : 'disabled'} onchange="updateCrewOverride('${sel}','${nm}','rol', this.value);">${rolEd ? `<button class="hl-revert" data-tip="Restablecer al valor del Presupuesto${rolOrig ? ' («' + escapeHtml(rolOrig) + '»)' : ''}" onclick="revertCrewOverride('${sel}','${nm}','rol')">↺</button>` : ''}</div></td>
+                    <td><div class="hl-ovwrap"><input class="cell-input hl-name-input" value="${escapeHtml(_hlOvVal(ov.nombre, nomOrig))}" placeholder="${escapeHtml(nomOrig)}" ${presente ? '' : 'disabled'} onchange="updateCrewOverride('${sel}','${nm}','nombre', this.value);">${bd ? '' : '<span class="cell-name-warn" data-tip="No está en la BD: escribe el número a mano en la columna Número.">●</span>'}${nomEd ? `<button class="hl-revert" data-tip="Restablecer al valor del Presupuesto${nomOrig ? ' («' + escapeHtml(nomOrig) + '»)' : ''}" onclick="revertCrewOverride('${sel}','${nm}','nombre')">↺</button>` : ''}</div></td>
+                    <td><div class="hl-ovwrap"><input class="cell-input" value="${escapeHtml(_hlOvVal(ov.numero, numOrig))}" placeholder="${escapeHtml(numOrig || '+56 9…')}" ${presente ? '' : 'disabled'} onchange="updateCrewOverride('${sel}','${nm}','numero', this.value);">${numEd ? `<button class="hl-revert" data-tip="Restablecer al valor de la Base de Datos${numOrig ? ' («' + escapeHtml(numOrig) + '»)' : ''}" onclick="revertCrewOverride('${sel}','${nm}','numero')">↺</button>` : ''}</div></td>
                     <td><input type="text" inputmode="numeric" class="cell-input time24" maxlength="5" value="${escapeHtml(ov.call || '')}" placeholder="${escapeHtml(ig.llamadoGeneral || 'HH:MM')}" ${presente ? '' : 'disabled'} onchange="this.value=normalizeTime24(this.value); updateCrewOverride('${sel}','${nm}','call', this.value);"></td>
                     <td><select class="cell-select" ${presente ? '' : 'disabled'} onchange="updateCrewOverride('${sel}','${nm}','locacionId', this.value);">${locacionOptions(project, ov.locacionId)}</select></td>
                     <td><input class="cell-input" value="${escapeHtml(ov.notas || '')}" placeholder="—" ${presente ? '' : 'disabled'} onchange="updateCrewOverride('${sel}','${nm}','notas', this.value);"></td>
@@ -14283,13 +14303,14 @@ function renderHojaLlamado() {
           <div class="hl-empty">Personas fuera del crew contratado: cliente, agencia, visitas, invitados. Se ingresan a mano (no afectan el Presupuesto).</div>
         ` : `
           <div style="overflow-x: auto;">
-            <table class="data-table hl-cit-table">
+            <table class="data-table hl-cit-table budget-table" data-bsec-table="hlExt" style="width:${_hlExtW}px;">
               <thead>
-                <tr><th>Cargo / Rol</th><th>Nombre</th><th>Número</th><th style="width:110px;">Call <span class="th-24h">24h</span></th><th style="width:160px;">Locación</th><th>Notas</th><th style="width:40px;"></th></tr>
+                <tr><th style="width:26px;"></th>${_budgetColTh('hlExt', 'hl_rol', '', 'Cargo / Rol')}${_budgetColTh('hlExt', 'hl_nombre', '', 'Nombre')}${_budgetColTh('hlExt', 'hl_numero', '', 'Número')}${_budgetColTh('hlExt', 'hl_call', '', 'Call <span class="th-24h">24h</span>')}${_budgetColTh('hlExt', 'hl_loc', '', 'Locación')}${_budgetColTh('hlExt', 'hl_notas', '', 'Notas')}<th style="width:40px;"></th></tr>
               </thead>
               <tbody>
                 ${dia.citacionesExternas.map((e, idx) => `
-                  <tr>
+                  <tr ondragover="hlDragOver(event)" ondragleave="hlDragLeave(event)" ondrop="hlDrop(event,'ext',${idx})">
+                    <td class="hl-drag-cell"><button class="hl-drag" draggable="true" ondragstart="hlDragStart(event,'ext',${idx})" ondragend="hlDragEnd(event)" title="Arrastrar para reordenar">⠿</button></td>
                     <td><input class="cell-input" value="${escapeHtml(e.rol || '')}" placeholder="Cargo / Rol" onchange="updateCitExterna('${sel}', ${idx}, 'rol', this.value);"></td>
                     <td><input class="cell-input" value="${escapeHtml(e.nombre || '')}" placeholder="Nombre" onchange="updateCitExterna('${sel}', ${idx}, 'nombre', this.value);"></td>
                     <td><input class="cell-input" value="${escapeHtml(e.numero || '')}" placeholder="+56 9…" onchange="updateCitExterna('${sel}', ${idx}, 'numero', this.value);"></td>
@@ -14325,6 +14346,61 @@ function updateCrewOverride(diaId, nombre, field, value) {
   const dia = ensureHojaDia(diaId);
   if (!dia.crewOverrides[nombre]) dia.crewOverrides[nombre] = { call: '', locacionId: '', notas: '' };
   dia.crewOverrides[nombre][field] = value;
+  // V11.25: los campos con indicador (pelota + ↺) se re-renderizan para mostrarlo/ocultarlo al instante
+  if (field === 'rol' || field === 'numero' || field === 'nombre') renderHojaLlamado();
+}
+
+/* V11.25 (Pasada 7) · Hoja de Llamado: override de campos del crew (Rol/Número)
+   y reordenar filas de citaciones. */
+/* Valor efectivo: el override no vacío manda; si no, el valor de origen (Presupuesto/BD). */
+function _hlOvVal(ovVal, origen) { return (ovVal != null && String(ovVal) !== '') ? ovVal : (origen || ''); }
+function revertCrewOverride(diaId, nombre, field) {
+  const dia = ensureHojaDia(diaId);
+  if (dia.crewOverrides[nombre]) delete dia.crewOverrides[nombre][field];
+  // El ↺ desaparece al re-renderizar y no llega a disparar su mouseout: ocultamos
+  // el tooltip a mano para que no quede pegado.
+  if (typeof hideTooltip === 'function') hideTooltip();
+  renderHojaLlamado();
+}
+/* Crew ordenado según dia.crewOrden; los nuevos (no listados aún) van al final. */
+function getCrewOrdenado(project, dia) {
+  const crew = getConfirmedCrew(project);
+  const orden = Array.isArray(dia.crewOrden) ? dia.crewOrden : [];
+  const byName = {}; crew.forEach(c => { byName[c.nombre] = c; });
+  const out = [];
+  orden.forEach(n => { if (byName[n]) { out.push(byName[n]); delete byName[n]; } });
+  crew.forEach(c => { if (byName[c.nombre]) out.push(c); });
+  return out;
+}
+function hlMoverCrew(diaId, from, to) {
+  const project = STATE.currentProject; const dia = ensureHojaDia(diaId);
+  const nombres = getCrewOrdenado(project, dia).map(c => c.nombre);
+  if (from < 0 || from >= nombres.length || to < 0 || to >= nombres.length || from === to) return;
+  const moved = nombres.splice(from, 1)[0];
+  nombres.splice(to, 0, moved);
+  dia.crewOrden = nombres;
+  renderHojaLlamado();
+}
+function hlMoverExterna(diaId, from, to) {
+  const arr = ensureHojaDia(diaId).citacionesExternas;
+  if (from < 0 || from >= arr.length || to < 0 || to >= arr.length || from === to) return;
+  const moved = arr.splice(from, 1)[0];
+  arr.splice(to, 0, moved);
+  renderHojaLlamado();
+}
+let HL_DRAG = null;
+function hlDragStart(ev, tabla, idx) { HL_DRAG = { tabla: tabla, idx: idx }; try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', String(idx)); } catch (e) {} try { const tr = ev.currentTarget.closest('tr'); if (tr) tr.classList.add('hl-dragging'); } catch (e) {} }
+function hlDragEnd(ev) { HL_DRAG = null; try { document.querySelectorAll('.hl-drag-over,.hl-dragging').forEach(el => el.classList.remove('hl-drag-over', 'hl-dragging')); } catch (e) {} }
+function hlDragOver(ev) { if (!HL_DRAG) return; ev.preventDefault(); const tr = ev.currentTarget; if (tr && tr.classList) tr.classList.add('hl-drag-over'); }
+function hlDragLeave(ev) { const tr = ev.currentTarget; if (tr && tr.classList) tr.classList.remove('hl-drag-over'); }
+function hlDrop(ev, tabla, idx) {
+  ev.preventDefault();
+  const d = HL_DRAG; HL_DRAG = null;
+  try { document.querySelectorAll('.hl-drag-over,.hl-dragging').forEach(el => el.classList.remove('hl-drag-over', 'hl-dragging')); } catch (e) {}
+  if (!d || d.tabla !== tabla || d.idx === idx) return;
+  const diaId = STATE.ui.hojaDiaSel;
+  if (tabla === 'crew') hlMoverCrew(diaId, d.idx, idx);
+  else if (tabla === 'ext') hlMoverExterna(diaId, d.idx, idx);
 }
 
 /* V5.4: asignación de crew por día. Por defecto TODO el crew confirmado
@@ -14404,7 +14480,9 @@ function resolveLocName(project, locacionId) {
   return l ? `${eff} · ${l.nombre || 'sin nombre'}` : (locacionId || '—');
 }
 
-function buildHojaLlamadoPrintHTML(project, sel) {
+var _hlPrevMargen = 13;
+function buildHojaLlamadoPrintHTML(project, sel, margenMm) {
+  const mar = (typeof margenMm === 'number' && margenMm >= 4 && margenMm <= 40) ? margenMm : 13;
   const ip = project.data.infoProyecto;
   const hl = project.data.hojaLlamado;
   const rodaje = project.data.rodajes.find(r => r.diaId === sel) || { diaId: sel };
@@ -14441,14 +14519,14 @@ function buildHojaLlamadoPrintHTML(project, sel) {
   ].join('');
 
   // Crew: solo citados
-  const crew = getConfirmedCrew(project).filter(c => isCrewPresente(dia, c.nombre));
+  const crew = getCrewOrdenado(project, dia).filter(c => isCrewPresente(dia, c.nombre));
   const crewRows = crew.map(c => {
     const ov = dia.crewOverrides[c.nombre] || {};
     const bd = BD_PERSONAS[c.nombre] || null;
     return `<tr>
-      <td>${e(c.rol || '—')}</td>
-      <td><strong>${e(c.nombre)}</strong></td>
-      <td>${e(bd?.telefono || '—')}</td>
+      <td>${e(_hlOvVal(ov.rol, c.rol) || '—')}</td>
+      <td><strong>${e(_hlOvVal(ov.nombre, c.nombre))}</strong></td>
+      <td>${e(_hlOvVal(ov.numero, bd?.telefono) || '—')}</td>
       <td class="ctr">${e(ov.call || ig.llamadoGeneral || '—')}</td>
       <td>${e(resolveLocName(project, ov.locacionId))}</td>
       <td>${e(ov.notas || '')}</td>
@@ -14480,7 +14558,8 @@ function buildHojaLlamadoPrintHTML(project, sel) {
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>CALL SHEET · ${e(ip.nombreProyecto || project.name || '')} · ${e(rodaje.diaId)} · ${e(verLabel)}</title>
   <style>
-    @page { size: A4; margin: 13mm; }
+    @page { size: A4; margin: ${mar}mm; }
+    @media screen { body { padding: ${mar}mm; } }
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #222221; margin: 0; font-size: 11px; line-height: 1.4; }
     .head { display: flex; justify-content: space-between; align-items: flex-start; background: #222221; color: #FDFEED; padding: 14px 16px; border-radius: 6px; }
@@ -14588,6 +14667,7 @@ function _callSheetSignature(project, diaId) {
     infoGeneral: dia.infoGeneral || null,
     citacionesExternas: dia.citacionesExternas || [],
     crewOverrides: dia.crewOverrides || {},
+    crewOrden: dia.crewOrden || [],
     // V8.2: la firma usa las locaciones CONFIRMADAS del proyecto (BD_LOC + uso),
     // para que un cambio de locación siga avanzando la versión tras la migración.
     locaciones: projLocConfirmadas(project).map(u => { const l = bdLocFind(u.locId) || {}; return { locId: u.locId, nombre: l.nombre, direccion: l.direccion, comuna: l.comuna, maps: l.maps, costo: u.costo, contratacion: u.contratacion, notasProy: u.notasProy }; }),
@@ -14602,6 +14682,59 @@ function _callSheetSignature(project, diaId) {
   };
   return _hashStr(JSON.stringify(sig));
 }
+
+/* V11.25 (Pasada 7): previsualizador de la Hoja de Llamado. Reutiliza el motor
+   CotPreview y el shell de cotPreviewPDF, alimentado por el MISMO
+   buildHojaLlamadoPrintHTML de siempre (el PDF NO cambia). Exportar desde el modal
+   llama al export real (exportHojaLlamadoPDF): valida, avanza la versión y usa
+   printViaIframe, exactamente como hasta hoy. */
+function hojaPreviewPDF() {
+  const project = STATE.currentProject; if (!project) return;
+  const sel = STATE.ui.hojaDiaSel; if (!sel) return;
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:1000px;width:96vw;padding:0;overflow:hidden;">
+    <div class="modal-header" style="padding:13px 18px;"><div class="modal-title">Previsualizar y exportar · Hoja de Llamado</div></div>
+    <div style="display:flex;min-height:60vh;max-height:74vh;">
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0;background:#2a2a27;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg-surface,#222);border-bottom:1px solid var(--rule,#34342f);flex-wrap:wrap;">
+          <button class="btn btn-sm" onclick="CotPreview.setZoom(CotPreview.zoom-10)" title="Alejar">−</button>
+          <span id="cotPrevZoom" style="font-size:12px;color:var(--ink-secondary,#d3d6cb);min-width:44px;text-align:center;font-variant-numeric:tabular-nums;">100%</span>
+          <button class="btn btn-sm" onclick="CotPreview.setZoom(CotPreview.zoom+10)" title="Acercar">+</button>
+          <span style="width:1px;height:18px;background:var(--rule,#34342f);margin:0 3px;"></span>
+          <button class="btn btn-sm" id="cotPrevFitPage" onclick="CotPreview.setMode('page')">Ajustar</button>
+          <button class="btn btn-sm" id="cotPrevFitWidth" onclick="CotPreview.setMode('width')">Ancho</button>
+          <span style="font-size:10.5px;color:var(--ink-faint,#71736a);margin-left:auto;">Pellizca el trackpad o Ctrl/⌘ + rueda para zoom</span>
+        </div>
+        <div id="cotPrevCanvas" style="flex:1;overflow:auto;background:#2a2a27;padding:24px;">
+          <div id="cotPrevWrap" style="margin:0 auto;position:relative;"><iframe id="cotPrevFrame" title="preview" style="position:absolute;top:0;left:0;border:0;transform-origin:top left;background:#fff;"></iframe></div>
+        </div>
+      </div>
+      <div id="hlPrevPanel" style="width:266px;flex-shrink:0;border-left:1px solid var(--rule,#34342f);overflow-y:auto;background:var(--bg-surface,#222);">${_hlPrevPanelHTML()}</div>
+    </div>
+    <div class="modal-footer" style="padding:12px 18px;justify-content:flex-end;gap:8px;"><button class="btn" onclick="closeModal()">Cerrar</button><button class="btn btn-primary" onclick="hojaPreviewGenerar()">Exportar PDF</button></div>
+  </div></div>`;
+  CotPreview.init(document.getElementById('cotPrevCanvas'), document.getElementById('cotPrevWrap'), document.getElementById('cotPrevFrame'));
+  CotPreview.load(buildHojaLlamadoPrintHTML(project, sel, _hlPrevMargen), 794, 1123);
+  CotPreview.setMode('page');
+}
+/* Panel lateral del preview de la Hoja de Llamado. Por ahora solo Márgenes está
+   activo; el resto queda como placeholder para ir poblándolo (ver nota
+   previsualizador-pdf-universal-pendiente). */
+function _hlPrevPanelHTML() {
+  const grp = (title, inner, hint) => `<div style="padding:14px 16px;border-bottom:1px solid var(--rule,#34342f);"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint,#71736a);font-weight:700;margin:0 0 10px;">${title}</div>${inner}${hint ? '<div style="font-size:10.5px;color:var(--ink-faint,#71736a);margin-top:8px;line-height:1.4;">' + hint + '</div>' : ''}</div>`;
+  const marg = `<div style="display:flex;align-items:center;gap:10px;"><input type="range" min="6" max="30" value="${_hlPrevMargen}" oninput="hlPrevSetMargen(+this.value)" style="flex:1;accent-color:var(--accent,#B03A2F);"><span id="hlPrevMargLbl" style="font-size:11.5px;color:var(--ink-secondary,#d3d6cb);min-width:44px;text-align:right;">${_hlPrevMargen} mm</span></div>`;
+  const soon = '<div style="font-size:11px;color:var(--ink-faint,#71736a);line-height:1.5;">Próximamente. Por ahora se toma del estilo estándar del documento.</div>';
+  return grp('Márgenes', marg, 'Cambia el margen del documento; se refleja en el preview y en el PDF.')
+    + grp('Color de énfasis', soon)
+    + grp('Tipografía', soon)
+    + grp('Logo', soon);
+}
+function hlPrevSetMargen(mm) {
+  _hlPrevMargen = mm;
+  const lbl = document.getElementById('hlPrevMargLbl'); if (lbl) lbl.textContent = mm + ' mm';
+  const project = STATE.currentProject; const sel = STATE.ui.hojaDiaSel;
+  if (project && sel) CotPreview.load(buildHojaLlamadoPrintHTML(project, sel, mm), 794, 1123);
+}
+function hojaPreviewGenerar() { closeModal(); exportHojaLlamadoPDF(); }
 
 function exportHojaLlamadoPDF() {
   // V8.2 (#1): advertencia NO bloqueante si faltan datos clave (mismo patrón
@@ -14649,7 +14782,7 @@ function _hlDoExportPDF() {
   renderHojaLlamado();
   markDirty();
 
-  const html = buildHojaLlamadoPrintHTML(project, sel);
+  const html = buildHojaLlamadoPrintHTML(project, sel, _hlPrevMargen);
   const ip = project.data.infoProyecto;
   const rodaje = project.data.rodajes.find(r => r.diaId === sel) || { diaId: sel };
   const diaLabel = (rodaje.diaId || sel || '').replace('-', ' ');
