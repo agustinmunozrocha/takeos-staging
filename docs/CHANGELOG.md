@@ -1,5 +1,26 @@
 # Changelog — TakeOS
 
+## V11.23.0 — 28 de junio de 2026
+### Empresas en los comboboxes: filtro por tipo + alta exprés con solo el nombre
+
+Rama `feat/empresas-combobox-tipo-alta-expres` (Pasada 4.1 del plan de cambios
+acumulados). Solo **frontend**: el campo Tipo de la empresa y su persistencia a
+Supabase ya existían.
+
+- Los **proveedores y clientes** se eligen como las personas: el desplegable
+  **filtra por el Tipo** de la empresa y permite **crearla al vuelo** escribiendo
+  solo el nombre.
+- En **Gastos**, el campo **Proveedor** muestra solo empresas marcadas como
+  Proveedor (incluye «Cliente, Proveedor») y ofrece **«+ Agregar empresa
+  proveedora a la BD»** cuando no hay coincidencias.
+- En **Identidad del proyecto**, el campo **Empresa cliente (BD)** filtra a
+  Clientes y permite el alta exprés (crea **y** vincula); el campo **Cliente**
+  (texto) sugiere Clientes.
+- Si la empresa **ya existe** con otro tipo, **no se duplica**: se le suma el rol
+  que falta (un Cliente pasa a «Cliente, Proveedor»).
+- Sin cambios en **Empresa asociada** (personas) ni **Agencia**: siguen mostrando
+  todas las empresas.
+
 ## V11.22.0 — 28 de junio de 2026
 ### Gastos ↔ Presupuesto: Costo Real alimentado por los gastos + revamp de la pestaña Gastos
 

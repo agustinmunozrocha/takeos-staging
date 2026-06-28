@@ -1717,11 +1717,25 @@ function togglePfExtranjera() {
 function comboboxFilterEmpresas(inputEl) {
   const wrap = inputEl.closest('.combobox-wrap'); if (!wrap) return;
   const dropdown = wrap.querySelector('.combobox-dropdown'); if (!dropdown) return;
+  // V11.23 (Pasada 4.1): el input puede declarar un rol (data-emp-rol = proveedor|
+  // cliente|agencia) para filtrar las empresas por su Tipo, y data-emp-add="1" para
+  // habilitar el alta exprés "+ Agregar…" (igual que el combobox de personas).
+  // Sin esos atributos, comportamiento histórico: todas las empresas, sin alta.
+  const rol = (inputEl.dataset.empRol || '').trim().toLowerCase();
+  const puedeAgregar = inputEl.dataset.empAdd === '1';
   const q = _normKey(inputEl.value || '');
-  const names = Object.keys(BD_EMPRESAS).sort();
+  let names = Object.keys(BD_EMPRESAS).sort();
+  if (rol) names = names.filter(n => _empTieneRol(BD_EMPRESAS[n].tipo, rol));
   const matched = q ? names.filter(n => _normKey(n).includes(q)) : names;
   if (matched.length === 0) {
-    dropdown.innerHTML = '<div class="combobox-empty">Sin coincidencias en empresas.</div>';
+    if (puedeAgregar) {
+      const lbl = rol === 'cliente' ? '+ Agregar empresa cliente a la BD'
+                : rol === 'agencia' ? '+ Agregar agencia a la BD'
+                : '+ Agregar empresa proveedora a la BD';
+      dropdown.innerHTML = `<div class="combobox-empty"><button type="button" class="combobox-addbd" onmousedown="event.preventDefault()" onclick="comboboxAddEmpresaToBD(this)">${lbl}</button></div>`;
+    } else {
+      dropdown.innerHTML = '<div class="combobox-empty">Sin coincidencias en empresas.</div>';
+    }
   } else {
     dropdown.innerHTML = matched.slice(0, 20).map(n => {
       const e = BD_EMPRESAS[n];
@@ -5722,7 +5736,7 @@ function empresaSelectInfoHTML(ip) {
   const cur = ip.clienteEmpresaId || '';
   const curNombre = (cur && BD_EMPRESAS_BYID[cur]) ? (BD_EMPRESAS_BYID[cur].nombreFantasia || '') : '';
   const cbx = `<span class="combobox-wrap cbx-anchored" style="display:block;">
-    <input class="input combobox-input" value="${escapeHtml(curNombre)}" placeholder="Escribe para buscar y vincular…" autocomplete="off"
+    <input class="input combobox-input" value="${escapeHtml(curNombre)}" data-emp-rol="cliente" data-emp-add="1" placeholder="Escribe para buscar y vincular…" autocomplete="off"
            onfocus="comboboxFilterEmpresas(this)"
            oninput="comboboxFilterEmpresas(this)"
            onblur="comboboxCloseDelayed(this)"
@@ -5822,7 +5836,7 @@ function renderInfoProyecto() {
         <div class="field">
           <label class="field-label">Cliente</label>
           <span class="combobox-wrap cbx-anchored" style="display:block;">
-            <input class="input combobox-input" value="${escapeHtml(ip.cliente)}" placeholder="Escribe para buscar en la BD de empresas…" autocomplete="off"
+            <input class="input combobox-input" value="${escapeHtml(ip.cliente)}" data-emp-rol="cliente" placeholder="Escribe para buscar en la BD de empresas…" autocomplete="off"
                    onfocus="comboboxFilterEmpresas(this); var w=document.getElementById('cliente-warn'); if(w) w.style.display='flex';"
                    oninput="comboboxFilterEmpresas(this); updateInfoField('cliente', this.value); updateProjectHeader(); _infoEmpresaBDHint('cliente', this.value);"
                    onblur="comboboxCloseDelayed(this); var w=document.getElementById('cliente-warn'); if(w) w.style.display='none';"
@@ -16917,6 +16931,66 @@ function comboboxAddToBD(btn) {
   if (typeof crewAddToBD === 'function') { crewAddToBD(nombre); }
   else if (typeof openPersonaForm === 'function') { openPersonaForm('create', null); setTimeout(function () { const el = document.getElementById('pf_nombre'); if (el) { el.value = nombre; el.focus(); } }, 30); }
 }
+
+/* V11.23 (Pasada 4.1) · Empresas como las personas: alta exprés solo con el
+   nombre desde el combobox (Gastos→proveedor, Identidad→cliente). El rol sale
+   del data-emp-rol del input. Si la empresa ya existe, NO se duplica: se le
+   suma el rol que falta a su Tipo (p. ej. un Cliente pasa a "Cliente, Proveedor").
+   Tras crear/actualizar, la deja seleccionada en el input. */
+function _empTieneRol(tipo, rol) {
+  if (!rol) return true;
+  return String(tipo || '').toLowerCase().split(',').map(s => s.trim()).indexOf(String(rol).toLowerCase()) !== -1;
+}
+function _empAddRol(tipo, rolCap) {
+  const roles = String(tipo || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (roles.map(s => s.toLowerCase()).indexOf(rolCap.toLowerCase()) !== -1) return tipo;
+  roles.push(rolCap);
+  const orden = ['cliente', 'proveedor', 'agencia'];
+  roles.sort((a, b) => {
+    const ia = orden.indexOf(a.toLowerCase()), ib = orden.indexOf(b.toLowerCase());
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  return roles.join(', ');
+}
+function comboboxAddEmpresaToBD(btn) {
+  const wrap = btn && btn.closest ? btn.closest('.combobox-wrap') : null;
+  const inp = wrap ? wrap.querySelector('.combobox-input') : null;
+  if (!inp) return;
+  const rol = (inp.dataset.empRol || 'proveedor').trim().toLowerCase();
+  const rolCap = rol.charAt(0).toUpperCase() + rol.slice(1);   // Proveedor | Cliente | Agencia
+  const nombre = _normNameBD((inp.value || '').trim());
+  if (!nombre) { showToast({ kind: 'error', title: 'Falta el nombre', body: 'Escribe el nombre de la empresa antes de agregarla.' }); return; }
+  let eid;
+  const existente = BD_EMPRESAS[nombre];
+  if (existente && existente._id && BD_EMPRESAS_BYID[existente._id]) {
+    // Ya existe: le sumamos el rol que falta, sin duplicar la empresa.
+    eid = existente._id;
+    const e = BD_EMPRESAS_BYID[eid];
+    const nuevoTipo = _empAddRol(e.tipo, rolCap);
+    if (nuevoTipo !== e.tipo) {
+      e.tipo = nuevoTipo;
+      syncLegacyFromContactos(); autosaveNow(); _dalEmpresaSaveSoon(eid);
+      showToast({ kind: 'success', title: 'Empresa actualizada', body: `<strong>${escapeHtml(nombre)}</strong> ahora también es ${escapeHtml(rolCap)}.` });
+    } else {
+      showToast({ kind: 'info', title: 'Ya estaba en la BD', body: `<strong>${escapeHtml(nombre)}</strong> ya figura como ${escapeHtml(rolCap)}.` });
+    }
+  } else {
+    // Empresa nueva: solo el nombre + el rol; lo demás se completa después en Empresas.
+    eid = _genId('emp', BD_EMPRESAS_BYID);
+    BD_EMPRESAS_BYID[eid] = {
+      id: eid, nombreFantasia: nombre, rutEmpresa: '', razonSocial: '',
+      tipo: rolCap, giroSII: '', giroInformal: '',
+      contactoPrincipal: '', contactoPrincipalId: '', emailContacto: '', telefonoContacto: '', web: '', notas: ''
+    };
+    syncLegacyFromContactos(); autosaveNow(); dalGuardarEmpresa(BD_EMPRESAS_BYID[eid]);
+    showToast({ kind: 'success', title: 'Empresa creada', body: `<strong>${escapeHtml(nombre)}</strong> agregada a la BD como ${escapeHtml(rolCap)}.` });
+  }
+  // Dejarla seleccionada en el input que disparó el alta.
+  inp.value = BD_EMPRESAS_BYID[eid].nombreFantasia;
+  if (dropdownDe(wrap)) dropdownDe(wrap).hidden = true;
+  inp.dispatchEvent(new Event('change'));
+}
+function dropdownDe(wrap) { return wrap ? wrap.querySelector('.combobox-dropdown') : null; }
 function comboboxOpen(inputEl) {
   comboboxFilter(inputEl);
 }
@@ -23535,7 +23609,7 @@ function goOpenGasto(editId) {
         <div class="go-field half"><label>Concepto</label><input class="go-inp" id="f_concepto" placeholder="¿En qué se gastó?" value="${g ? escapeHtml(g.concepto) : ''}"></div>
         <div class="go-field half"><label>Proveedor <span class="go-faint" style="font-weight:400;">· empresa</span></label>
           <span class="combobox-wrap person-combobox" style="display:block;">
-            <input class="go-inp combobox-input" id="f_prov" placeholder="Empresa proveedora — escribe para buscar en la BD…" autocomplete="off" value="${g ? escapeHtml(g.prov) : ''}" onfocus="comboboxFilterEmpresas(this)" oninput="comboboxFilterEmpresas(this)" onblur="comboboxCloseDelayed(this)">
+            <input class="go-inp combobox-input" id="f_prov" data-emp-rol="proveedor" data-emp-add="1" placeholder="Empresa proveedora — escribe para buscar en la BD…" autocomplete="off" value="${g ? escapeHtml(g.prov) : ''}" onfocus="comboboxFilterEmpresas(this)" oninput="comboboxFilterEmpresas(this)" onblur="comboboxCloseDelayed(this)">
             <div class="combobox-dropdown" hidden></div>
           </span>
         </div>
