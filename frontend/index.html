@@ -12559,6 +12559,42 @@ const LOC_CSS = `<style>
 .loc-time{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap;}
 .loc-quienes{display:flex;flex-wrap:wrap;gap:7px;align-items:center;}
 .loc-quien-row{display:flex;align-items:center;gap:3px;}
+/* V11.24 (Pasada 6) · Plan de Scouting · línea de tiempo + ruta entera */
+.scout-route{margin-top:16px;border:2px solid var(--accent);border-radius:10px;background:var(--accent-bg);padding:13px 15px;}
+.scout-route-top{display:flex;align-items:center;gap:9px;margin-bottom:6px;}
+.scout-route-top .t{font-size:14px;font-weight:600;color:var(--ink-primary);}
+.scout-route-sub{font-size:11.5px;color:var(--ink-muted);margin-bottom:11px;line-height:1.5;}
+.scout-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.scout-chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:20px;padding:3px 5px 3px 4px;font-size:12.5px;color:var(--ink-primary);}
+.scout-chip .combobox-input{border:none;background:transparent;min-width:140px;padding:4px 6px;color:var(--ink-primary);}
+.scout-chip .x{width:18px;height:18px;border-radius:50%;background:var(--rule-strong);color:var(--ink-muted);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;border:none;flex:0 0 auto;}
+.scout-chip-add{background:transparent;border:1px dashed var(--rule-strong);color:var(--ink-muted);cursor:pointer;border-radius:20px;padding:6px 13px;font-size:12.5px;font-family:inherit;}
+.scout-summary{font-size:12.5px;color:var(--ink-muted);margin:0 0 14px;}
+.scout-summary b{color:var(--ink-secondary);}
+.scout-node,.scout-trasl{display:grid;grid-template-columns:56px 24px 1fr;align-items:start;}
+.scout-time{font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:var(--ink-primary);padding-top:17px;text-align:right;padding-right:8px;white-space:nowrap;}
+.scout-time-in{width:50px;font-variant-numeric:tabular-nums;font-weight:700;text-align:right;padding:2px 3px;background:transparent;border:1px solid transparent;border-radius:4px;color:var(--accent-deep);font-family:inherit;font-size:13px;cursor:text;}
+.scout-time-in:hover,.scout-time-in:focus{border-color:var(--rule-strong);background:var(--bg-surface-soft);outline:none;}
+.scout-rail{position:relative;display:flex;justify-content:center;}
+.scout-rail .ln{position:absolute;top:0;bottom:-14px;width:2px;background:var(--rule-strong);}
+.scout-rail .dot{width:13px;height:13px;border-radius:50%;background:var(--accent);border:3px solid var(--bg-surface);margin-top:17px;z-index:1;}
+.scout-card{background:var(--bg-card);border:1px solid var(--rule);border-radius:10px;padding:11px 13px;margin:7px 0;}
+.scout-p-top{display:flex;align-items:center;gap:9px;}
+.scout-badge{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:10px;white-space:nowrap;flex:0 0 auto;}
+.scout-badge.loc{background:var(--accent-soft);color:var(--ink-primary);}
+.scout-badge.libre{background:var(--positive-bg);color:var(--positive);}
+.scout-p-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;}
+.scout-p-row .input{font-size:12.5px;}
+.scout-maps-link{font-size:12px;color:var(--accent-deep);text-decoration:none;white-space:nowrap;}
+.scout-dir{font-size:12px;color:var(--ink-muted);}
+.scout-trasl .scout-seg{display:flex;align-items:center;gap:8px;color:var(--ink-muted);font-size:12px;padding:7px 0;}
+.scout-dur-in{width:60px;background:var(--bg-elevated);border:1px solid var(--rule);border-radius:14px;padding:3px 10px;color:var(--ink-secondary);font-weight:500;font-family:inherit;font-size:12px;text-align:center;}
+.scout-del{border:none;background:none;cursor:pointer;color:var(--ink-faint);font-size:17px;padding:0 2px;line-height:1;flex:0 0 auto;}
+.scout-del:hover{color:var(--accent-deep);}
+.scout-drag{cursor:grab;border:none;background:none;color:var(--ink-faint);font-size:14px;padding:0 4px 0 0;line-height:1;flex:0 0 auto;user-select:none;}
+.scout-drag:active{cursor:grabbing;}
+.scout-node.scout-dragging{opacity:.45;}
+.scout-node.scout-drag-over .scout-card{outline:2px dashed var(--accent);outline-offset:2px;}
 .loc-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;}
 .loc-lightbox img{max-width:92vw;max-height:92vh;border-radius:6px;}
 .loc-lightbox-x{position:absolute;top:18px;right:24px;background:none;border:none;color:#fff;font-size:34px;cursor:pointer;}
@@ -12950,13 +12986,125 @@ function saveLocAdd() {
 /* ── Plan de Scouting ── motor de tiempos del Plan de Rodaje (cascada) ── */
 function locScoutTimes(project) {
   const s = locEnsureScout(project);
-  const filas = s.filas.map(f => ({ tipo: f.tipo, dur: f.dur, anchor: null }));
+  // V11.24 (Pasada 5): solo los traslados aportan tiempo; la parada ya no tiene
+  // duración (se ignora aunque venga en datos antiguos). La cascada calcula las
+  // horas con los traslados y el "término aprox." sigue funcionando.
+  const filas = s.filas.map(f => ({ tipo: f.tipo, dur: f.tipo === 'traslado' ? f.dur : null, anchor: null }));
   return prComputeTimes(filas, prParseHM(s.inicio));
 }
 function locScoutSet(field, value) { const s = locEnsureScout(STATE.currentProject); s[field] = (field === 'inicio') ? (normalizeTime24 ? normalizeTime24(value) : value) : value; markDirty(); if (field === 'inicio') renderLocaciones(); }
 function locScoutSetFila(i, field, value, reflow) { const s = locEnsureScout(STATE.currentProject); if (!s.filas[i]) return; s.filas[i][field] = (field === 'dur') ? prNormalizeDur(value) : value; markDirty(); if (reflow) renderLocaciones(); }
-function locScoutAddParada() { const s = locEnsureScout(STATE.currentProject); const first = projLocList(STATE.currentProject)[0]; s.filas.push({ tipo: 'parada', locId: first ? first.locId : '', dur: '0:30', revisar: '', resp: '' }); markDirty(); renderLocaciones(); }
-function locScoutAddTraslado() { const s = locEnsureScout(STATE.currentProject); s.filas.push({ tipo: 'traslado', dur: '0:20', nota: '' }); markDirty(); renderLocaciones(); }
+/* V11.24 (Pasada 5): traslados automáticos. Al agregar una parada después de
+   otra se inserta solo el traslado conector, así nunca quedan dos paradas ni dos
+   traslados seguidos y el plan siempre empieza en parada. */
+function locScoutAddParada() {
+  const s = locEnsureScout(STATE.currentProject);
+  if (s.filas.length > 0) s.filas.push({ tipo: 'traslado', dur: '0:20' });
+  const first = projLocList(STATE.currentProject)[0];
+  s.filas.push({ tipo: 'parada', locId: first ? first.locId : '', nombreLibre: '', maps: '', revisar: '', resp: '', respTel: '' });
+  markDirty(); renderLocaciones();
+}
+/* Borrar una parada se lleva su traslado conector (el anterior; si es la primera,
+   el siguiente). El traslado no se borra por separado: mantiene la alternancia. */
+function locScoutDelParada(i) {
+  const s = locEnsureScout(STATE.currentProject);
+  if (!s.filas[i] || s.filas[i].tipo !== 'parada') return;
+  if (i > 0 && s.filas[i - 1] && s.filas[i - 1].tipo === 'traslado') s.filas.splice(i - 1, 2);
+  else if (s.filas[i + 1] && s.filas[i + 1].tipo === 'traslado') s.filas.splice(i, 2);
+  else s.filas.splice(i, 1);
+  markDirty(); renderLocaciones();
+}
+/* El campo Locación admite una locación del proyecto (se vincula por locId) o
+   texto libre (nombreLibre, sin dirección/contacto derivados). */
+function locScoutSetParadaLoc(i, value) {
+  const s = locEnsureScout(STATE.currentProject); const f = s.filas[i]; if (!f) return;
+  const v = String(value == null ? '' : value).trim();
+  const match = BD_LOC.find(l => _normKey(l.nombre || '') === _normKey(v));
+  if (match) { f.locId = match.locId; f.nombreLibre = ''; }
+  else { f.locId = ''; f.nombreLibre = v; }
+  markDirty(); renderLocaciones();
+}
+/* V11.24 (Pasada 6): link de Google Maps por parada (corrección) y de la ruta
+   entera. "Buscar en Maps" abre Maps con el texto de la parada para que el
+   usuario verifique la ubicación antes de pegar el link de vuelta. */
+function locScoutBuscarMaps(i) {
+  const s = locEnsureScout(STATE.currentProject); const f = s.filas[i]; if (!f) return;
+  let txt = f.locId ? (function () { const l = bdLocFind(f.locId) || {}; return l.direccion || l.nombre || locNombre(f.locId) || ''; })() : (f.nombreLibre || '');
+  txt = String(txt).trim();
+  if (!txt) { showToast({ kind: 'warning', title: 'Sin texto', body: 'Escribe primero el nombre o la dirección de la parada.' }); return; }
+  window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(txt), '_blank', 'noopener');
+}
+function locScoutSetParadaMaps(i, value) {
+  const s = locEnsureScout(STATE.currentProject); const f = s.filas[i]; if (!f) return;
+  f.maps = String(value == null ? '' : value).trim();
+  markDirty(); renderLocaciones();
+}
+function locScoutRutaEntera() {
+  const s = locEnsureScout(STATE.currentProject);
+  const pts = s.filas.filter(f => f.tipo === 'parada').map(f => {
+    if (f.locId) { const l = bdLocFind(f.locId) || {}; return String(l.direccion || l.nombre || locNombre(f.locId) || '').trim(); }
+    return String(f.nombreLibre || '').trim();
+  }).filter(Boolean);
+  if (pts.length < 2) { showToast({ kind: 'warning', title: 'Ruta incompleta', body: 'Necesitas al menos dos paradas con nombre o dirección para armar la ruta en Maps.' }); return; }
+  window.open('https://www.google.com/maps/dir/' + pts.map(p => encodeURIComponent(p)).join('/'), '_blank', 'noopener');
+}
+
+/* V11.24 (correcciones) · reordenar paradas con drag&drop (patrón del Plan de
+   Rodaje). Se arrastran PARADAS por índice de parada; los traslados se mantienen
+   y el array se reconstruye intercalado para conservar la alternancia. */
+let SCOUT_DRAG = null;
+function locScoutDragStart(ev, pIdx) { SCOUT_DRAG = pIdx; try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', String(pIdx)); } catch (e) {} try { const node = ev.currentTarget.closest('.scout-node'); if (node) node.classList.add('scout-dragging'); } catch (e) {} }
+function locScoutDragEnd(ev) { SCOUT_DRAG = null; try { document.querySelectorAll('.scout-drag-over,.scout-dragging').forEach(el => el.classList.remove('scout-drag-over', 'scout-dragging')); } catch (e) {} }
+function locScoutDragOver(ev, pIdx) { if (SCOUT_DRAG == null || SCOUT_DRAG === pIdx) return; ev.preventDefault(); const node = ev.currentTarget; if (node && node.classList) node.classList.add('scout-drag-over'); }
+function locScoutDragLeave(ev) { const node = ev.currentTarget; if (node && node.classList) node.classList.remove('scout-drag-over'); }
+function locScoutDrop(ev, pIdx) { ev.preventDefault(); const from = SCOUT_DRAG; SCOUT_DRAG = null; try { document.querySelectorAll('.scout-drag-over,.scout-dragging').forEach(el => el.classList.remove('scout-drag-over', 'scout-dragging')); } catch (e) {} if (from == null || from === pIdx) return; locScoutMoverParada(from, pIdx); }
+function locScoutMoverParada(fromIdx, toIdx) {
+  const s = locEnsureScout(STATE.currentProject);
+  const paradas = s.filas.filter(f => f.tipo === 'parada');
+  const traslados = s.filas.filter(f => f.tipo === 'traslado');
+  if (fromIdx < 0 || fromIdx >= paradas.length || toIdx < 0 || toIdx >= paradas.length || fromIdx === toIdx) return;
+  const moved = paradas.splice(fromIdx, 1)[0];
+  paradas.splice(toIdx, 0, moved);
+  const nuevas = [];
+  paradas.forEach((p, k) => { if (k > 0) nuevas.push(traslados[k - 1] || { tipo: 'traslado', dur: '0:20' }); nuevas.push(p); });
+  s.filas = nuevas;
+  markDirty(); renderLocaciones();
+}
+/* Bola naranja: agrega la parada libre (texto a mano) a la BD de locaciones y al
+   proyecto, y la deja vinculada. Igual que "+ Agregar a la BD" de personas. */
+function locScoutAddLocBD(pIdx) {
+  const s = locEnsureScout(STATE.currentProject);
+  const f = s.filas.filter(x => x.tipo === 'parada')[pIdx]; if (!f) return;
+  const nombre = (f.nombreLibre || '').trim();
+  if (!nombre) { showToast({ kind: 'warning', title: 'Sin nombre', body: 'Escribe el nombre de la parada antes de agregarla a la BD.' }); return; }
+  const id = nextLocIdBD();
+  BD_LOC.push({ locId: id, nombre: nombre, direccion: '', direccion2: '', comuna: '', ciudad: 'Santiago', region: '', maps: f.maps || '', orientacion: '—', contactos: [], notas: '', fotos: [] });
+  const d = STATE.currentProject.data;
+  if (!Array.isArray(d.locaciones)) d.locaciones = [];
+  d.locaciones.push({ locId: id, estado: 'candidata', costo: 0, contratacion: '', notasProy: '' });
+  f.locId = id; f.nombreLibre = '';
+  markDirty(); autosaveNow();
+  try { if (typeof dalGuardarLocacion === 'function') dalGuardarLocacion(bdLocFind(id)); } catch (e) {}
+  showToast({ kind: 'success', title: 'Locación creada', body: `<strong>${escapeHtml(nombre)}</strong> se agregó a la BD y al proyecto. Complétala en el módulo Locaciones.` });
+  renderLocaciones();
+}
+/* Combobox de locaciones, igual al de personas: typeahead sobre BD_LOC. */
+function comboboxFilterLocScout(inputEl) {
+  const wrap = inputEl.closest('.combobox-wrap'); if (!wrap) return;
+  const dropdown = wrap.querySelector('.combobox-dropdown'); if (!dropdown) return;
+  const q = _normKey(inputEl.value || '');
+  const locs = BD_LOC.slice().sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || '')));
+  const matched = q ? locs.filter(l => _normKey(l.nombre || '').includes(q) || _normKey(l.direccion || '').includes(q)) : locs;
+  if (matched.length === 0) {
+    dropdown.innerHTML = `<div class="combobox-empty" style="font-size:11.5px;color:var(--ink-faint);padding:7px 9px;line-height:1.4;">Sin coincidencias. Escríbela libre y usa la bola naranja para agregarla a la BD.</div>`;
+  } else {
+    dropdown.innerHTML = matched.slice(0, 20).map(l => `<div class="combobox-option" onmousedown="comboboxSelect(this, '${escapeHtml(l.nombre || '')}')"><div class="combobox-option-main">${escapeHtml(l.nombre || '(sin nombre)')}</div>${l.direccion ? `<div class="combobox-option-meta">${escapeHtml(l.direccion)}</div>` : ''}</div>`).join('') + (matched.length > 20 ? `<div class="combobox-more">+ ${matched.length - 20} más — sigue tipeando</div>` : '');
+  }
+  dropdown.hidden = false;
+  dropdown.onmousedown = function (ev) { if (!ev.target.closest('.combobox-option')) ev.preventDefault(); };
+  if (wrap.classList.contains('cbx-anchored')) { dropdown.style.left = ''; dropdown.style.top = ''; dropdown.style.width = ''; }
+  else { positionComboboxDropdown(inputEl, dropdown); }
+}
 function locScoutDelFila(i) { const s = locEnsureScout(STATE.currentProject); s.filas.splice(i, 1); markDirty(); renderLocaciones(); }
 function locScoutAddQuien() { const s = locEnsureScout(STATE.currentProject); s.quienes.push(''); markDirty(); renderLocaciones(); }
 function locScoutSetQuien(i, value) { const s = locEnsureScout(STATE.currentProject); s.quienes[i] = value; markDirty(); }
@@ -12972,65 +13120,95 @@ function locScoutingHTML(project) {
   const fin = times.length ? prFmtClock(times[times.length - 1].termino != null ? times[times.length - 1].termino : times[times.length - 1].inicio) : (s.inicio || '—');
   const nParadas = s.filas.filter(f => f.tipo === 'parada').length;
   const totalMin = (prParseHM(fin) != null && prParseHM(s.inicio) != null) ? (prParseHM(fin) - prParseHM(s.inicio)) : null;
-  const quienes = s.quienes.map((q, i) => `<span class="loc-quien-row"><span class="combobox-wrap person-combobox cbx-anchored" style="min-width:160px;"><input class="input combobox-input" value="${e(q)}" placeholder="Buscar en la Base de Datos…" autocomplete="off" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="locScoutSetQuien(${i}, this.value)"><div class="combobox-dropdown" hidden></div></span><button class="btn btn-secondary btn-sm" onclick="locScoutDelQuien(${i})" title="Quitar">×</button></span>`).join('');
-  const locOpts = u => usos.map(x => `<option value="${e(x.locId)}" ${x.locId === u.locId ? 'selected' : ''}>${e(locNombre(x.locId))}</option>`).join('') || '<option value="">(sin locaciones)</option>';
+  const quienes = s.quienes.map((q, i) => `<span class="scout-chip"><span class="combobox-wrap person-combobox cbx-anchored" style="min-width:150px;"><input class="combobox-input" value="${e(q)}" placeholder="Buscar persona…" autocomplete="off" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="locScoutSetQuien(${i}, this.value)"><div class="combobox-dropdown" hidden></div></span><button class="x" onclick="locScoutDelQuien(${i})" title="Quitar">×</button></span>`).join('');
+  const nFilas = s.filas.length;
+  let _pIdx = -1;
   const filasHTML = s.filas.map((f, i) => {
-    const clock = times[i] && times[i].inicio != null ? prFmtClock(times[i].inicio) : '—';
+    const ln = (i === nFilas - 1) ? '' : '<span class="ln"></span>';
     if (f.tipo === 'traslado') {
-      return `<tr class="traslado"><td class="loc-time">${clock}</td><td><input class="input" style="width:64px;" value="${e(f.dur || '')}" title="HHMM: 100 = 1 hora" onchange="locScoutSetFila(${i},'dur',this.value,true)"></td><td colspan="3">⤷ Traslado <input class="input" style="display:inline-block;width:auto;min-width:200px;" value="${e(f.nota || '')}" placeholder="de … a …" onchange="locScoutSetFila(${i},'nota',this.value)"></td><td><button class="btn btn-secondary btn-sm" onclick="locScoutDelFila(${i})">×</button></td></tr>`;
+      return `<div class="scout-trasl"><div></div><div class="scout-rail">${ln}</div><div class="scout-seg">⤷ Traslado <input class="scout-dur-in" value="${e(f.dur || '')}" title="HHMM: 100 = 1 hora · tiempo de viaje" onchange="locScoutSetFila(${i},'dur',this.value,true)"> <span style="font-size:11px;color:var(--ink-faint);">de viaje</span></div></div>`;
     }
+    _pIdx++; const pIdx = _pIdx;
+    const clock = times[i] && times[i].inicio != null ? prFmtClock(times[i].inicio) : '—';
+    const horaCell = (i === 0)
+      ? `<input class="scout-time-in" value="${e(s.inicio || '')}" inputmode="numeric" maxlength="5" title="Hora de inicio del plan (editable)" onchange="locScoutSet('inicio', this.value)">`
+      : `<span>${clock}</span>`;
     const l = bdLocFind(f.locId) || {};
-    const dir = l.maps ? `<a href="${safeUrl(l.maps)}" target="_blank" rel="noopener">${e(l.direccion || 'Maps')}</a>` : e(l.direccion || '—');
+    const esLibre = !f.locId;
+    const _nomParada = f.locId ? locNombre(f.locId) : (f.nombreLibre || '');
+    const dirTexto = (f.locId && l.direccion) ? `<span class="scout-dir">${e(l.direccion)}</span>` : '';
+    const linkMaps = f.maps || (f.locId ? (l.maps || '') : '');
+    const verMaps = linkMaps ? `<a class="scout-maps-link" href="${safeUrl(linkMaps)}" target="_blank" rel="noopener">Ver en Maps ↗</a>` : '';
     const _c0 = locPrimaryContact(l) || {};
     const respName = f.resp || (_c0.nombre || '');   /* default: contacto registrado de la locación, si hay */
     const _bdP = (f.resp && typeof BD_PERSONAS !== 'undefined') ? BD_PERSONAS[f.resp] : null;
     let respTel = f.respTel || '';
     if (!respTel) { respTel = _bdP ? (_bdP.telefono || '') : (!f.resp ? (_c0.tel || '') : ''); }   /* celular auto: de la BD si el nombre está, o de la locación por defecto */
-    const dotNoBD = (f.resp && !_bdP) ? '<button type="button" title="No está en la Base de Datos · clic para agregarla" onclick="locScoutAddContactoBD(\'' + encodeURIComponent(f.resp) + '\')" style="border:none;background:none;cursor:pointer;color:var(--warning);font-weight:700;font-size:13px;padding:0 3px;vertical-align:middle;">●</button>' : '';
-    return `<tr><td class="loc-time">${clock}</td>
-      <td><input class="input" style="width:64px;" value="${e(f.dur || '')}" title="HHMM: 100 = 1 hora" onchange="locScoutSetFila(${i},'dur',this.value,true)"></td>
-      <td><select class="input" onchange="locScoutSetFila(${i},'locId',this.value,true)">${locOpts(f)}</select></td>
-      <td style="font-size:12px;">${dir}</td>
-      <td style="white-space:nowrap;"><span class="combobox-wrap person-combobox" style="display:inline-block;min-width:140px;vertical-align:middle;"><input class="input combobox-input" value="${e(respName)}" placeholder="Nombre…" autocomplete="off" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="locScoutSetFila(${i},'resp',this.value,true)"><div class="combobox-dropdown" hidden></div></span>${dotNoBD}<input class="input" style="width:120px;margin-left:5px;vertical-align:middle;" value="${e(respTel)}" placeholder="Celular" onchange="locScoutSetFila(${i},'respTel',this.value)"></td>
-      <td style="white-space:nowrap;"><input class="input" style="min-width:140px;" value="${e(f.revisar || '')}" placeholder="Notas" onchange="locScoutSetFila(${i},'revisar',this.value)"> <button class="btn btn-secondary btn-sm" onclick="locScoutDelFila(${i})">×</button></td></tr>`;
+    const dotNoBD = (f.resp && !_bdP) ? `<button type="button" title="No está en la Base de Datos · clic para agregarla" onclick="locScoutAddContactoBD('${encodeURIComponent(f.resp)}')" style="border:none;background:none;cursor:pointer;color:var(--warning);font-weight:700;font-size:13px;padding:0 3px;">●</button>` : '';
+    return `<div class="scout-node" ondragover="locScoutDragOver(event,${pIdx})" ondragleave="locScoutDragLeave(event)" ondrop="locScoutDrop(event,${pIdx})">
+      <div class="scout-time">${horaCell}</div>
+      <div class="scout-rail">${ln}<span class="dot"></span></div>
+      <div class="scout-card">
+        <div class="scout-p-top">
+          <button class="scout-drag" draggable="true" ondragstart="locScoutDragStart(event,${pIdx})" ondragend="locScoutDragEnd(event)" title="Arrastrar para reordenar">⠿</button>
+          <span class="combobox-wrap person-combobox" style="flex:1;min-width:0;"><input class="input combobox-input" value="${e(_nomParada)}" placeholder="Locación o texto libre…" autocomplete="off" style="font-weight:600;width:100%;" onfocus="comboboxFilterLocScout(this)" oninput="comboboxFilterLocScout(this)" onblur="comboboxCloseDelayed(this)" onchange="locScoutSetParadaLoc(${i}, this.value)"><div class="combobox-dropdown" hidden></div></span>
+          ${(esLibre && _nomParada) ? `<button type="button" title="No está en la BD de locaciones · clic para agregarla" onclick="locScoutAddLocBD(${pIdx})" style="border:none;background:none;cursor:pointer;color:var(--warning);font-weight:700;font-size:14px;padding:0 2px;flex:0 0 auto;">●</button>` : ''}
+          <span class="scout-badge ${esLibre ? 'libre' : 'loc'}">${esLibre ? 'Parada libre' : 'Locación'}</span>
+          <button class="scout-del" onclick="locScoutDelParada(${i})" title="Quitar parada (y su traslado)">×</button>
+        </div>
+        <div class="scout-p-row">${dirTexto}${verMaps}<button class="btn btn-secondary btn-sm" onclick="locScoutBuscarMaps(${i})" title="Abre Google Maps con este texto para que verifiques la ubicación; luego pega el link aquí">Buscar en Maps</button><input class="input" style="flex:1;min-width:150px;" value="${e(f.maps || '')}" placeholder="Pega aquí el link de Google Maps…" onchange="locScoutSetParadaMaps(${i}, this.value)"></div>
+        <div class="scout-p-row"><span class="combobox-wrap person-combobox" style="min-width:150px;"><input class="input combobox-input" value="${e(respName)}" placeholder="Contacto…" autocomplete="off" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="locScoutSetFila(${i},'resp',this.value,true)"><div class="combobox-dropdown" hidden></div></span>${dotNoBD}<input class="input" style="width:130px;" value="${e(respTel)}" placeholder="Celular" onchange="locScoutSetFila(${i},'respTel',this.value)"><input class="input" style="flex:1;min-width:160px;" value="${e(f.revisar || '')}" placeholder="Notas (ej.: tocar el timbre dos veces)" onchange="locScoutSetFila(${i},'revisar',this.value)"></div>
+      </div>
+    </div>`;
   }).join('');
   return `<div class="cot-card" style="padding:16px;margin-bottom:14px;">
-    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">
       <div class="loc-field" style="margin:0;"><label>Fecha de scouting</label><input type="date" class="input" value="${e(s.fecha || '')}" onchange="locScoutSet('fecha',this.value)"></div>
       <div class="loc-field" style="margin:0;"><label>Hora de inicio</label><input class="input" style="width:90px;" inputmode="numeric" maxlength="5" value="${e(s.inicio || '')}" placeholder="09:00" onchange="locScoutSet('inicio',this.value)"></div>
-      <div class="loc-field" style="margin:0;flex:1;min-width:260px;"><label>Quiénes van</label><div class="loc-quienes">${quienes}<button class="btn btn-secondary btn-sm" onclick="locScoutAddQuien()">+ Persona</button></div></div>
     </div>
-    <div style="margin-top:10px;font-size:12.5px;color:var(--ink-mut);">${nParadas} parada(s) · ${totalMin != null ? prFmtDur(totalMin) + ' total' : 'duración —'} · término aprox. <b>${fin}</b></div>
+    <div class="scout-route">
+      <div class="scout-route-top"><span style="font-size:15px;">🔗</span><span class="t">Ruta completa en Google Maps</span></div>
+      <div class="scout-route-sub">Abre todas las paradas en orden como una ruta de Google Maps, usando el nombre o la dirección de cada una. Revisa el orden antes de compartirla.</div>
+      <button class="btn btn-primary btn-sm" onclick="locScoutRutaEntera()">Crear ruta en Maps ↗</button>
+    </div>
   </div>
-  <div class="cot-card" style="padding:12px 16px;overflow-x:auto;">
-    <table class="loc-scout-tbl"><thead><tr><th>Hora</th><th>Dur.</th><th>Locación</th><th>Dirección / Maps</th><th>Contacto <span data-tip="El Contacto puede ser la persona que se pasa a buscar, el cliente, la dueña de la locación o cualquiera relevante para ese destino. El celular aparece solo si el nombre está en la BD. Si la locación tiene contacto registrado, aparece por defecto." style="cursor:help;color:var(--ink-faint);font-size:11px;">ⓘ</span></th><th>Notas</th></tr></thead>
-    <tbody>${filasHTML || `<tr><td colspan="6" style="color:var(--ink-faint);padding:12px;">Sin paradas todavía. Agrega una parada o un traslado.</td></tr>`}</tbody></table>
-    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+  <div class="cot-card" style="padding:14px 16px;margin-bottom:14px;">
+    <div class="loc-field" style="margin:0;"><label>Quiénes van</label>
+      <div class="scout-chips" style="margin-top:6px;">${quienes}<button class="scout-chip-add" onclick="locScoutAddQuien()">+ Persona</button></div>
+    </div>
+  </div>
+  <div class="cot-card" style="padding:14px 16px;">
+    <div class="scout-summary"><b>${nParadas} parada(s)</b> · ${totalMin != null ? prFmtDur(totalMin) + ' total' : 'duración —'} · término aprox. <b>${fin}</b></div>
+    <div class="scout-tl">${filasHTML || `<div style="color:var(--ink-faint);padding:8px 2px;font-size:13px;">Sin paradas todavía. Agrega tu primera parada.</div>`}</div>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button class="btn btn-secondary btn-sm" onclick="locScoutAddParada()">+ Parada</button>
-      <button class="btn btn-secondary btn-sm" onclick="locScoutAddTraslado()">+ Traslado</button>
-      <button class="btn btn-primary btn-sm" onclick="exportScoutingPDF()" style="margin-left:auto;">Exportar PDF</button>
+      <span style="flex:1;"></span>
+      <button class="btn btn-primary btn-sm" onclick="scoutPreviewPDF()">Exportar PDF</button>
     </div>
   </div>`;
 }
 
-function exportScoutingPDF() {
-  const project = STATE.currentProject; if (!project) return;
+function scoutBuildPDFHTML(project) {
   const s = locEnsureScout(project); const e = escapeHtml;
-  if (!s.filas.length) { showToast({ kind: 'warning', title: 'Plan vacío', body: 'Agrega al menos una parada antes de exportar.' }); return; }
   const ip = project.data.infoProyecto || {};
   const times = locScoutTimes(project);
   const rows = s.filas.map((f, i) => {
     const clock = times[i] && times[i].inicio != null ? prFmtClock(times[i].inicio) : '—';
-    if (f.tipo === 'traslado') return `<tr class="tr"><td>${clock}</td><td>${e(prFmtDur(prParseHM(f.dur)))}</td><td colspan="3">⤷ Traslado — ${e(f.nota || '')}</td></tr>`;
+    if (f.tipo === 'traslado') return `<tr class="tr"><td>${clock}</td><td>${e(prFmtDur(prParseHM(f.dur)))}</td><td colspan="3">⤷ Traslado</td></tr>`;
     const l = bdLocFind(f.locId) || {};
     const _c0 = locPrimaryContact(l) || {};
     const _bdP = (f.resp && typeof BD_PERSONAS !== 'undefined') ? BD_PERSONAS[f.resp] : null;
     const _nom = f.resp || (_c0.nombre || '');
     const _tel = f.respTel || (_bdP ? (_bdP.telefono || '') : (!f.resp ? (_c0.tel || '') : ''));
     const _contacto = [_nom, _tel].filter(Boolean).join(' · ');
-    return `<tr><td>${clock}</td><td>${e(prFmtDur(prParseHM(f.dur)))}</td><td><b>${e(l.nombre || '—')}</b><br><span class="mut">${e(l.direccion || '')}</span></td><td>${e(_contacto)}</td><td>${e(f.revisar || '')}</td></tr>`;
+    const _nomP = f.locId ? (l.nombre || '—') : (f.nombreLibre || '—');
+    const _mapsP = f.maps || (f.locId ? (l.maps || '') : '');
+    const _mapsLink = _mapsP ? `<br><a href="${safeUrl(_mapsP)}" style="color:#1a5fb4;font-size:11px;">Ver en Maps</a>` : '';
+    return `<tr><td>${clock}</td><td></td><td><b>${e(_nomP)}</b><br><span class="mut">${e(l.direccion || '')}</span>${_mapsLink}</td><td>${e(_contacto)}</td><td>${e(f.revisar || '')}</td></tr>`;
   }).join('');
   const fin = times.length ? prFmtClock(times[times.length - 1].termino != null ? times[times.length - 1].termino : times[times.length - 1].inicio) : '';
+  const _ptsRuta = s.filas.filter(x => x.tipo === 'parada').map(x => { if (x.locId) { const ll = bdLocFind(x.locId) || {}; return String(ll.direccion || ll.nombre || locNombre(x.locId) || '').trim(); } return String(x.nombreLibre || '').trim(); }).filter(Boolean);
+  const _rutaUrl = _ptsRuta.length >= 2 ? 'https://www.google.com/maps/dir/' + _ptsRuta.map(p => encodeURIComponent(p)).join('/') : '';
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Plan de Scouting</title>
   <style>body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1a1a17;margin:32px;}h1{font-size:19px;margin:0 0 2px;}.sub{color:#666;font-size:12px;margin-bottom:14px;}
   .meta{font-size:12.5px;margin-bottom:14px;}.meta b{color:#000;}
@@ -13038,11 +13216,51 @@ function exportScoutingPDF() {
   td{padding:6px 8px;border:1px solid #e3e3df;vertical-align:top;}tr.tr td{background:#faf9f6;color:#555;}.mut{color:#777;}
   .foot{margin-top:22px;font-size:10.5px;color:#888;display:flex;justify-content:space-between;}</style></head>
   <body><h1>Plan de Scouting</h1><div class="sub">${e(ip.cliente || '')}${ip.nombreProyecto ? ' · ' + e(ip.nombreProyecto) : ''}</div>
-  <div class="meta">Fecha: <b>${e(s.fecha ? fmtFechaLarga(s.fecha) : '—')}</b> · Inicio: <b>${e(s.inicio || '—')}</b> · Término aprox.: <b>${e(fin)}</b><br>Quiénes van: <b>${e((s.quienes || []).filter(Boolean).join(', ') || '—')}</b></div>
+  <div class="meta">Fecha: <b>${e(s.fecha ? fmtFechaLarga(s.fecha) : '—')}</b> · Inicio: <b>${e(s.inicio || '—')}</b> · Término aprox.: <b>${e(fin)}</b><br>Quiénes van: <b>${e((s.quienes || []).filter(Boolean).join(', ') || '—')}</b>${_rutaUrl ? `<br>Ruta completa: <a href="${_rutaUrl}" style="color:#1a5fb4;">abrir en Google Maps</a>` : ''}</div>
   <table><thead><tr><th>Hora</th><th>Dur.</th><th>Locación</th><th>Contacto</th><th>Notas</th></tr></thead><tbody>${rows}</tbody></table>
   <div class="foot"><span>${e(orgNombre())}${orgNombre() ? ' · ' : ''}Plan de Scouting</span><span>${e(new Date().toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span></div>
   </body></html>`;
-  printViaIframe(html, 'Plan de Scouting');
+  return html;
+}
+/* V11.24 (corrección) · Exportar = previsualizador: reutiliza el motor CotPreview
+   y el shell de cotPreviewPDF(), alimentado por el builder propio del Scouting, y
+   exporta con printViaIframe (mismo patrón que cotPreviewGenerar). */
+function scoutPreviewPDF() {
+  const project = STATE.currentProject; if (!project) return;
+  const s = locEnsureScout(project);
+  if (!s.filas.length) { showToast({ kind: 'warning', title: 'Plan vacío', body: 'Agrega al menos una parada antes de exportar.' }); return; }
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:1000px;width:96vw;padding:0;overflow:hidden;">
+    <div class="modal-header" style="padding:13px 18px;"><div class="modal-title">Previsualizar y exportar · Plan de Scouting</div></div>
+    <div style="display:flex;flex-direction:column;min-height:60vh;max-height:74vh;">
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0;background:#2a2a27;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg-surface,#222);border-bottom:1px solid var(--rule,#34342f);flex-wrap:wrap;">
+          <button class="btn btn-sm" onclick="CotPreview.setZoom(CotPreview.zoom-10)" title="Alejar">−</button>
+          <span id="cotPrevZoom" style="font-size:12px;color:var(--ink-secondary,#d3d6cb);min-width:44px;text-align:center;font-variant-numeric:tabular-nums;">100%</span>
+          <button class="btn btn-sm" onclick="CotPreview.setZoom(CotPreview.zoom+10)" title="Acercar">+</button>
+          <span style="width:1px;height:18px;background:var(--rule,#34342f);margin:0 3px;"></span>
+          <button class="btn btn-sm" id="cotPrevFitPage" onclick="CotPreview.setMode('page')">Ajustar</button>
+          <button class="btn btn-sm" id="cotPrevFitWidth" onclick="CotPreview.setMode('width')">Ancho</button>
+          <span style="font-size:10.5px;color:var(--ink-faint,#71736a);margin-left:auto;">Pellizca el trackpad o Ctrl/⌘ + rueda para zoom</span>
+        </div>
+        <div id="cotPrevCanvas" style="flex:1;overflow:auto;background:#2a2a27;padding:24px;">
+          <div id="cotPrevWrap" style="margin:0 auto;position:relative;"><iframe id="cotPrevFrame" title="preview" style="position:absolute;top:0;left:0;border:0;transform-origin:top left;background:#fff;"></iframe></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="padding:12px 18px;justify-content:flex-end;gap:8px;"><button class="btn" onclick="closeModal()">Cerrar</button><button class="btn btn-primary" onclick="scoutPreviewGenerar()">Exportar PDF</button></div>
+  </div></div>`;
+  CotPreview.init(document.getElementById('cotPrevCanvas'), document.getElementById('cotPrevWrap'), document.getElementById('cotPrevFrame'));
+  CotPreview.load(scoutBuildPDFHTML(project), 794, 1123);
+  CotPreview.setMode('page');
+}
+function scoutPreviewGenerar() {
+  const project = STATE.currentProject; if (!project) return;
+  const ip = project.data.infoProyecto || {};
+  const html = scoutBuildPDFHTML(project);
+  const fname = `Plan de Scouting - ${ip.nombreProyecto || project.name || 'Proyecto'}${ip.cliente ? ' - ' + ip.cliente : ''}`;
+  closeModal();
+  printViaIframe(html, fname);
+  showToast({ kind: 'success', title: 'Plan listo para PDF', body: 'Se abrió el diálogo de impresión. Elige <strong>"Guardar como PDF"</strong>.' });
 }
 
 /* ════════════════════════════════════════════════════════════════════

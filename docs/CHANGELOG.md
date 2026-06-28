@@ -1,5 +1,42 @@
 # Changelog — TakeOS
 
+## V11.24.0 — 28 de junio de 2026
+### Plan de Scouting: rediseño completo (línea de tiempo, alternancia, Maps y previsualizador)
+
+Rama `feat/scouting-alternancia-paradas-libres` (Pasadas 5 y 6 del plan + tres
+correcciones). Solo **frontend**.
+
+**Estructura y alternancia**
+- Las **paradas ya no tienen duración**; la duración vive solo en los **traslados**
+  (tiempo de viaje). La cascada de horas y el «término aprox.» se recalculan con los
+  traslados (ignora la duración aunque venga en datos antiguos).
+- **Traslados automáticos**: agregar una parada después de otra inserta el traslado
+  conector solo; borrar una parada se lleva su traslado. Nunca quedan dos paradas ni
+  dos traslados seguidos; el plan siempre empieza en parada.
+- El traslado pierde el texto «de … a …» (redundante con la alternancia).
+
+**Línea de tiempo (rediseño, mockup del Dev como referencia)**
+- La tabla pasa a una **línea de tiempo**: cada parada es una tarjeta con badge
+  **Locación** / **Parada libre**, su hora a la izquierda, dot y conector.
+- **Fecha/hora** quedan en una tarjeta separada de **«Quiénes van»** (chips): agregar
+  personas ya no mueve la fecha/hora.
+- La **hora de inicio** se edita en su campo **y** en la hora de la primera parada.
+- **Reordenar paradas con drag & drop** (agarre ⠿, patrón del Plan de Rodaje); los
+  traslados se mantienen y la alternancia se conserva.
+
+**Locaciones y Google Maps**
+- El campo de locación es un **combobox igual al de personas** (typeahead sobre la BD
+  de locaciones) con **bola naranja** para crear la locación en la BD y sumarla al
+  proyecto. Se admiten **paradas de texto libre**.
+- Por parada: **«Buscar en Maps»** (abre Maps con el texto para verificar la ubicación)
+  y campo para pegar el link → **«Ver en Maps»**.
+- **«Crear ruta en Maps»**: abre Google Maps con todas las paradas en orden.
+
+**Exportar PDF**
+- El export se rehace con el **previsualizador** (motor `CotPreview` + shell de
+  `cotPreviewPDF`), alimentado por un builder propio del Scouting, y exporta con
+  `printViaIframe`. El rediseño estético del PDF queda para otra pasada.
+
 ## V11.23.0 — 28 de junio de 2026
 ### Empresas en los comboboxes: filtro por tipo + alta exprés con solo el nombre
 
