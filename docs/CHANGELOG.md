@@ -1,5 +1,15 @@
 # Changelog — TakeOS
 
+## V11.20.0 — 27 de junio de 2026
+### Finanzas y Plan de Scouting: renombres, fix de "Observar" y contacto con combobox
+
+Rama `chore/renombres-finanzas-scouting` (Pasada 1 del plan de cambios acumulados).
+
+- **Finanzas (CFO):** la columna "Facturará" pasa a **"Ingreso"** (también en el modal de registrar pago).
+- **Fix · "Observar" no hacía nada:** usaba `window.prompt`, que el navegador suprime tras varios diálogos. Ahora abre el **modal propio del software** con un campo de comentario; el gasto queda "En observación".
+- **Plan de Scouting · renombre:** columna "Qué revisar" → **"Notas"** (texto libre).
+- **Plan de Scouting · contacto unificado:** se elimina la columna duplicada; queda **un solo "Contacto"** con el combobox de la BD (filtra al tipear; ofrece "+ Agregar a la BD"). Dos campos, **nombre + celular**, con el celular autocompletado desde la ficha si el nombre está en la BD, o desde el contacto de la locación por defecto. Pelota ámbar **clickeable** si el contacto no está en la BD (abre su alta). Tooltip explicativo. Orden de columnas Contacto → Notas. Export PDF alineado.
+
 ## V11.19.0 — 26 de junio de 2026
 ### Gastos: los comprobantes se suben de verdad a Storage (fin del bug de la `blob:` URL)
 

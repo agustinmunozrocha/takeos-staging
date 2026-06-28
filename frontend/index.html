@@ -12779,6 +12779,8 @@ function locScoutDelFila(i) { const s = locEnsureScout(STATE.currentProject); s.
 function locScoutAddQuien() { const s = locEnsureScout(STATE.currentProject); s.quienes.push(''); markDirty(); renderLocaciones(); }
 function locScoutSetQuien(i, value) { const s = locEnsureScout(STATE.currentProject); s.quienes[i] = value; markDirty(); }
 function locScoutDelQuien(i) { const s = locEnsureScout(STATE.currentProject); s.quienes.splice(i, 1); markDirty(); renderLocaciones(); }
+/* V11.x · desde la pelota ámbar del contacto: abre la ficha (o el alta) en la BD. */
+function locScoutAddContactoBD(enc) { try { openPersonaByName(decodeURIComponent(enc)); } catch (e) {} }
 
 function locScoutingHTML(project) {
   const s = locEnsureScout(project);
@@ -12793,18 +12795,22 @@ function locScoutingHTML(project) {
   const filasHTML = s.filas.map((f, i) => {
     const clock = times[i] && times[i].inicio != null ? prFmtClock(times[i].inicio) : '—';
     if (f.tipo === 'traslado') {
-      return `<tr class="traslado"><td class="loc-time">${clock}</td><td><input class="input" style="width:64px;" value="${e(f.dur || '')}" title="HHMM: 100 = 1 hora" onchange="locScoutSetFila(${i},'dur',this.value,true)"></td><td colspan="4">⤷ Traslado <input class="input" style="display:inline-block;width:auto;min-width:200px;" value="${e(f.nota || '')}" placeholder="de … a …" onchange="locScoutSetFila(${i},'nota',this.value)"></td><td><button class="btn btn-secondary btn-sm" onclick="locScoutDelFila(${i})">×</button></td></tr>`;
+      return `<tr class="traslado"><td class="loc-time">${clock}</td><td><input class="input" style="width:64px;" value="${e(f.dur || '')}" title="HHMM: 100 = 1 hora" onchange="locScoutSetFila(${i},'dur',this.value,true)"></td><td colspan="3">⤷ Traslado <input class="input" style="display:inline-block;width:auto;min-width:200px;" value="${e(f.nota || '')}" placeholder="de … a …" onchange="locScoutSetFila(${i},'nota',this.value)"></td><td><button class="btn btn-secondary btn-sm" onclick="locScoutDelFila(${i})">×</button></td></tr>`;
     }
     const l = bdLocFind(f.locId) || {};
     const dir = l.maps ? `<a href="${safeUrl(l.maps)}" target="_blank" rel="noopener">${e(l.direccion || 'Maps')}</a>` : e(l.direccion || '—');
-    const _c0 = locPrimaryContact(l) || {}; const cont = [_c0.nombre, _c0.tel].filter(Boolean).join(' · ') || '—';
+    const _c0 = locPrimaryContact(l) || {};
+    const respName = f.resp || (_c0.nombre || '');   /* default: contacto registrado de la locación, si hay */
+    const _bdP = (f.resp && typeof BD_PERSONAS !== 'undefined') ? BD_PERSONAS[f.resp] : null;
+    let respTel = f.respTel || '';
+    if (!respTel) { respTel = _bdP ? (_bdP.telefono || '') : (!f.resp ? (_c0.tel || '') : ''); }   /* celular auto: de la BD si el nombre está, o de la locación por defecto */
+    const dotNoBD = (f.resp && !_bdP) ? '<button type="button" title="No está en la Base de Datos · clic para agregarla" onclick="locScoutAddContactoBD(\'' + encodeURIComponent(f.resp) + '\')" style="border:none;background:none;cursor:pointer;color:var(--warning);font-weight:700;font-size:13px;padding:0 3px;vertical-align:middle;">●</button>' : '';
     return `<tr><td class="loc-time">${clock}</td>
       <td><input class="input" style="width:64px;" value="${e(f.dur || '')}" title="HHMM: 100 = 1 hora" onchange="locScoutSetFila(${i},'dur',this.value,true)"></td>
       <td><select class="input" onchange="locScoutSetFila(${i},'locId',this.value,true)">${locOpts(f)}</select></td>
       <td style="font-size:12px;">${dir}</td>
-      <td style="font-size:12px;">${e(cont)}</td>
-      <td><input class="input" value="${e(f.revisar || '')}" placeholder="Qué revisar" onchange="locScoutSetFila(${i},'revisar',this.value)"></td>
-      <td style="white-space:nowrap;"><input class="input" style="width:120px;" value="${e(f.resp || '')}" placeholder="Responsable" onchange="locScoutSetFila(${i},'resp',this.value)"> <button class="btn btn-secondary btn-sm" onclick="locScoutDelFila(${i})">×</button></td></tr>`;
+      <td style="white-space:nowrap;"><span class="combobox-wrap person-combobox" style="display:inline-block;min-width:140px;vertical-align:middle;"><input class="input combobox-input" value="${e(respName)}" placeholder="Nombre…" autocomplete="off" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="locScoutSetFila(${i},'resp',this.value,true)"><div class="combobox-dropdown" hidden></div></span>${dotNoBD}<input class="input" style="width:120px;margin-left:5px;vertical-align:middle;" value="${e(respTel)}" placeholder="Celular" onchange="locScoutSetFila(${i},'respTel',this.value)"></td>
+      <td style="white-space:nowrap;"><input class="input" style="min-width:140px;" value="${e(f.revisar || '')}" placeholder="Notas" onchange="locScoutSetFila(${i},'revisar',this.value)"> <button class="btn btn-secondary btn-sm" onclick="locScoutDelFila(${i})">×</button></td></tr>`;
   }).join('');
   return `<div class="cot-card" style="padding:16px;margin-bottom:14px;">
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
@@ -12815,8 +12821,8 @@ function locScoutingHTML(project) {
     <div style="margin-top:10px;font-size:12.5px;color:var(--ink-mut);">${nParadas} parada(s) · ${totalMin != null ? prFmtDur(totalMin) + ' total' : 'duración —'} · término aprox. <b>${fin}</b></div>
   </div>
   <div class="cot-card" style="padding:12px 16px;overflow-x:auto;">
-    <table class="loc-scout-tbl"><thead><tr><th>Hora</th><th>Dur.</th><th>Locación</th><th>Dirección / Maps</th><th>Contacto</th><th>Qué revisar</th><th>Responsable</th></tr></thead>
-    <tbody>${filasHTML || `<tr><td colspan="7" style="color:var(--ink-faint);padding:12px;">Sin paradas todavía. Agrega una parada o un traslado.</td></tr>`}</tbody></table>
+    <table class="loc-scout-tbl"><thead><tr><th>Hora</th><th>Dur.</th><th>Locación</th><th>Dirección / Maps</th><th>Contacto <span data-tip="El Contacto puede ser la persona que se pasa a buscar, el cliente, la dueña de la locación o cualquiera relevante para ese destino. El celular aparece solo si el nombre está en la BD. Si la locación tiene contacto registrado, aparece por defecto." style="cursor:help;color:var(--ink-faint);font-size:11px;">ⓘ</span></th><th>Notas</th></tr></thead>
+    <tbody>${filasHTML || `<tr><td colspan="6" style="color:var(--ink-faint);padding:12px;">Sin paradas todavía. Agrega una parada o un traslado.</td></tr>`}</tbody></table>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-secondary btn-sm" onclick="locScoutAddParada()">+ Parada</button>
       <button class="btn btn-secondary btn-sm" onclick="locScoutAddTraslado()">+ Traslado</button>
@@ -12833,10 +12839,14 @@ function exportScoutingPDF() {
   const times = locScoutTimes(project);
   const rows = s.filas.map((f, i) => {
     const clock = times[i] && times[i].inicio != null ? prFmtClock(times[i].inicio) : '—';
-    if (f.tipo === 'traslado') return `<tr class="tr"><td>${clock}</td><td>${e(prFmtDur(prParseHM(f.dur)))}</td><td colspan="4">⤷ Traslado — ${e(f.nota || '')}</td></tr>`;
+    if (f.tipo === 'traslado') return `<tr class="tr"><td>${clock}</td><td>${e(prFmtDur(prParseHM(f.dur)))}</td><td colspan="3">⤷ Traslado — ${e(f.nota || '')}</td></tr>`;
     const l = bdLocFind(f.locId) || {};
-    const _c0 = locPrimaryContact(l) || {}; const cont = [_c0.nombre, _c0.tel].filter(Boolean).join(' · ');
-    return `<tr><td>${clock}</td><td>${e(prFmtDur(prParseHM(f.dur)))}</td><td><b>${e(l.nombre || '—')}</b><br><span class="mut">${e(l.direccion || '')}</span></td><td>${e(cont)}</td><td>${e(f.revisar || '')}</td><td>${e(f.resp || '')}</td></tr>`;
+    const _c0 = locPrimaryContact(l) || {};
+    const _bdP = (f.resp && typeof BD_PERSONAS !== 'undefined') ? BD_PERSONAS[f.resp] : null;
+    const _nom = f.resp || (_c0.nombre || '');
+    const _tel = f.respTel || (_bdP ? (_bdP.telefono || '') : (!f.resp ? (_c0.tel || '') : ''));
+    const _contacto = [_nom, _tel].filter(Boolean).join(' · ');
+    return `<tr><td>${clock}</td><td>${e(prFmtDur(prParseHM(f.dur)))}</td><td><b>${e(l.nombre || '—')}</b><br><span class="mut">${e(l.direccion || '')}</span></td><td>${e(_contacto)}</td><td>${e(f.revisar || '')}</td></tr>`;
   }).join('');
   const fin = times.length ? prFmtClock(times[times.length - 1].termino != null ? times[times.length - 1].termino : times[times.length - 1].inicio) : '';
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Plan de Scouting</title>
@@ -12847,7 +12857,7 @@ function exportScoutingPDF() {
   .foot{margin-top:22px;font-size:10.5px;color:#888;display:flex;justify-content:space-between;}</style></head>
   <body><h1>Plan de Scouting</h1><div class="sub">${e(ip.cliente || '')}${ip.nombreProyecto ? ' · ' + e(ip.nombreProyecto) : ''}</div>
   <div class="meta">Fecha: <b>${e(s.fecha ? fmtFechaLarga(s.fecha) : '—')}</b> · Inicio: <b>${e(s.inicio || '—')}</b> · Término aprox.: <b>${e(fin)}</b><br>Quiénes van: <b>${e((s.quienes || []).filter(Boolean).join(', ') || '—')}</b></div>
-  <table><thead><tr><th>Hora</th><th>Dur.</th><th>Locación</th><th>Contacto</th><th>Qué revisar</th><th>Responsable</th></tr></thead><tbody>${rows}</tbody></table>
+  <table><thead><tr><th>Hora</th><th>Dur.</th><th>Locación</th><th>Contacto</th><th>Notas</th></tr></thead><tbody>${rows}</tbody></table>
   <div class="foot"><span>${e(orgNombre())}${orgNombre() ? ' · ' : ''}Plan de Scouting</span><span>${e(new Date().toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span></div>
   </body></html>`;
   printViaIframe(html, 'Plan de Scouting');
@@ -23470,7 +23480,7 @@ function cfoBirdView() {
     <div class="go-card-h"><h3>Vista general de la productora <span class="go-faint">· ${activos.length} proyecto(s) en curso · macro · el detalle vive en cada presupuesto</span></h3></div>
     ${(typeof _PAGOS_CLIENTE_BACKEND === 'undefined' || !_PAGOS_CLIENTE_BACKEND) ? '<div style="font-size:11px;color:var(--ink-faint);padding:0 14px 8px;">Los pagos registrados se guardan en este navegador por ahora; la sincronización entre dispositivos llega con la próxima extensión de la base.</div>' : ''}
     <div class="go-card-b go-tablewrap">
-      <table class="go-tbl"><thead><tr><th>Proyecto</th><th class="go-num">Facturará</th><th class="go-num">Cobrado</th><th class="go-num">Por cobrar</th><th>Avance cobro</th><th></th></tr></thead>
+      <table class="go-tbl"><thead><tr><th>Proyecto</th><th class="go-num">Ingreso</th><th class="go-num">Cobrado</th><th class="go-num">Por cobrar</th><th>Avance cobro</th><th></th></tr></thead>
       <tbody>${filas}</tbody>
       <tfoot><tr style="font-weight:700;border-top:2px solid var(--rule);"><td>Total productora</td><td class="go-num">${fmtMoney(totVal)}</td><td class="go-num" style="color:var(--positive);">${fmtMoney(totCob)}</td><td class="go-num" style="color:var(--accent-deep,#c2410c);">${fmtMoney(saldoTot)}</td><td colspan="2"></td></tr></tfoot>
       </table>
@@ -23490,7 +23500,7 @@ function cfoRegistrarPago(projId) {
   document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:420px;">'
     + '<div class="modal-header"><div class="modal-title">Registrar pago de cliente</div></div>'
     + '<div class="modal-body">'
-    + '<p style="margin:0 0 12px;font-size:12.5px;color:var(--ink-secondary);line-height:1.5;"><strong>' + escapeHtml(goProjName(p)) + '</strong><br>Facturará ' + fmtMoney(val) + ' · cobrado ' + fmtMoney(cob) + ' · por cobrar <strong>' + fmtMoney(saldo) + '</strong></p>'
+    + '<p style="margin:0 0 12px;font-size:12.5px;color:var(--ink-secondary);line-height:1.5;"><strong>' + escapeHtml(goProjName(p)) + '</strong><br>Ingreso ' + fmtMoney(val) + ' · cobrado ' + fmtMoney(cob) + ' · por cobrar <strong>' + fmtMoney(saldo) + '</strong></p>'
     + '<div class="emp-field" style="margin-bottom:10px;"><label>Monto recibido (CLP)</label><input class="input" id="cfoPagoMonto" type="number" inputmode="numeric" placeholder="0"></div>'
     + '<div class="emp-field"><label>Nota (opcional)</label><input class="input" id="cfoPagoNota" placeholder="Ej. Abono 50%, cuota 1 de 3…"></div>'
     + '</div>'
@@ -23853,8 +23863,20 @@ function goCfoExportPanel() {
 function goValidar(id) { const r = goFindMov(id); if (r) { r.m.estado = 'validado'; markDirty(); renderCFO(); showToast({ kind: 'success', title: 'Gasto validado', body: 'Listo para exportar a Chipax.' }); } }
 function goObservar(id) {
   const r = goFindMov(id); if (!r) return;
-  const nota = window.prompt('Comentario para el equipo (qué revisar):', r.m.coment || '');
-  if (nota !== null) { r.m.coment = nota; r.m.estado = 'en_observacion'; markDirty(); renderCFO(); showToast({ kind: 'warning', title: 'Marcado en observación', body: 'El equipo verá tu comentario.' }); }
+  /* V11.x · antes usaba window.prompt, que el navegador suprime tras varios
+     diálogos (se veía como que "no hacía nada"). Ahora usa el modal propio. */
+  showModal({
+    title: 'Marcar gasto en observación',
+    body: '<p style="margin:0 0 10px;font-size:13px;color:var(--ink-secondary);line-height:1.5;">Deja un comentario para el equipo: qué hay que revisar o corregir en este gasto.</p><textarea class="input" id="goObsNota" rows="3" placeholder="Ej. falta la boleta · el monto no cuadra · proveedor equivocado…">' + escapeHtml(r.m.coment || '') + '</textarea>',
+    confirmLabel: 'Marcar en observación',
+    cancelLabel: 'Cancelar',
+    onConfirm: function () {
+      var nota = ((document.getElementById('goObsNota') || {}).value || '').trim();
+      r.m.coment = nota; r.m.estado = 'en_observacion';
+      markDirty(); renderCFO();
+      showToast({ kind: 'warning', title: 'Marcado en observación', body: 'El equipo verá tu comentario.' });
+    }
+  });
 }
 function goCfoVer(id) { const r = goFindMov(id); if (!r) return; const prev = STATE.currentProject; STATE.currentProject = r.project; goVerComprobante(id); STATE.currentProject = prev; }
 function goPagarReemb(id) { const r = goFindMov(id); if (!r) return; const inp = document.getElementById('rp_' + id); r.m.fechaPago = (inp && inp.value) || goToday(); markDirty(); renderCFO(); showToast({ kind: 'success', title: 'Reembolso pagado', body: 'Pagado el ' + r.m.fechaPago + '.' }); }
