@@ -6947,6 +6947,7 @@ function renderServiciosBody() {
   const project = STATE.currentProject;
   const d = project.data.servicios;
   const showReal = STATES_WITH_REAL_COST.includes(project.state);
+  const _bScroll = _budgetCaptureScroll();   // V11.22 · preservar scroll horizontal
 
   let html = '';
   let _deptIdx = 0;
@@ -6960,7 +6961,7 @@ function renderServiciosBody() {
         </div>
         <div class="subdept-totals" id="subdept-totals-${escapeHtml(dept)}"></div>
       </div>
-      <div style="overflow-x: auto;">
+      <div style="overflow-x: auto;" data-budget-scroll="servicios:${escapeHtml(dept)}">
         ${renderRoleTable('servicios', dept, d[dept], showReal)}
       </div>
       <div class="row-add" onclick="addRow('servicios', '${escapeHtml(dept)}')" style="margin: 0 12px 12px;">
@@ -6976,6 +6977,7 @@ function renderServiciosBody() {
     </div>
   `;
   document.getElementById('dept-body-servicios').innerHTML = html;
+  _budgetRestoreScroll(_bScroll);   // V11.22 · devolver el scroll horizontal a su sitio
 
   // Calcular subtotales de cada sub-depto
   for (const dept in d) {
@@ -7151,14 +7153,16 @@ function renderSimpleSection(sectionKey) {
   };
   const cfg = labels[sectionKey];
 
+  const _bScroll = _budgetCaptureScroll();   // V11.22 · preservar scroll horizontal
   document.getElementById(`dept-body-${sectionKey}`).innerHTML = `
-    <div style="overflow-x: auto;">
+    <div style="overflow-x: auto;" data-budget-scroll="${sectionKey}">
       ${renderRoleTable(sectionKey, null, items, showReal, cfg.firstCol)}
     </div>
     <div class="row-add" onclick="addRow('${sectionKey}', null)" style="margin: 0 12px 12px;">
       ${cfg.addLabel}
     </div>
   `;
+  _budgetRestoreScroll(_bScroll);   // V11.22 · devolver el scroll horizontal a su sitio
 }
 
 /* ─── TABLA DE ROLES (compartida) ───────────────────────────────────── */
@@ -7182,7 +7186,7 @@ function renderRoleTable(sectionKey, dept, items, showReal, firstColLabel) {
   // proyecto (Preproducción+). En etapa Venta no hay nada que confirmar.
   const showConfirmado = cotizadoLocked(STATE.currentProject);
   const confHeaderHTML = showConfirmado
-    ? `<th class="ctr" style="width: 5%;">Conf. <span class="tt" data-tip="Marcar como confirmado significa que esta persona/ítem está cerrado en su negociación. Al marcar:\n\n• Aparece en el módulo Crew.\n• Entra en los correos automáticos de producción.\n• Cuenta en el KPI de personas confirmadas.">?</span></th>`
+    ? _budgetColTh(sectionKey, 'conf', 'ctr', `Conf. <span class="tt" data-tip="Marcar como confirmado significa que esta persona/ítem está cerrado en su negociación. Al marcar:\n\n• Aparece en el módulo Crew.\n• Entra en los correos automáticos de producción.\n• Cuenta en el KPI de personas confirmadas.">?</span>`)
     : '';
 
   // V10.1.0 (#1): orden por columnas (solo presentación). data-row-idx sigue
@@ -7194,23 +7198,34 @@ function renderRoleTable(sectionKey, dept, items, showReal, firstColLabel) {
     ? `<div class="budget-sort-bar">Orden por columna activo (solo en pantalla; no altera el orden guardado) <button type="button" class="budget-sort-restore" onclick="budgetSortClear('${sectionKey}', ${_deptArg})">↺ Restaurar orden</button></div>`
     : '';
   const _costoRealTip = '<span class="tt" data-tip="Ingresa el costo EFECTIVO para la empresa, no el líquido que recibe el proveedor.\n\n• Boleta de honorarios: ingresa el monto BRUTO (con retención incluida). Ese es el costo real para la empresa.\n• Factura: ingresa el monto NETO (sin IVA). El IVA no es costo real porque se recupera contra el crédito fiscal.\n\nPara convertir entre líquido y bruto, usa la Calculadora tributaria en la barra superior.">?</span>';
+  // V11.22 · cada columna sale por un helper redimensionable; rTh = ordenable + grip.
+  const rTh = (label, colId, cls, tip) => _budgetSortTh(label, sectionKey, dept, colId, 'bcol-resizable' + (cls ? ' ' + cls : ''), ' style="width:' + _budgetColWGet(sectionKey, colId) + 'px;"', tip || '', _budgetColGrip(sectionKey, colId));
+  // Ancho total de la tabla = suma de columnas VISIBLES (las de detalle cotizado se
+  // ocultan al colapsar). table-layout:fixed lo respeta exacto y, al crecer, scrollea.
+  const _cotVisible = budgetStateClass !== 'collapse-cot';
+  let _tw = _budgetColWGet(sectionKey, 'nombre') + _budgetColWGet(sectionKey, 'rolItem');
+  if (_cotVisible) _tw += _budgetColWGet(sectionKey, 'dte') + _budgetColWGet(sectionKey, 'valor') + _budgetColWGet(sectionKey, 'cantidad');
+  _tw += _budgetColWGet(sectionKey, 'unidad') + _budgetColWGet(sectionKey, 'costoCotizado');
+  if (showReal) _tw += _budgetColWGet(sectionKey, 'costoReal') + _budgetColWGet(sectionKey, 'dteReal') + _budgetColWGet(sectionKey, 'horaExtra');
+  if (showConfirmado) _tw += _budgetColWGet(sectionKey, 'conf');
+  _tw += BUDGET_MENU_W;
   return `
     ${_sortBar}
-    <table class="data-table budget-table ${budgetStateClass}" id="${tableId}">
+    <table class="data-table budget-table ${budgetStateClass}" id="${tableId}" data-bsec-table="${sectionKey}" style="width:${_tw}px;">
       <thead>
         <tr>
-          ${_budgetSortTh(nameColLabel, sectionKey, dept, 'nombre', '', ' style="width: 20%;"', '')}
-          ${_budgetSortTh(firstCol, sectionKey, dept, 'rolItem', '', ' style="width: 18%;"', '')}
-          <th class="col-cot-detail" style="width: 13%;">DTE${dteOptional ? ' <span style="color: var(--ink-faint); font-weight: 400;">(opc.)</span> <span class="tt" data-tip="En Gastos y Equipos el DTE es opcional porque muchos ítems son contingencias, cajas de producción, estimaciones abiertas o gastos aún sin proveedor confirmado.\n\nSi no seleccionas DTE, el costo se calcula como valor × cantidad sin retención (asumiendo factura).\n\nLlénalo cuando sepas el documento — eso permite que la conversión a costo empresa sea exacta.">?</span>' : ''}</th>
-          ${_budgetSortTh('Valor', sectionKey, dept, 'valor', 'num col-cot-detail', ' style="width: 11%;"', '')}
-          ${_budgetSortTh('Cant.', sectionKey, dept, 'cantidad', 'num col-cot-detail', ' style="width: 6%;"', '')}
-          <th style="width: 9%;">Unidad</th>
-          ${_budgetSortTh('Costo cotizado', sectionKey, dept, 'costoCotizado', 'num', '', '')}
-          ${showReal ? _budgetSortTh('Costo real ', sectionKey, dept, 'costoReal', 'num', '', _costoRealTip) : ''}
-          ${showReal ? '<th style="width: 11%;">DTE real <span class="tt" data-tip="Documento tributario realmente emitido por el proveedor. Por defecto coincide con el DTE cotizado. Cambiarlo NO altera el cotizado (congelado al aprobar); es declarativo, para pagos y trazabilidad.">?</span></th>' : ''}
-          ${showReal ? _budgetSortTh('Horas extra ', sectionKey, dept, 'horaExtra', 'num', '', '<span class="tt" data-tip="Horas extra de la fila como costo empresa (ya con la conversión por DTE). Ingresa el N° de horas en la celda; la HE usa el valor hora (valor de la fila ÷ 10) y el recargo del proyecto. El ⚙ de la fila permite tarifa plana o fórmula propia; este ⚙ fija el recargo por defecto del proyecto. Se suma al Costo de Producción real, aparte del costo base.">?</span><button type="button" class="he-head-cog" title="Fijar el recargo por defecto de las horas extra del proyecto" onclick="event.stopPropagation(); openHeProyectoDefault();">⚙</button>') : ''}
+          ${rTh(nameColLabel, 'nombre', '', '')}
+          ${rTh(firstCol, 'rolItem', '', '')}
+          ${_budgetColTh(sectionKey, 'dte', 'col-cot-detail', `DTE${dteOptional ? ' <span style="color: var(--ink-faint); font-weight: 400;">(opc.)</span> <span class="tt" data-tip="En Gastos y Equipos el DTE es opcional porque muchos ítems son contingencias, cajas de producción, estimaciones abiertas o gastos aún sin proveedor confirmado.\n\nSi no seleccionas DTE, el costo se calcula como valor × cantidad sin retención (asumiendo factura).\n\nLlénalo cuando sepas el documento — eso permite que la conversión a costo empresa sea exacta.">?</span>' : ''}`)}
+          ${rTh('Valor', 'valor', 'num col-cot-detail', '')}
+          ${rTh('Cant.', 'cantidad', 'num col-cot-detail', '')}
+          ${_budgetColTh(sectionKey, 'unidad', '', 'Unidad')}
+          ${rTh('Costo cotizado', 'costoCotizado', 'num', '')}
+          ${showReal ? rTh('Costo real ', 'costoReal', 'num', _costoRealTip) : ''}
+          ${showReal ? _budgetColTh(sectionKey, 'dteReal', '', 'DTE real <span class="tt" data-tip="Documento tributario realmente emitido por el proveedor. Por defecto coincide con el DTE cotizado. Cambiarlo NO altera el cotizado (congelado al aprobar); es declarativo, para pagos y trazabilidad.">?</span>') : ''}
+          ${showReal ? rTh('Horas extra ', 'horaExtra', 'num', '<span class="tt" data-tip="Horas extra de la fila como costo empresa (ya con la conversión por DTE). Ingresa el N° de horas en la celda; la HE usa el valor hora (valor de la fila ÷ 10) y el recargo del proyecto. El ⚙ de la fila permite tarifa plana o fórmula propia; este ⚙ fija el recargo por defecto del proyecto. Se suma al Costo de Producción real, aparte del costo base.">?</span><button type="button" class="he-head-cog" title="Fijar el recargo por defecto de las horas extra del proyecto" onclick="event.stopPropagation(); openHeProyectoDefault();">⚙</button>') : ''}
           ${confHeaderHTML}
-          <th style="width: 32px;"></th>
+          <th style="width: ${BUDGET_MENU_W}px;"></th>
         </tr>
       </thead>
       <tbody>
@@ -7298,7 +7313,7 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
         </div>
       </td>
       <td>
-        <input class="cell-input ${roleOrItemValue ? '' : 'is-empty'}"
+        <input class="cell-input cell-rol ${roleOrItemValue ? '' : 'is-empty'}"
                value="${escapeHtml(roleOrItemValue || '')}"
                placeholder="${escapeHtml(sectionKey === 'servicios' ? 'Rol' : 'Ítem')}"
                ${readonlyAttr}
@@ -7515,13 +7530,132 @@ function budgetSortClear(sectionKey, dept) {
   if (STATE.ui.budgetSort) delete STATE.ui.budgetSort[_budgetSortKey(sectionKey, dept)];
   if (sectionKey === 'servicios') renderServiciosBody(); else renderSimpleSection(sectionKey);
 }
-function _budgetSortTh(label, sectionKey, dept, colKey, extraClass, styleAttr, tipHTML) {
+function _budgetSortTh(label, sectionKey, dept, colKey, extraClass, styleAttr, tipHTML, tailHTML) {
   const deptArg = sectionKey === 'servicios' ? ("'" + escapeHtml(dept) + "'") : 'null';
   const s = _budgetSortState(sectionKey, dept);
   const on = s && s.col === colKey;
   const ind = on ? ('<span class="sort-ind on">' + (s.dir === 'asc' ? '▲' : '▼') + '</span>') : '<span class="sort-ind"></span>';
   const cls = 'sortable' + (extraClass ? ' ' + extraClass : '');
-  return '<th class="' + cls + '"' + (styleAttr || '') + ' onclick="budgetSortBy(\'' + sectionKey + '\', ' + deptArg + ', \'' + colKey + '\')">' + label + (tipHTML || '') + ind + '</th>';
+  return '<th class="' + cls + '" data-bsec="' + sectionKey + '" data-bcol="' + colKey + '"' + (styleAttr || '') + ' onclick="budgetSortBy(\'' + sectionKey + '\', ' + deptArg + ', \'' + colKey + '\')">' + label + (tipHTML || '') + ind + (tailHTML || '') + '</th>';
+}
+
+/* ─── V11.22 · ancho de columna redimensionable a mano (TODAS las columnas) ───
+   Excel real: la tabla usa table-layout:fixed y su ancho TOTAL = suma de columnas
+   (seteado inline al renderizar). Al arrastrar el borde de un encabezado, esa
+   columna crece y la tabla crece con ella: las de la derecha se empujan y aparece
+   scroll horizontal (no se reparten un ancho fijo). El arrastre es 1:1 con el
+   cursor, con tope de 300px por columna. Se guarda por (sección, columna) en
+   localStorage y se reaplica en cada render; doble clic restablece. */
+var _BUDGET_COL_CFG = {
+  nombre:        { min: 120, def: 220, max: 300 },
+  rolItem:       { min: 120, def: 180, max: 300 },
+  dte:           { min: 100, def: 180, max: 180 },   // DTE y DTE real: MISMAS medidas (mismo desglose de opciones)
+  dteReal:       { min: 100, def: 180, max: 180 },
+  horaExtra:     { min: 90,  def: 150, max: 150 },
+  costoReal:     { min: 110, def: 120, max: 150 },   // Costo real y Valor comparten medidas
+  costoCotizado: { min: 110, def: 130, max: 150 },   // +10 que las otras: con 120 el texto tapaba la flecha de orden
+  valor:         { min: 110, def: 120, max: 150 },
+  cantidad:      { min: 60,  def: 70,  max: 100 },
+  unidad:        { min: 90,  def: 140, max: 170 },
+  conf:          { min: 60,  def: 60,  max: 300 }     // sin restricción específica → máx general 300
+};
+var BUDGET_MENU_W = 36;
+function _budgetColCfg(colId) { return _BUDGET_COL_CFG[colId] || { min: 60, def: 120, max: 300 }; }
+function _budgetColDefault(colId) { return _budgetColCfg(colId).def; }
+function _budgetColWStore() {
+  if (!window._BUDGET_COLW) {
+    try { window._BUDGET_COLW = JSON.parse(localStorage.getItem('takeos_budget_colw') || '{}') || {}; }
+    catch (e) { window._BUDGET_COLW = {}; }
+  }
+  return window._BUDGET_COLW;
+}
+function _budgetColWGet(sectionKey, colId, def) {
+  var cfg = _budgetColCfg(colId);
+  var s = _budgetColWStore()[sectionKey]; var v = s && s[colId];
+  if (typeof v !== 'number' || !(v > 0)) return (typeof def === 'number' ? def : cfg.def);
+  return Math.max(cfg.min, Math.min(cfg.max, v));
+}
+function _budgetColWSet(sectionKey, colId, px) {
+  var all = _budgetColWStore(); if (!all[sectionKey]) all[sectionKey] = {};
+  all[sectionKey][colId] = Math.round(px);
+  try { localStorage.setItem('takeos_budget_colw', JSON.stringify(all)); } catch (e) {}
+}
+function _budgetColGrip(sectionKey, colId) {
+  return '<span class="col-resize-grip" title="Arrastra para ajustar el ancho · doble clic para restablecer"'
+    + ' onmousedown="budgetColResizeDown(event, \'' + sectionKey + '\', \'' + colId + '\')"'
+    + ' onclick="event.stopPropagation();"'
+    + ' ondblclick="budgetColResizeReset(event, \'' + sectionKey + '\', \'' + colId + '\')"></span>';
+}
+/* <th> redimensionable NO ordenable (DTE, Unidad, DTE real, Conf.). Los ordenables
+   ya salen por _budgetSortTh con su mismo grip. */
+function _budgetColTh(sectionKey, colId, extraClass, innerHTML, styleExtra) {
+  var cls = 'bcol-resizable' + (extraClass ? ' ' + extraClass : '');
+  return '<th class="' + cls + '" data-bsec="' + sectionKey + '" data-bcol="' + colId + '"'
+    + ' style="width:' + _budgetColWGet(sectionKey, colId) + 'px;' + (styleExtra || '') + '">'
+    + innerHTML + _budgetColGrip(sectionKey, colId) + '</th>';
+}
+function budgetColResizeDown(ev, sectionKey, colId) {
+  ev.preventDefault(); ev.stopPropagation();
+  var grip = ev.currentTarget || ev.target;
+  var th = grip.closest ? grip.closest('th') : grip.parentNode;
+  if (!th) return;
+  grip.classList.add('dragging');
+  var startX = ev.clientX;
+  var startW = th.getBoundingClientRect().width;
+  var thSel = '.budget-table th[data-bsec="' + sectionKey + '"][data-bcol="' + colId + '"]';
+  /* todas las tablas de la sección (servicios tiene una por departamento): se
+     mueven juntas para mantener las columnas alineadas entre departamentos. */
+  var tables = [];
+  document.querySelectorAll('.budget-table[data-bsec-table="' + sectionKey + '"]').forEach(function (t) {
+    tables.push({ el: t, startW: parseFloat(t.style.width) || t.getBoundingClientRect().width });
+  });
+  var cfg = _budgetColCfg(colId);
+  var lastW = startW;
+  function mm(e) {
+    lastW = Math.max(cfg.min, Math.min(cfg.max, Math.round(startW + (e.clientX - startX))));
+    var delta = lastW - startW;
+    document.querySelectorAll(thSel).forEach(function (t) { t.style.width = lastW + 'px'; });
+    tables.forEach(function (o) { o.el.style.width = (o.startW + delta) + 'px'; });
+  }
+  function mu() {
+    document.removeEventListener('mousemove', mm);
+    document.removeEventListener('mouseup', mu);
+    grip.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    _budgetColWSet(sectionKey, colId, lastW);
+  }
+  document.addEventListener('mousemove', mm);
+  document.addEventListener('mouseup', mu);
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
+function budgetColResizeReset(ev, sectionKey, colId) {
+  ev.preventDefault(); ev.stopPropagation();
+  var all = _budgetColWStore();
+  if (all[sectionKey]) { delete all[sectionKey][colId]; try { localStorage.setItem('takeos_budget_colw', JSON.stringify(all)); } catch (e) {} }
+  /* re-render SOLO de la sección afectada (no toda la página): renderServiciosBody /
+     renderSimpleSection ya preservan el scroll horizontal, así la columna vuelve a su
+     ancho por defecto sin que la vista salte a la izquierda. */
+  if (sectionKey === 'servicios') { if (typeof renderServiciosBody === 'function') renderServiciosBody(); }
+  else if (typeof renderSimpleSection === 'function') renderSimpleSection(sectionKey);
+}
+/* ─── V11.22 · preservar el scroll horizontal de cada sección al re-renderizar ──
+   (ordenar por columna, restablecer ancho, editar una fila, etc.). Sin esto,
+   reconstruir el innerHTML deja el wrapper en scrollLeft=0 y la vista "salta" a la
+   izquierda. Se capturan los scrollLeft por clave estable (data-budget-scroll) y se
+   restauran tras rearmar el DOM. */
+function _budgetCaptureScroll() {
+  var m = {};
+  document.querySelectorAll('[data-budget-scroll]').forEach(function (el) { m[el.getAttribute('data-budget-scroll')] = el.scrollLeft; });
+  return m;
+}
+function _budgetRestoreScroll(m) {
+  if (!m) return;
+  document.querySelectorAll('[data-budget-scroll]').forEach(function (el) {
+    var k = el.getAttribute('data-budget-scroll');
+    if (m[k] != null && el.scrollLeft !== m[k]) el.scrollLeft = m[k];
+  });
 }
 
 /* ─── V8.1 (#2): NOTAS CONTEXTUALES POR FILA DEL PRESUPUESTO ──────────
@@ -15149,15 +15283,10 @@ async function _empCargarEquipo() {
     var adminIds = perfiles.filter(function (p) { return p.codigo === 1; }).map(function (p) { return p.id; });
     var adminsActivos = rows.filter(function (r) { return r.estado === 'activo' && adminIds.indexOf(r.profile_id) >= 0; });
     var thBase = 'text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.05em;';
-    var html = '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
-      + '<thead><tr>'
-      + '<th style="' + thBase + '">Persona</th>'
-      + '<th style="' + thBase + '">Perfil de acceso</th>'
-      + '<th style="' + thBase + '">Tipo</th>'
-      + '<th style="' + thBase + '">Estado</th>'
-      + (soyAdmin ? '<th style="' + thBase + 'text-align:right;">Acciones</th>' : '')
-      + '</tr></thead><tbody>';
-    rows.forEach(function (m) {
+    /* V11.21 · construye la fila <tr> de un miembro. `contexto` es 'interno' o
+       'externo' y decide el botón de convertir; la etiqueta de tipo ya no se
+       repite por fila (la da la sección). Se reusa en ambas secciones. */
+    function _empFilaHTML(m, contexto) {
       var nom = (m.contact_id && typeof BD_CONTACTOS !== 'undefined' && BD_CONTACTOS[m.contact_id] && BD_CONTACTOS[m.contact_id].nombre) ? BD_CONTACTOS[m.contact_id].nombre : '';
       if (!nom && typeof DAL_SESSION_UID !== 'undefined' && m.user_id === DAL_SESSION_UID) nom = ((typeof USER_NOMBRE !== 'undefined' ? USER_NOMBRE : '') + ' ' + (typeof USER_APELLIDO !== 'undefined' ? USER_APELLIDO : '')).trim();
       var perfilNom = (m.permission_profiles && m.permission_profiles.nombre) ? m.permission_profiles.nombre : '—';
@@ -15175,30 +15304,111 @@ async function _empCargarEquipo() {
       var est = String(m.estado || '');
       var estLabel = est === 'activo' ? 'Activo' : (est === 'pendiente' ? 'Invitación pendiente' : (est || '—'));
       var estColor = est === 'activo' ? 'var(--positive)' : 'var(--warning)';
-      var tipoCell;
-      if (soyAdmin && !esUnicoAdmin) {
-        tipoCell = '<select class="select" style="font-size:12.5px;padding:4px 10px;width:auto;min-width:108px;" onchange="_empCambiarTipo(\'' + m.id + '\', this.value, ' + (perfilCod || 0) + ')">'
-          + '<option value="interno"' + (m.tipo === 'interno' ? ' selected' : '') + '>Interno</option>'
-          + '<option value="externo"' + (m.tipo === 'externo' ? ' selected' : '') + '>Externo</option>'
-          + '</select>';
-      } else {
-        tipoCell = '<span style="text-transform:capitalize;">' + escapeHtml(m.tipo || '—') + '</span>';
+      /* Acciones: convertir interno↔externo + quitar. El único Admin queda
+         bloqueado; a ti mismo no te ofreces acciones; un interno con perfil
+         Admin/Finanzas no puede pasar a externo (la guardia vive además en
+         _empCambiarTipo, que reimpone la regla y la base la respalda). */
+      var convBtn = '';
+      if (soyAdmin && !esUnicoAdmin && !esYo) {
+        if (contexto === 'externo') {
+          convBtn = '<button class="btn btn-ghost btn-sm" title="Pasar a interno: verá todos los proyectos de la productora." onclick="_empCambiarTipo(\'' + m.id + '\', \'interno\', ' + (perfilCod || 0) + ')">Hacer interno</button>';
+        } else if (perfilCod === 1 || perfilCod === 8) {
+          convBtn = '<span style="font-size:10.5px;color:var(--ink-faint);" title="Administrador y Finanzas solo pueden ser internos. Cambia primero su perfil de acceso para poder pasarlo a externo.">Solo interno</span>';
+        } else {
+          convBtn = '<button class="btn btn-ghost btn-sm" title="Pasar a externo: dejará de ver todos los proyectos y solo verá los que le asignes." onclick="_empCambiarTipo(\'' + m.id + '\', \'externo\', ' + (perfilCod || 0) + ')">Hacer externo</button>';
+        }
       }
-      var accCell = '';
+      var quitarCell = '';
       if (soyAdmin) {
-        if (esUnicoAdmin) accCell = '<span style="font-size:10px;color:var(--ink-faint);" title="No puedes quitar a la única persona con perfil Administrador. Transfiere la administración primero.">🔒 único admin</span>';
-        else if (esYo) accCell = '<span style="font-size:10px;color:var(--ink-faint);">tú</span>';
-        else accCell = '<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);" onclick="_empEcharMiembro(\'' + m.id + '\', \'' + encodeURIComponent(nom || '') + '\')">Quitar</button>';
+        if (esUnicoAdmin) quitarCell = '<span style="font-size:10px;color:var(--ink-faint);" title="No puedes quitar a la única persona con perfil Administrador. Transfiere la administración primero.">🔒 único admin</span>';
+        else if (esYo) quitarCell = '<span style="font-size:10px;color:var(--ink-faint);">tú</span>';
+        else quitarCell = '<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);" onclick="_empEcharMiembro(\'' + m.id + '\', \'' + encodeURIComponent(nom || '') + '\')">Quitar</button>';
       }
-      html += '<tr>'
+      var accCell = [convBtn, quitarCell].filter(Boolean).join(' <span style="color:var(--rule);">·</span> ');
+      return '<tr>'
         + '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);">' + escapeHtml(nom || '—') + '</td>'
         + '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);">' + perfilCell + '</td>'
-        + '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);">' + tipoCell + '</td>'
         + '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);color:' + estColor + ';font-weight:600;">' + escapeHtml(estLabel) + '</td>'
-        + (soyAdmin ? '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);text-align:right;">' + accCell + '</td>' : '')
+        + (soyAdmin ? '<td style="padding:7px 8px;border-bottom:1px solid var(--rule);text-align:right;white-space:nowrap;">' + accCell + '</td>' : '')
         + '</tr>';
-    });
-    html += '</tbody></table>';
+    }
+    /* V11.21 · arma una tabla completa para una lista (sin columna "Tipo": la
+       sección/subsección ya dice si son internos o externos). */
+    function _empTablaHTML(lista, contexto) {
+      if (!lista.length) return '<div style="color:var(--ink-faint);font-size:12.5px;padding:6px 2px 2px;">— nadie por ahora —</div>';
+      return '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+        + '<thead><tr>'
+        + '<th style="' + thBase + '">Persona</th>'
+        + '<th style="' + thBase + '">Perfil de acceso</th>'
+        + '<th style="' + thBase + '">Estado</th>'
+        + (soyAdmin ? '<th style="' + thBase + 'text-align:right;">Acciones</th>' : '')
+        + '</tr></thead><tbody>'
+        + lista.map(function (m) { return _empFilaHTML(m, contexto); }).join('')
+        + '</tbody></table>';
+    }
+    /* V11.21 · externos agrupados por PROYECTO (subsecciones). Solo proyectos
+       activos (no cerrado/rechazado) y con al menos un externo asignado; el resto
+       no aparece, para no meter ruido. Un externo en varios proyectos sale en cada
+       uno (así se ve "de qué proyecto es externo"). Los que no tienen proyecto
+       activo van a un grupo aparte para no desaparecer de la vista. El vínculo
+       externo↔proyecto se lee de project_cargos (cargo asignado al user_id o al
+       contacto del miembro); por eso se cargan los cargos de los activos. */
+    async function _empExternosHTML(externos) {
+      if (!externos.length) return '<div style="color:var(--ink-faint);font-size:12.5px;padding:6px 2px 2px;">— nadie por ahora —</div>';
+      var activos = (typeof PROJECTS !== 'undefined' && Array.isArray(PROJECTS))
+        ? PROJECTS.filter(function (p) { return ['cerrado', 'rechazado'].indexOf(p.state) === -1; })
+        : [];
+      try {
+        if (typeof dalCargarCargos === 'function') {
+          await Promise.all(activos.map(function (p) { try { return Promise.resolve(dalCargarCargos(p)).catch(function () {}); } catch (e) { return null; } }));
+        }
+      } catch (e) {}
+      var asignados = {};
+      var bloques = [];
+      activos.forEach(function (p) {
+        var cargos = (p.data && Array.isArray(p.data.cargos)) ? p.data.cargos : [];
+        if (!cargos.length) return;
+        var enProy = externos.filter(function (m) {
+          return cargos.some(function (c) {
+            return (m.user_id && c.invitedUserId && String(c.invitedUserId) === String(m.user_id))
+                || (m.contact_id && c.contactId && String(c.contactId) === String(m.contact_id));
+          });
+        });
+        if (enProy.length) {
+          enProy.forEach(function (m) { asignados[m.id] = true; });
+          bloques.push({ nombre: (p.name || '(sin nombre)'), lista: enProy });
+        }
+      });
+      bloques.sort(function (a, b) { return String(a.nombre).localeCompare(String(b.nombre), 'es'); });
+      var sinProy = externos.filter(function (m) { return !asignados[m.id]; });
+      var subH = 'font-size:11.5px;font-weight:600;color:var(--ink-secondary);margin:14px 0 6px;';
+      var chip = 'font-weight:400;color:var(--ink-faint);font-size:11px;';
+      var out = '';
+      bloques.forEach(function (b) {
+        out += '<div style="' + subH + '">📁 ' + escapeHtml(b.nombre) + ' <span style="' + chip + '">· ' + b.lista.length + ' externo' + (b.lista.length === 1 ? '' : 's') + '</span></div>'
+          + _empTablaHTML(b.lista, 'externo');
+      });
+      if (sinProy.length) {
+        out += '<div style="' + subH + 'color:var(--ink-faint);">Sin proyecto activo asignado <span style="' + chip + '">· ' + sinProy.length + '</span></div>'
+          + _empTablaHTML(sinProy, 'externo');
+      }
+      return out;
+    }
+    /* V11.21 · internos arriba (lista simple), externos abajo (por proyecto). El
+       tipo se cambia con el botón "Hacer interno/externo" de cada fila; al
+       cambiarlo, la persona salta de sección/subsección al recargar. */
+    var internos = rows.filter(function (r) { return r.tipo === 'interno'; });
+    var externos = rows.filter(function (r) { return r.tipo === 'externo'; });
+    var secStyle = 'font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-secondary);margin:0 0 8px;';
+    var subNota = 'font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-faint);';
+    var html = '<div style="margin-bottom:18px;">'
+      + '<div style="' + secStyle + '">Internos · ' + internos.length + ' <span style="' + subNota + '">ven todos los proyectos de la productora</span></div>'
+      + _empTablaHTML(internos, 'interno')
+      + '</div>'
+      + '<div>'
+      + '<div style="' + secStyle + '">Externos · ' + externos.length + ' <span style="' + subNota + '">por proyecto · solo ven los proyectos a los que se les asigna</span></div>'
+      + (await _empExternosHTML(externos))
+      + '</div>';
     box.innerHTML = html;
     _empCargarInvitaciones();
   } catch (e) {

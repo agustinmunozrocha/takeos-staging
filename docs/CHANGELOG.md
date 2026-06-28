@@ -1,5 +1,36 @@
 # Changelog — TakeOS
 
+## V11.21.0 — 27 de junio de 2026
+### Presupuesto: columnas de ancho ajustable (como Excel) · Equipo: internos/externos por proyecto
+
+Rama `chore/pasada-2y3-presupuesto-equipo` (Pasadas 2 y 3 del plan de cambios
+acumulados). Solo **frontend**, sobre tablas/RLS/RPC ya existentes.
+
+**Presupuesto · ancho de columnas redimensionable a mano**
+- La tabla pasa a `table-layout: fixed`: cada columna tiene un ancho exacto y el
+  ancho total es la suma, así que al ensanchar una columna la tabla **crece**,
+  empuja a las de la derecha y aparece **scroll horizontal** (antes Nombre y Rol
+  se peleaban un ancho fijo y el resto no se movía).
+- **Todas** las columnas se ajustan arrastrando el borde derecho de su encabezado,
+  **1:1** con el cursor. Cada columna tiene su **mínimo y máximo propios** (p. ej.
+  Nombre 120–300, DTE y DTE real 100–180, Cantidad 60–100, Costo cotizado/real/Valor
+  110–150). **Doble clic** restablece al ancho por defecto.
+- El ancho se guarda por (sección, columna) en `localStorage`: sobrevive a recargas,
+  cambios de sección y al colapso del detalle cotizado.
+- Se **preserva la posición de scroll horizontal** de cada sección al ordenar,
+  restablecer o editar una fila (antes la vista saltaba a la izquierda).
+
+**Equipo · internos y externos separados, externos agrupados por proyecto**
+- La lista del equipo se divide en **Internos** (ven todos los proyectos) y
+  **Externos** (solo los asignados), en secciones separadas.
+- Los **externos se agrupan por proyecto** (subsecciones): solo aparecen proyectos
+  **activos** con al menos un externo; los que no tienen proyecto activo van a un
+  grupo aparte para no desaparecer. El vínculo externo↔proyecto se **lee** de
+  `project_cargos`. Sin cambios de base.
+- Se quita la columna **"Tipo"** (redundante con la sección): la conversión
+  interno↔externo pasa a un botón **"Hacer interno / Hacer externo"** por fila, con
+  las mismas guardas (Admin y Finanzas solo internos; candado del último Administrador).
+
 ## V11.20.0 — 27 de junio de 2026
 ### Finanzas y Plan de Scouting: renombres, fix de "Observar" y contacto con combobox
 
