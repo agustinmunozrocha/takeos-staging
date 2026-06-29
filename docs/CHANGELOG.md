@@ -1,5 +1,25 @@
 # Changelog — TakeOS
 
+## V11.28.0 — 29 de junio de 2026
+### Finanzas: prontos pagos por proyecto, marcar pagados y gastos validados accesibles
+
+Rama `feat/finanzas-prontos-validados`. Solo **frontend**. Tanda 2 de la nota de voz.
+
+**Prontos pagos**
+- Nuevo botón **"Marcar pagado"** por fila (con fecha, por defecto hoy): el pronto pago baja
+  a un bloque **"Pagados"** con fecha editable y **"deshacer"**, igual que los reembolsos.
+- Los pendientes ahora se **agrupan por proyecto** en subsecciones, cada una con su botón
+  **"Exportar Santander de este proyecto"**. Se mantienen los export globales (todos /
+  consolidado con reembolsos). Ya no hay que entrar al proyecto a desactivar prontos pagos
+  para exportar uno solo.
+- Los prontos pagos ya pagados **se excluyen** de las nóminas Santander (antes se exportaban
+  todos).
+
+**Por proyecto**
+- Cada proyecto tiene un botón **"Ver validados (N)"** que despliega ahí mismo los gastos ya
+  validados (fecha, presupuesto, concepto, quién gastó, monto y comprobante descargable),
+  para revisarlos y bajar comprobantes **sin entrar al proyecto**.
+
 ## V11.27.0 — 28 de junio de 2026
 ### Quick wins: saneo del perfil, Finanzas (ex-CFO), tareas legibles y aviso de choque en Gastos
 

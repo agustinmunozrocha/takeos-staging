@@ -24743,6 +24743,15 @@ function _ppRodajeFechasISO(project) { return (((project || {}).data || {}).roda
 function _ppRodajeFechasStr(project) { return (((project || {}).data || {}).rodajes || []).filter(x => x.activo && x.fecha).map(x => _fechaCorta(x.fecha)).join(', '); }
 function _ppPagos(project) { if (!project.data.ppPagos) project.data.ppPagos = {}; return project.data.ppPagos; }
 function goSetPPFechaPago(projId, nombre, v) { const p = PROJECTS.find(x => x.id === projId); if (!p) return; const m = _ppPagos(p); if (!m[nombre]) m[nombre] = {}; m[nombre].fechaPago = v || ''; markDirty(); renderCFO(); }
+/* #12 · ¿este pronto pago ya está marcado como pagado? (tiene fechaPago guardada) */
+function _ppPagado(o) { return !!((_ppPagos(o.project)[o.nombre] || {}).fechaPago); }
+/* #12 · marcar un pronto pago como pagado: lee la fecha del input (default hoy). */
+function goPagarPP(projId, nombre, inpId) {
+  const inp = inpId && document.getElementById(inpId);
+  const fecha = (inp && inp.value) || goToday();
+  goSetPPFechaPago(projId, nombre, fecha);   // ya hace markDirty + renderCFO
+  showToast({ kind: 'success', title: 'Pronto pago pagado', body: 'Pagado el ' + fecha + '.' });
+}
 const _SANTANDER_HEADER = [
   'Cuenta origen\n(obligatorio)', 'Moneda origen\n(obligatorio)', 'Cuenta destino\n(obligatorio)', 'Moneda destino\n(obligatorio)',
   'Código banco destino\n(obligatorio solo si banco destino no es Santander)', 'RUT beneficiario\n(obligatorio solo si banco destino no es Santander)',
@@ -24792,56 +24801,120 @@ function _santanderExport(items, fname, label) {
   }
 }
 function goExportSantanderPP() {
-  const items = goPPPend().filter(o => o.tieneReal).map(o => ({ project: o.project, nombre: o.nombre, monto: o.monto, glosaPrefix: 'Pronto pago' }));
+  const items = goPPPend().filter(o => o.tieneReal && !_ppPagado(o)).map(o => ({ project: o.project, nombre: o.nombre, monto: o.monto, glosaPrefix: 'Pronto pago' }));
   _santanderExport(items, 'Prontos Pagos Santander - ' + goToday() + '.xlsx', 'prontos pagos');
 }
 function goExportSantanderConsolidado() {
   const items = [];
   PROJECTS.forEach(p => goReembPend(p).forEach(m => items.push({ project: p, nombre: m.quien, monto: m.monto, glosaPrefix: 'Reembolso', mov: m })));
-  goPPPend().filter(o => o.tieneReal).forEach(o => items.push({ project: o.project, nombre: o.nombre, monto: o.monto, glosaPrefix: 'Pronto pago' }));
+  goPPPend().filter(o => o.tieneReal && !_ppPagado(o)).forEach(o => items.push({ project: o.project, nombre: o.nombre, monto: o.monto, glosaPrefix: 'Pronto pago' }));
   _santanderExport(items, 'Pagos Pendientes Santander - ' + goToday() + '.xlsx', 'pagos pendientes');
+}
+/* #13 · export de la nómina Santander SOLO de un proyecto (prontos pagos pendientes con costo real). */
+function goExportSantanderPPProyecto(projId) {
+  const p = PROJECTS.find(x => x.id === projId); if (!p) return;
+  const items = goPPPend().filter(o => o.project.id === projId && o.tieneReal && !_ppPagado(o))
+    .map(o => ({ project: o.project, nombre: o.nombre, monto: o.monto, glosaPrefix: 'Pronto pago' }));
+  _santanderExport(items, 'Prontos Pagos ' + goProjName(p) + ' - ' + goToday() + '.xlsx', 'prontos pagos de ' + goProjName(p));
 }
 function goCfoProntosPagos() {
   const pp = goPPPend();
-  const rows = pp.length ? pp.map(o => {
+  const pend = pp.filter(o => !_ppPagado(o));
+  const pagados = pp.filter(_ppPagado);
+
+  /* argumentos (proyecto, nombre) escapados para los onclick/onchange */
+  const ppArgs = o => '\'' + escapeHtml(o.project.id) + '\',\'' + escapeHtml(o.nombre).replace(/'/g, "\\'") + '\'';
+  const montoCellOf = o => o.tieneReal
+    ? (fmtMoney(o.monto) + (o.completo ? '' : '<div class="go-sub" data-tip="Algunas filas de esta persona aún no tienen costo real; el monto es parcial.">parcial · faltan costos reales</div>'))
+    : '<span class="go-proforma" data-tip="Aún no hay costo real ingresado. El monto se calcula desde el costo real y su DTE real, no desde el cotizado.">Proforma</span>';
+  const datosEstado = o => {
     const b = goSantanderBankFor(o.project, { quien: o.nombre, datosPago: {} });
     const tieneCuenta = !!_sanCuenta(b.nCuenta);
-    // RUT obligatorio si el banco destino NO es Santander (misma regla que el exportador).
     const faltaRut = !_esBancoSantander(b.codigoBanco) && !_sanRut(b.rut);
-    const _faltas = []; if (!tieneCuenta) _faltas.push('falta cuenta'); if (faltaRut) _faltas.push('falta RUT');
-    const estado = _faltas.length
-      ? '<span class="go-est en_observacion" data-tip="El RUT es obligatorio cuando el banco destino no es Santander.">' + _faltas.join(' \u00b7 ') + '</span>'
-      : '<span class="go-est validado">\u2713 datos OK</span>';
-    const montoCell = o.tieneReal
-      ? (fmtMoney(o.monto) + (o.completo ? '' : '<div class="go-sub" data-tip="Algunas filas de esta persona aún no tienen costo real; el monto es parcial.">parcial · faltan costos reales</div>'))
-      : '<span class="go-proforma" data-tip="Aún no hay costo real ingresado. El monto se calcula desde el costo real y su DTE real, no desde el cotizado.">Proforma</span>';
+    const _f = []; if (!tieneCuenta) _f.push('falta cuenta'); if (faltaRut) _f.push('falta RUT');
+    const html = _f.length
+      ? '<span class="go-est en_observacion" data-tip="El RUT es obligatorio cuando el banco destino no es Santander.">' + _f.join(' · ') + '</span>'
+      : '<span class="go-est validado">✓ datos OK</span>';
+    return { banco: b.banco, html: html };
+  };
+
+  let _idx = 0;
+  /* fila PENDIENTE (dentro de la subsección de un proyecto: sin columna proyecto) */
+  const pendRow = o => {
+    const d = datosEstado(o);
     const fechasRod = _ppRodajeFechasStr(o.project);
-    const minRod = _ppRodajeFechasISO(o.project)[0] || '';
-    const pago = (_ppPagos(o.project)[o.nombre] || {}).fechaPago || '';
-    const alerta = (pago && minRod && pago < minRod) ? ' <span class="go-paybadge venc" data-tip="La fecha de pago es ANTES del rodaje. No transfieras antes de que la persona trabaje.">\u26a0 antes del rodaje</span>' : '';
+    const inpId = 'ppd_' + (_idx++);
     return '<tr>' +
-      '<td><b>' + escapeHtml(o.nombre) + '</b><div class="go-sub">' + escapeHtml(b.banco || 'sin banco en BD') + '</div></td>' +
-      '<td class="go-sub">' + escapeHtml(goProjName(o.project)) + '</td>' +
-      '<td class="go-num">' + montoCell + '</td>' +
+      '<td><b>' + escapeHtml(o.nombre) + '</b><div class="go-sub">' + escapeHtml(d.banco || 'sin banco en BD') + '</div></td>' +
+      '<td class="go-num">' + montoCellOf(o) + '</td>' +
       '<td class="go-sub">' + (fechasRod ? escapeHtml(fechasRod) : '<span class="go-faint">sin fecha</span>') + '</td>' +
-      '<td style="white-space:nowrap;"><input type="date" class="go-dateinp" value="' + escapeHtml(pago) + '" onchange="goSetPPFechaPago(\'' + escapeHtml(o.project.id) + '\',\'' + escapeHtml(o.nombre).replace(/'/g, "\\'") + '\',this.value)">' + alerta + '</td>' +
-      '<td>' + estado + '</td></tr>';
-  }).join('') : '<tr><td colspan="6" class="go-faint" style="padding:18px;">Sin prontos pagos. Marca la píldora <b>PP</b> en las filas del Presupuesto (confirmadas) para que aparezcan aquí.</td></tr>';
-  return '<div class="go-card"><div class="go-card-h"><h3>Prontos pagos pendientes <span class="go-faint">· filas del Presupuesto marcadas con PP (confirmadas), de todos los proyectos · monto = neto del costo real según DTE real</span></h3>' +
-    (pp.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-secondary btn-sm" onclick="goExportSantanderPP()">\u2b07 Exportar prontos pagos (Santander)</button><button class="btn btn-secondary btn-sm" onclick="goExportSantanderConsolidado()">\u2b07 Exportar consolidado (reembolsos + prontos pagos)</button></div>' : '') + '</div>' +
-    '<div class="go-card-b go-tablewrap"><table class="go-tbl"><thead><tr><th>A quién pagar</th><th>Proyecto</th><th class="go-num">Monto neto</th><th>Fecha de rodaje</th><th>Fecha de pago</th><th>Datos de transferencia</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-    '<div class="go-help" style="margin-top:10px;">El <b>monto neto</b> se calcula desde el costo real de cada fila y su DTE real (boleta retiene; factura no), no desde el cotizado. <b>Proforma</b> = aún sin costo real (no se exporta). Revisa la <b>fecha de rodaje</b> antes de fijar la <b>fecha de pago</b>: no transfieras antes de que la persona trabaje.</div></div></div>';
+      '<td>' + d.html + '</td>' +
+      '<td style="white-space:nowrap;"><input type="date" class="go-dateinp" id="' + inpId + '" value="' + goToday() + '"> ' +
+        '<button class="btn btn-secondary btn-sm go-btn-pos" onclick="goPagarPP(' + ppArgs(o) + ',\'' + inpId + '\')">Marcar pagado</button></td>' +
+      '</tr>';
+  };
+  /* fila PAGADA (bloque global: con proyecto + alerta si se pagó antes del rodaje) */
+  const pagRow = o => {
+    const pago = (_ppPagos(o.project)[o.nombre] || {}).fechaPago || '';
+    const minRod = _ppRodajeFechasISO(o.project)[0] || '';
+    const alerta = (pago && minRod && pago < minRod) ? ' <span class="go-paybadge venc" data-tip="La fecha de pago es ANTES del rodaje. No transfieras antes de que la persona trabaje.">⚠ antes del rodaje</span>' : '';
+    return '<tr>' +
+      '<td style="white-space:nowrap;"><input type="date" class="go-dateinp" value="' + escapeHtml(pago) + '" onchange="goSetPPFechaPago(' + ppArgs(o) + ',this.value)">' + alerta + '</td>' +
+      '<td><b>' + escapeHtml(o.nombre) + '</b></td>' +
+      '<td class="go-sub">' + escapeHtml(goProjName(o.project)) + '</td>' +
+      '<td class="go-num">' + montoCellOf(o) + '</td>' +
+      '<td><button class="go-mini" onclick="goSetPPFechaPago(' + ppArgs(o) + ',\'\')">deshacer</button></td>' +
+      '</tr>';
+  };
+
+  /* #13 · agrupar los pendientes por proyecto (subsecciones) */
+  const byProj = {};
+  pend.forEach(o => { const k = o.project.id; (byProj[k] = byProj[k] || { project: o.project, items: [] }).items.push(o); });
+  const projKeys = Object.keys(byProj);
+
+  const head = '<div class="go-card"><div class="go-card-h"><h3>Prontos pagos pendientes <span class="go-faint">· filas del Presupuesto marcadas con PP (confirmadas) · separados por proyecto · monto = neto del costo real según DTE real</span></h3>' +
+    (pend.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-secondary btn-sm" onclick="goExportSantanderPP()">⬇ Exportar TODOS (Santander)</button><button class="btn btn-secondary btn-sm" onclick="goExportSantanderConsolidado()">⬇ Consolidado (reembolsos + prontos pagos)</button></div>' : '') + '</div>' +
+    '<div class="go-card-b"><div class="go-help" style="margin:0;">El <b>monto neto</b> sale del costo real de cada fila y su DTE real (boleta retiene; factura no), no del cotizado. <b>Proforma</b> = aún sin costo real (no se exporta). Cada proyecto tiene su propio botón para exportar la nómina Santander solo de ese proyecto. Revisa la <b>fecha de rodaje</b>: no transfieras antes de que la persona trabaje.</div></div></div>';
+
+  const thead = '<thead><tr><th>A quién pagar</th><th class="go-num">Monto neto</th><th>Fecha de rodaje</th><th>Datos de transferencia</th><th>Marcar pagado</th></tr></thead>';
+  const secciones = projKeys.length ? projKeys.map(k => {
+    const g = byProj[k];
+    return '<div class="go-card"><div class="go-card-h"><h3 class="go-sm">' + escapeHtml(goProjName(g.project)) + ' <span class="go-faint">· ' + g.items.length + ' por pagar</span></h3>' +
+      '<button class="btn btn-secondary btn-sm" onclick="goExportSantanderPPProyecto(\'' + escapeHtml(g.project.id) + '\')">⬇ Exportar Santander de este proyecto</button></div>' +
+      '<div class="go-card-b go-tablewrap"><table class="go-tbl">' + thead + '<tbody>' + g.items.map(pendRow).join('') + '</tbody></table></div></div>';
+  }).join('') : '<div class="go-card"><div class="go-card-b go-faint" style="padding:18px;">Sin prontos pagos pendientes. Marca la píldora <b>PP</b> en las filas del Presupuesto (confirmadas) para que aparezcan aquí.</div></div>';
+
+  const pagBlock = pagados.length ? '<div class="go-card"><div class="go-card-h"><h3 class="go-sm">Pagados <span class="go-faint">· fecha editable · para conciliar</span></h3></div>' +
+    '<div class="go-card-b go-tablewrap"><table class="go-tbl"><thead><tr><th>Fecha pago</th><th>A quién</th><th>Proyecto</th><th class="go-num">Monto neto</th><th></th></tr></thead><tbody>' +
+    pagados.map(pagRow).join('') + '</tbody></table></div></div>' : '';
+
+  return head + secciones + pagBlock;
 }
 function goCfoProyectos() {
+  const expandido = GO_STATE.cfoProyVal || null;
   const rows = PROJECTS.length ? PROJECTS.map(p => {
     const gs = goMovs(p); const real = gs.reduce((s, m) => s + (m.monto || 0), 0);
     const cot = goCotizadoTotal(p); const pv = gs.filter(goNeedsAction).length; const disp = cot - real;
-    return `<tr><td><b>${escapeHtml(goProjName(p))}</b><div class="go-sub">${escapeHtml(goProjCliente(p))}</div></td><td class="go-num">${fmtMoney(cot)}</td><td class="go-num">${fmtMoney(real)}</td>
-      <td class="go-num" style="${disp < 0 ? 'color:var(--accent-deep)' : ''}">${fmtMoney(disp)}</td><td class="go-num">${gs.length}</td><td class="go-num">${pv || '—'}</td></tr>`;
-  }).join('') : '<tr><td colspan="6" class="go-faint" style="padding:18px;">No hay proyectos todavía.</td></tr>';
-  return `<div class="go-card"><div class="go-card-h"><h3>Resumen por proyecto</h3></div><div class="go-card-b go-tablewrap">
-    <table class="go-tbl"><thead><tr><th>Proyecto</th><th class="go-num">Cotizado</th><th class="go-num">Real</th><th class="go-num">Disponible</th><th class="go-num"># gastos</th><th class="go-num">Por validar</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    const val = gs.filter(m => m.estado === 'validado');
+    const abierto = expandido === p.id;
+    let tr = `<tr><td><b>${escapeHtml(goProjName(p))}</b><div class="go-sub">${escapeHtml(goProjCliente(p))}</div></td><td class="go-num">${fmtMoney(cot)}</td><td class="go-num">${fmtMoney(real)}</td>` +
+      `<td class="go-num" style="${disp < 0 ? 'color:var(--accent-deep)' : ''}">${fmtMoney(disp)}</td><td class="go-num">${gs.length}</td><td class="go-num">${pv || '—'}</td>` +
+      `<td>${val.length ? `<button class="btn btn-secondary btn-sm" onclick="goToggleProyVal('${p.id}')">${abierto ? 'Ocultar' : ('Ver validados (' + val.length + ')')}</button>` : '<span class="go-faint">—</span>'}</td></tr>`;
+    if (abierto && val.length) {
+      const sub = val.map(m => {
+        const e = goPresById(p, m.pres);
+        const comp = goCompCell(m, 'goCfoVer', 'falta');
+        return `<tr><td class="go-sub">${escapeHtml((m.fecha || '').slice(5))}</td><td><span class="go-tag">${escapeHtml(e ? e.nombre : '—')}</span></td><td>${escapeHtml(m.concepto || '')}<div class="go-sub">${escapeHtml(m.prov || '')}</div></td><td>${escapeHtml(m.quien || '')}</td><td class="go-num">${fmtMoney(m.monto || 0)}</td><td>${comp}</td></tr>`;
+      }).join('');
+      tr += `<tr><td colspan="7" style="padding:0;"><div style="padding:6px 12px 14px;border-left:3px solid var(--accent);background:rgba(0,0,0,.02);"><div class="go-sub" style="margin:6px 0 8px;font-weight:600;">Gastos validados de ${escapeHtml(goProjName(p))} · descarga el comprobante o revisa el detalle sin entrar al proyecto</div>` +
+        `<table class="go-tbl"><thead><tr><th>Fecha</th><th>Presupuesto</th><th>Concepto</th><th>Quién gastó</th><th class="go-num">Monto</th><th>Comprobante</th></tr></thead><tbody>${sub}</tbody></table></div></td></tr>`;
+    }
+    return tr;
+  }).join('') : '<tr><td colspan="7" class="go-faint" style="padding:18px;">No hay proyectos todavía.</td></tr>';
+  return `<div class="go-card"><div class="go-card-h"><h3>Resumen por proyecto <span class="go-faint">· abre “Ver validados” para revisar los gastos ya validados y sus comprobantes, sin entrar al proyecto</span></h3></div><div class="go-card-b go-tablewrap">` +
+    `<table class="go-tbl"><thead><tr><th>Proyecto</th><th class="go-num">Cotizado</th><th class="go-num">Real</th><th class="go-num">Disponible</th><th class="go-num"># gastos</th><th class="go-num">Por validar</th><th>Validados</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
+function goToggleProyVal(projId) { GO_STATE.cfoProyVal = (GO_STATE.cfoProyVal === projId) ? null : projId; renderCFO(); }
 function goCfoExportPanel() {
   return `<div class="go-card"><div class="go-card-b">
     <div class="go-sectitle">Exportar a Chipax · consolidado</div>
