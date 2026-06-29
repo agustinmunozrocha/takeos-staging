@@ -1,5 +1,25 @@
 # Changelog — TakeOS
 
+## V11.30.0 — 29 de junio de 2026
+### Base de Datos: archivar / restaurar (Administrador) + logo Chipax
+
+Rama `feat/bd-archivar-frontend-chipax`. **Frontend** que cablea los RPC admin-only ya
+desplegados en producción (migración de archivar, PR #9). Fase B del borrado de BD.
+
+**Archivar / restaurar (solo Administrador)**
+- En la ficha de edición de **personas, empresas, talentos y locaciones** aparece un botón
+  **"Archivar"** (con Modo administrador activo). Archivar = soft-delete: el registro
+  desaparece de la BD pero **no se elimina** y **no rompe gastos ni proyectos históricos**.
+- Nuevo botón **"🗄 Archivados"** en la barra de la BD: lista lo archivado y permite
+  **restaurar** cada item. Todo vía los RPC `archivar_*` / `restaurar_*` (admin-only,
+  verificados en el servidor).
+- La carga de **locaciones** ahora filtra `deleted_at` (contactos/empresas ya lo hacían),
+  así lo archivado deja de aparecer en la BD.
+
+**Chipax**
+- Se monta el **logo de Chipax** en el recuadro "Usamos Chipax" del perfil de la productora.
+- Se elimina el campo **"Link a tu Chipax"** (sobraba) y su código asociado.
+
 ## V11.29.0 — 29 de junio de 2026
 ### Presupuesto "no va a rodaje", ficha de proveedor y remitente movido a Notificaciones
 
