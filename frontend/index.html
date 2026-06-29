@@ -4768,6 +4768,24 @@ function openEmpresaProfile(empId) {
   const fmtF = (d) => { if (!d) return '—'; const pr = String(d).split('-'); return pr.length === 3 ? (pr[2] + '-' + pr[1] + '-' + pr[0]) : d; };
   const stateName = (st) => (STATES[st] && STATES[st].name) || st;
   const contactos = _empContactos(empId);
+  /* #3 · ficha distinta para proveedores: total histórico en gastos + proyectos donde
+     se usó, cruzando el nombre del proveedor escrito en cada gasto (m.prov) con el de
+     la empresa. Match best-effort (texto libre en el gasto). */
+  const esProveedor = _empTieneRol(e.tipo, 'proveedor');
+  const esCliente = _empTieneRol(e.tipo, 'cliente') || linked.length > 0;
+  const mostrarCliente = esCliente || !esProveedor;
+  let provTotal = 0, provGastos = 0, provUltima = ''; const provProy = new Set();
+  if (esProveedor) {
+    const provNames = [e.nombreFantasia, e.razonSocial].filter(Boolean).map(_normKey);
+    PROJECTS.forEach(p => {
+      (goMovs(p) || []).forEach(m => {
+        if (m && m.prov && provNames.indexOf(_normKey(m.prov)) !== -1) {
+          provTotal += (m.monto || 0); provGastos++; provProy.add(p.id);
+          if (m.fecha && m.fecha > provUltima) provUltima = m.fecha;
+        }
+      });
+    });
+  }
   const tile = (label, val, sub) => `<div style="border:1px solid var(--rule);border-radius:10px;padding:12px 14px;min-width:0;">
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-faint);">${label}</div>
     <div style="font-size:20px;font-weight:700;color:var(--ink-primary);margin-top:3px;">${val}</div>
@@ -4784,6 +4802,15 @@ function openEmpresaProfile(empId) {
     tile('Último proyecto', fmtF(ultima), ''),
     tile('Días de pago (prom.)', '—', 'no registrado aún')
   ].join('');
+  const provTiles = esProveedor ? [
+    tile('Total a este proveedor', fmtMoney(provTotal), 'gastos en todos los proyectos'),
+    tile('Proyectos', provProy.size, 'usaron este proveedor'),
+    tile('Gastos registrados', provGastos, ''),
+    tile('Último gasto', fmtF(provUltima), '')
+  ].join('') : '';
+  const proveedorHTML = esProveedor ? `<div class="loc-block"><div class="loc-block-h">Como proveedor <span class="loc-block-tag proj">total histórico en gastos</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:6px 0;">${provTiles}</div>
+    <div style="font-size:11px;color:var(--ink-faint);line-height:1.5;">El total cruza el nombre del proveedor escrito en cada gasto (texto libre) con el nombre de esta empresa; si en algún gasto se escribió distinto, puede no sumarlo.</div></div>` : '';
   const infoLine = [e.razonSocial, e.rutEmpresa, e.tipo].filter(Boolean).map(esc).join(' · ');
   const activosHTML = activos.length ? `<div class="loc-block"><div class="loc-block-h">Activos / en curso <span class="loc-block-tag proj">proforma · no suma a pagado/margen</span></div>
     ${activos.map(p => { let v = 0; try { v = calcSummaryFin(p).presupClienteEfectivo || 0; } catch (err) {} return `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--rule);"><span>${esc(p.name || '(sin nombre)')} <span style="color:var(--ink-faint);font-size:11px;">· ${esc(stateName(p.state))}</span></span><span style="color:var(--ink-faint);">${fmtMoney(v)} <span style="font-size:11px;">proforma</span></span></div>`; }).join('')}
@@ -4796,12 +4823,13 @@ function openEmpresaProfile(empId) {
   document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:760px;width:94vw;max-height:88vh;overflow:auto;">
     <div class="modal-header"><div class="modal-title">${esc(e.nombreFantasia || 'Empresa')}${infoLine ? ` <span style="font-weight:400;font-size:12px;color:var(--ink-faint);">· ${infoLine}</span>` : ''}</div><button class="go-x" onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">×</button></div>
     <div class="modal-body">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:6px;">${tiles}</div>
+      ${mostrarCliente ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:6px;">${tiles}</div>
       ${vacio}
       ${activosHTML}
-      ${cerradosHTML}
+      ${cerradosHTML}` : ''}
+      ${proveedorHTML}
       ${contactosHTML}
-      <div style="font-size:11px;color:var(--ink-faint);margin-top:8px;line-height:1.5;">El "total pagado" y el "margen histórico" se calculan solo sobre proyectos <b>cerrados</b>, desde sus finanzas reales. Los proyectos en curso se muestran como proforma y no suman. El promedio de días de pago requiere registrar la fecha de pago del cliente (aún no existe en el modelo).</div>
+      ${mostrarCliente ? `<div style="font-size:11px;color:var(--ink-faint);margin-top:8px;line-height:1.5;">El "total pagado" y el "margen histórico" se calculan solo sobre proyectos <b>cerrados</b>, desde sus finanzas reales. Los proyectos en curso se muestran como proforma y no suman. El promedio de días de pago requiere registrar la fecha de pago del cliente (aún no existe en el modelo).</div>` : ''}
     </div>
     <div class="modal-footer"><button class="btn btn-secondary" onclick="openEmpresaEdit('${empId}')">Editar empresa</button><button class="btn btn-primary" onclick="closeModal()">Listo</button></div>
   </div></div>`;
@@ -7418,6 +7446,7 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
       ${showConfirmado ? `<td class="ctr">
         <input type="checkbox" ${isConfirmed ? 'checked' : ''}
                onchange="updateRowField(${ref}, 'confirmado', this.checked); afterRowConfirmToggle(${ref});">
+        <label class="row-no-rodaje" data-tip="Confirmado pero NO va al rodaje: lo deja fuera de la Hoja de Llamado y del correo de Producción. Sigue contando para pagos."><input type="checkbox" ${item.noVaRodaje ? 'checked' : ''} onchange="updateRowField(${ref}, 'noVaRodaje', this.checked); afterRowConfirmToggle(${ref});">no rodaje</label>
       </td>` : ''}
       <td>
         ${locked ? '' : `<button class="row-delete" title="Eliminar"
@@ -10965,8 +10994,8 @@ function notifRecipients(project) {
     if (!byName[nombre].rol && rol) byName[nombre].rol = rol;
     if (prontoPago) byName[nombre].prontoPago = true;
   };
-  for (const dept in d.servicios) d.servicios[dept].forEach(r => { if (r.confirmado && r.nombre) add(r.nombre, r.rol, r.valor, r.cantidad, r.dte, r.prontoPago); });
-  ['gastos', 'equipos', 'talentos'].forEach(sec => (d[sec] || []).forEach(r => { if (r.confirmado && r.nombre) add(r.nombre, r.item, r.valor, r.cantidad, r.dte, r.prontoPago); }));
+  for (const dept in d.servicios) d.servicios[dept].forEach(r => { if (r.confirmado && r.nombre && !r.noVaRodaje) add(r.nombre, r.rol, r.valor, r.cantidad, r.dte, r.prontoPago); });
+  ['gastos', 'equipos', 'talentos'].forEach(sec => (d[sec] || []).forEach(r => { if (r.confirmado && r.nombre && !r.noVaRodaje) add(r.nombre, r.item, r.valor, r.cantidad, r.dte, r.prontoPago); }));
   return Object.values(byName).map(p => {
     const bd = BD_PERSONAS[p.nombre] || {};
     return Object.assign(p, { mail: bd.mail || '', enBD: !!BD_PERSONAS[p.nombre] });
@@ -10992,6 +11021,7 @@ function notifVarsFor(project, rec) {
   const _condPago = rec.prontoPago
     ? ('Según lo conversado, tienes pronto pago. Una vez emitida tu ' + _dteW + ', la transferencia se realizará el primer viernes después de la emisión (si la emisión cae viernes, queda para el lunes siguiente).')
     : ('Una vez realizado el trabajo, envíame tu ' + _dteW + '. El pago está fijado para 30 días después de la emisión de tu ' + _dteW + '.');
+  const _rem = (typeof getNotifConfig === 'function') ? (getNotifConfig().remitente || {}) : {};
   return {
     'NOMBRE': rec.nombre, 'ROL': rec.rol,
     'NOMBRE PROYECTO': ip.nombreProyecto || project.name || '', 'NOMBRE CLIENTE': ip.cliente || '',
@@ -11001,7 +11031,7 @@ function notifVarsFor(project, rec) {
     'GIRO EMPRESA': EP.giro || '', 'MAIL EMPRESA': EP.email || '', 'NÚMERO EMPRESA': EP.telefono || '',
     'BANCO': EP.bancoNombre || '', 'TIPO DE CUENTA': EP.bancoTipoCuenta || '', 'N° DE CUENTA': EP.bancoNumero || '',
     'LINK FORMULARIO': EP.linkFormularioPago || ((typeof getNotifConfig === 'function' ? (getNotifConfig().linkFormulario || '') : '')) || '',
-    'NOMBRE REMITENTE': EP.remitenteNombre || EP.representante || '', 'NÚMERO REMITENTE': EP.remitenteNumero || EP.repTelefono || '', 'ROL REMITENTE': EP.remitenteRol || ''
+    'NOMBRE REMITENTE': _rem.nombre || EP.remitenteNombre || EP.representante || '', 'NÚMERO REMITENTE': _rem.numero || EP.remitenteNumero || EP.repTelefono || '', 'ROL REMITENTE': _rem.rol || EP.remitenteRol || ''
   };
 }
 
@@ -11914,14 +11944,14 @@ function renderCrew() {
   const confirmados = [];
   for (const dept in d.servicios) {
     d.servicios[dept].forEach(r => {
-      if (r.confirmado && r.nombre) {
+      if (r.confirmado && r.nombre && !r.noVaRodaje) {
         confirmados.push({ nombre: r.nombre, rol: r.rol, source: dept });
       }
     });
   }
   ['gastos', 'equipos', 'talentos'].forEach(section => {
     d[section].forEach(r => {
-      if (r.confirmado && r.nombre) {
+      if (r.confirmado && r.nombre && !r.noVaRodaje) {
         confirmados.push({ nombre: r.nombre, rol: r.item, source: section });
       }
     });
@@ -12440,10 +12470,10 @@ function getConfirmedCrew(project) {
     out.push({ nombre, rol, source });
   };
   for (const dept in d.servicios) {
-    d.servicios[dept].forEach(r => { if (r.confirmado && r.nombre) push(r.nombre, r.rol, dept); });
+    d.servicios[dept].forEach(r => { if (r.confirmado && r.nombre && !r.noVaRodaje) push(r.nombre, r.rol, dept); });
   }
   ['gastos', 'equipos', 'talentos'].forEach(section => {
-    d[section].forEach(r => { if (r.confirmado && r.nombre) push(r.nombre, r.item, section); });
+    d[section].forEach(r => { if (r.confirmado && r.nombre && !r.noVaRodaje) push(r.nombre, r.item, section); });
   });
   return out;
 }
@@ -15421,12 +15451,6 @@ function openEmpresaPerfil(subInicial) {
             ${field('googleCalendarId','ID Google Calendar', E.googleCalendarId, 'xxxx@group.calendar.google.com')}
             ${field('linkFormularioPago','Link del formulario de pago', E.linkFormularioPago, 'https://forms.gle/…')}
           </div>
-          <div class="config-section-title" style="margin:18px 0 8px;">Remitente <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-faint);">· para los correos del módulo Notificaciones</span></div>
-          <div class="emp-grid">
-            ${field('remitenteNombre','Nombre del remitente', E.remitenteNombre, 'Quién firma los correos')}
-            ${field('remitenteRol','Rol del remitente', E.remitenteRol, 'Productor, AD…')}
-            ${field('remitenteNumero','Número del remitente', E.remitenteNumero, '+56 9 …')}
-          </div>
           </div>` : ''}
           <div id="empSubEquipo" style="display:none;">
             <div id="empRebindsBox" style="display:none;"></div>
@@ -15475,7 +15499,7 @@ function openEmpresaPerfil(subInicial) {
   try { _empDisenoRefresh(); } catch (e) {}
 }
 function saveEmpresaPerfil() {
-  const keys = ['nombreFicticio','razonSocial','rut','giro','direccion','comuna','ciudad','telefono','email','web','representante','repRut','repTelefono','repEmail','bancoNombre','bancoTipoCuenta','bancoNumero','bancoTitular','bancoRut','bancoEmailPagos','driveLink','milanoteLink','chipaxLink','googleCalendarId','usaChipax','linkFormularioPago','remitenteNombre','remitenteRol','remitenteNumero'];
+  const keys = ['nombreFicticio','razonSocial','rut','giro','direccion','comuna','ciudad','telefono','email','web','representante','repRut','repTelefono','repEmail','bancoNombre','bancoTipoCuenta','bancoNumero','bancoTitular','bancoRut','bancoEmailPagos','driveLink','milanoteLink','chipaxLink','googleCalendarId','usaChipax','linkFormularioPago'];
   keys.forEach(k => { const el = document.getElementById('emp_' + k); if (el) EMPRESA_PERFIL[k] = el.value.trim(); });
   markDirty(); _dalPerfilSaveSoon();
   showToast({ kind: 'success', title: 'Perfil guardado', body: 'Los datos de la empresa se aplicarán a los documentos. Recuerda Guardar OS para respaldarlo.' });

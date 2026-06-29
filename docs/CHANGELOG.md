@@ -1,5 +1,28 @@
 # Changelog — TakeOS
 
+## V11.29.0 — 29 de junio de 2026
+### Presupuesto "no va a rodaje", ficha de proveedor y remitente movido a Notificaciones
+
+Rama `feat/rodaje-ficha-proveedor-remitente`. Solo **frontend**. Tandas 3 y 4 de la nota de voz, en una pasada.
+
+**Presupuesto · "No va a rodaje"**
+- En la columna Confirmado, al confirmar a alguien aparece un toggle **"no rodaje"**. Marcado,
+  la persona queda **fuera del Crew, la Hoja de Llamado y el correo de Producción**, pero
+  **sigue contando para los pagos** (reembolsos / prontos pagos). Resuelve el caso de gente
+  confirmada que no asiste al rodaje.
+
+**Empresas · ficha de proveedor**
+- La ficha de una empresa ahora distingue **cliente vs proveedor**. Para proveedores muestra
+  **Total a este proveedor** (gastos en todos los proyectos), **# proyectos**, **# gastos** y
+  **último gasto**; los KPIs de cliente (margen, ticket, días de pago) dejan de aparecer en
+  empresas que son solo proveedor. Las que son cliente y proveedor muestran ambos bloques.
+  (El total cruza el nombre del proveedor escrito en cada gasto, texto libre.)
+
+**Perfil productora · remitente**
+- Se eliminan los **3 campos de Remitente** del perfil de la productora: el remitente ahora se
+  edita solo en el módulo **Notificaciones**. Los correos lo leen desde ahí, con respaldo al
+  valor antiguo para no perder lo ya configurado.
+
 ## V11.28.0 — 29 de junio de 2026
 ### Finanzas: prontos pagos por proyecto, marcar pagados y gastos validados accesibles
 
