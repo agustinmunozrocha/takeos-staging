@@ -1568,15 +1568,7 @@
    el principio de fuente única de verdad del PRD V2 (sección 02).
    ════════════════════════════════════════════════════════════════════ */
 
-const STATES = {
-  'venta':         { name: 'Venta',          color: 'var(--state-sale)',   order: 1 },
-  'preproduccion': { name: 'Preproducción',  color: 'var(--state-prep)',   order: 2 },
-  'produccion':    { name: 'Producción',     color: 'var(--state-prod)',   order: 3 },
-  'postproduccion':{ name: 'Postproducción', color: 'var(--state-post)',   order: 4 },
-  'cierre':        { name: 'Cierre',         color: 'var(--state-close)',  order: 5 },
-  'cerrado':       { name: 'Cerrado',        color: 'var(--state-closed)', order: 6 },
-  'rechazado':     { name: 'Rechazado',      color: 'var(--state-reject)', order: 7 }
-};
+/* STATES -> movido a src/modules/kanban.js (Etapa 2); expuesto en window vía puente */
 
 /* En estados ≥ preproducción se muestra columna "Costo Real" en el
    Presupuesto. Atado al estado del proyecto, no a un toggle manual.
@@ -3038,16 +3030,7 @@ function senalAplica(project, sg, user) {
 function userSenales(project, user) { const u = user || currentUser(); return (ensureSenales(project)).filter(sg => senalAplica(project, sg, u)); }
 function marcarSenalVista(projId, sigId) { const p = PROJECTS.find(x => x.id === projId); if (!p) return; const sg = (ensureSenales(p)).find(x => x.id === sigId); if (sg) { if (!sg.vistoPor) sg.vistoPor = []; if (sg.vistoPor.indexOf(currentUser()) === -1) sg.vistoPor.push(currentUser()); markDirty(); try { renderMetrics(); renderKanban(); } catch (e) {} } }
 
-function projectAttentionCount(project, user) {
-  const u = user || currentUser();
-  const t = (ensureTareas(project)).filter(x => x.estado !== 'completada' && x.asignadoA === u).length;
-  return t + userSenales(project, u).length;
-}
-function projectsNeedingAttention(user) {
-  const u = user || currentUser(); let n = 0;
-  PROJECTS.forEach(p => { if (projectAttentionCount(p, u) > 0) n++; });
-  return n;
-}
+/* projectAttentionCount, projectsNeedingAttention -> movidos a src/modules/kanban.js (Etapa 2) */
 
 function _mentionPeople() { return projectPeople(STATE && STATE.currentProject); }
 function _mentionDrop() {
@@ -3244,82 +3227,7 @@ function renderMisTareas() {
 function crtToggle(projId, taskId) { if (!_puedeEditarTareas()) return; const p = PROJECTS.find(x => x.id === projId); if (!p) return; const t = ensureTareas(p).find(x => x.id === taskId); if (t) { t.estado = t.estado === 'completada' ? 'pendiente' : 'completada'; markDirty(); try { renderMetrics(); renderKanban(); } catch (e) {} } }
 function crtGoTask(projId, seccion) { if (!PROJECTS.find(x => x.id === projId)) return; navigateToProject(projId); setTimeout(() => { try { navigateToModule(seccion); } catch (e) {} setTimeout(() => { try { openTareasModal(seccion); } catch (e) {} }, 140); }, 70); }
 function crtGoSenal(projId, seccion) { if (!PROJECTS.find(x => x.id === projId)) return; navigateToProject(projId); setTimeout(() => { try { navigateToModule(seccion); } catch (e) {} }, 90); }
-function renderMetrics() {
-  const active = PROJECTS.filter(p => !['cerrado', 'rechazado'].includes(p.state));
-  const closedMay = PROJECTS.filter(p => p.state === 'cerrado');
-  const totalAmount = active.reduce((sum, p) => sum + projectClientNet(p), 0);
-  const alerts = PROJECTS.reduce((sum, p) => sum + p.alerts, 0);
-
-  document.getElementById('metric-active').textContent = active.length;
-  document.getElementById('metric-closed-month').textContent = closedMay.length;
-  /* V11.7.0 · el monto en producción se movió a Finanzas (bird view del CFO). */
-  document.getElementById('metric-alerts').textContent = projectsNeedingAttention(currentUser());
-}
-
-function renderKanban() {
-  const container = document.getElementById('kanbanContainer');
-  container.innerHTML = '';
-
-  Object.entries(STATES)
-    .sort((a, b) => a[1].order - b[1].order)
-    .forEach(([key, state]) => {
-      const projects = PROJECTS.filter(p => p.state === key);
-      const col = document.createElement('div');
-      col.className = 'column';
-      col.innerHTML = `
-        <div class="column-header">
-          <div class="column-title">
-            <div class="column-dot" style="background: ${state.color}"></div>
-            <span class="column-name">${state.name}</span>
-          </div>
-          <span class="column-count">${projects.length}</span>
-        </div>
-        <div class="column-body">
-          ${projects.length === 0
-            ? '<div class="empty-column">Sin proyectos</div>'
-            : projects.map(renderProjectCard).join('')}
-        </div>
-      `;
-      container.appendChild(col);
-    });
-
-  // Click en tarjetas
-  document.querySelectorAll('.project-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const projectId = card.dataset.projectId;
-      navigateToProject(projectId);
-    });
-  });
-  try { renderMisTareas(); } catch (e) {}
-}
-
-function renderProjectCard(p) {
-  return `
-    <div class="project-card" data-project-id="${p.id}">
-      <div class="project-card-header">
-        <div>
-          <div class="project-client">${p.client}</div>
-          <div class="project-name">${p.name}</div>
-        </div>
-        ${projectAttentionCount(p, currentUser()) > 0 ? `<div class="project-mine" title="Requieren tu atención (tareas + señales)">${projectAttentionCount(p, currentUser())}</div>` : ''}${p.alerts > 0 ? `<div class="project-alert">${p.alerts}</div>` : ''}
-      </div>
-      <div class="project-meta">
-        <div class="project-meta-row">
-          <span class="project-meta-label">PE</span>
-          <span class="project-meta-value">${p.pe}</span>
-        </div>
-        <div class="project-meta-row">
-          <span class="project-meta-label">${p.state === 'produccion' || p.state === 'postproduccion' || p.state === 'cierre' ? 'Estado' : 'Fecha'}</span>
-          <span class="project-meta-value">${p.date}</span>
-        </div>
-        <div class="project-meta-row">
-          <span class="project-meta-label">Monto</span>
-          <span class="project-amount">${formatCLP(projectClientNet(p))}</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
+/* renderMetrics, renderKanban, renderProjectCard -> movidos a src/modules/kanban.js (Etapa 2) */
 
 /* ════════════════════════════════════════════════════════════════════
    NAVEGACIÓN
@@ -3330,109 +3238,8 @@ function renderProjectCard(p) {
    mismo tab; se borra al cerrar el tab, como takeos_ir_proyecto). Guarda la
    org activa para validar la restauración contra las membresías reales y no
    cruzar cuentas. La restauración (lectura) vive en el arranque (B2). */
-const _LV_KEY = 'takeos_last_view';
-function _lastViewSave() {
-  try {
-    sessionStorage.setItem(_LV_KEY, JSON.stringify({
-      org: ORG_ID,
-      view: STATE.currentView,                                   // 'control-room' | 'project' | 'bd-global'
-      projectId: (STATE.currentProject && STATE.currentProject.id) || null,
-      module: STATE.currentModule || null
-    }));
-  } catch (e) {}
-}
-function _lastViewLeer() {
-  try { return JSON.parse(sessionStorage.getItem(_LV_KEY) || 'null'); } catch (e) { return null; }
-}
-
-function navigateToControlRoom() {
-  /* V11.9.7 · un externo no tiene Control Room: su casa es el Panel Personal. */
-  /* V11.13.0 · refuerzo de la invariante: sin empresa confirmada (o externo), jamás Control Room. */
-  try { if (!_TIENE_EMPRESA || (typeof TAKEOS_PERFIL !== 'undefined' && TAKEOS_PERFIL && TAKEOS_PERFIL.tipo === 'externo')) { irAlPanelPersonal(); return; } } catch (e) {}
-  STATE.currentView = 'control-room';
-  STATE.currentProject = null;
-  document.getElementById('controlRoomView').classList.remove('hidden');
-  const pv = document.getElementById('projectView');
-  if (pv) pv.classList.add('hidden');
-  const bd = document.getElementById('bdGlobalView');
-  if (bd) bd.classList.add('hidden');
-  // V5.1.1: vaciar containers no activos para que getElementById no se confunda
-  const mm = document.getElementById('moduleMain'); if (mm) mm.innerHTML = '';
-  const bm = document.getElementById('bdGlobalMain'); if (bm) bm.innerHTML = '';
-  document.getElementById('breadcrumb').innerHTML = `<span class="breadcrumb-current">Control Room</span>`;
-  // V6.2 (Nota 1): re-renderizar para reflejar cambios hechos dentro del proyecto
-  // (nombre, cliente, monto) en las tarjetas y métricas del Control Room.
-  try { renderMetrics(); renderKanban(); } catch (e) {}
-  _lastViewSave();   // V11.15.0 · FRENTE B
-  window.scrollTo(0, 0);
-}
-
-/* V5.11 (Nota 4): el monto del Control Room = lo que efectivamente se cobra al
-   cliente (Presupuesto Cliente Efectivo NETO). Cae a p.amount si aún no hay
-   presupuesto cargado. */
-function projectClientNet(p) {
-  try { const sfin = calcSummaryFin(p); if (sfin.presupClienteEfectivo > 0) return sfin.presupClienteEfectivo; } catch (e) {}
-  return p.amount || 0;
-}
-
-function navigateToProject(projectId) {
-  const project = PROJECTS.find(p => p.id === projectId);
-  if (!project) return;
-
-  STATE.currentView = 'project';
-  STATE.currentProject = project;
-  STATE.currentModule = 'info-proyecto';
-
-  document.getElementById('controlRoomView').classList.add('hidden');
-  document.getElementById('projectView').classList.remove('hidden');
-  const bd = document.getElementById('bdGlobalView');
-  if (bd) bd.classList.add('hidden');
-  // V5.1.1: vaciar container de BD global para evitar IDs duplicados
-  const bm = document.getElementById('bdGlobalMain'); if (bm) bm.innerHTML = '';
-
-  /* V11.15.0 · FRENTE F: un externo no tiene Control Room. El breadcrumb
-     apunta a "Mis proyectos" (Panel Personal) en lugar de "Control Room". */
-  const _esExterno = typeof TAKEOS_PERFIL !== 'undefined' && TAKEOS_PERFIL && TAKEOS_PERFIL.tipo === 'externo';
-
-  // Breadcrumb
-  document.getElementById('breadcrumb').innerHTML = _esExterno
-    ? `<span class="breadcrumb-link" onclick="irAlPanelPersonal()">Mis proyectos</span>
-       <span class="breadcrumb-sep">›</span>
-       <span class="breadcrumb-current">${project.client} · ${project.name}</span>`
-    : `<span class="breadcrumb-link" onclick="navigateToControlRoom()">Control Room</span>
-       <span class="breadcrumb-sep">›</span>
-       <span class="breadcrumb-current">${project.client} · ${project.name}</span>`;
-
-  // Sidebar project card
-  document.getElementById('sidebarProject').innerHTML = `
-    <div class="sidebar-project-client">${project.client}</div>
-    <div class="sidebar-project-name">${project.name}</div>
-    <div class="sidebar-project-state">
-      <div class="column-dot" style="background: ${STATES[project.state].color}"></div>
-      ${STATES[project.state].name}
-    </div>
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft);">
-      <button onclick="exportSingleProject('${project.id}')"
-              title="Exporta este proyecto solo a .json. No toca la BD ni los demás proyectos."
-              style="width:100%;padding:8px 12px;background:transparent;color:var(--ink-secondary);border:1px solid var(--border-soft);border-radius:6px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Exportar este proyecto
-      </button>
-    </div>
-    ${_esExterno ? `<div style="margin-top:10px;padding:8px 10px;border-radius:6px;background:var(--bg-surface-soft,rgba(120,113,108,.08));border:1px solid var(--rule);font-size:11px;color:var(--ink-faint);line-height:1.5;">Colaboras como externo · solo ves este proyecto.</div>` : ''}
-  `;
-
-  /* V11.8.4 · al entrar a un proyecto, abrir Info Proyecto solo si el perfil
-     puede verlo; si no (Coordinación, Creativo, Invitado), abrir directo el
-     primer módulo visible, sin el toast de "sin acceso". Esto acompaña el fix
-     de RLS del BD Expert: esos perfiles ya verán el proyecto y deben aterrizar
-     en algo que sí pueden usar (Crew/Cargos/Tareas…). */
-  var _modIni = (typeof authPuedeVer === 'function' && !authPuedeVer('info-proyecto'))
-    ? (_firstVisibleModule() || 'info-proyecto') : 'info-proyecto';
-  navigateToModule(_modIni);
-  captureUndoBaseline();  // V5.11 (Nota 1)
-  window.scrollTo(0, 0);
-}
+/* _LV_KEY, _lastViewSave, _lastViewLeer, navigateToControlRoom, projectClientNet,
+   navigateToProject -> movidos a src/modules/kanban.js (Etapa 2) */
 
 function navigateToModule(moduleKey) {
   // V10.4.0 (Gate B): no navegar a módulos sin acceso; caer al primero visible
@@ -6202,73 +6009,7 @@ function collectApprovalBlockers(project) {
 /* V5.9 (Nota 14): eliminar proyecto. Solo administrador. Acción grave e
    irreversible: exige escribir el nombre EXACTO del proyecto para habilitar
    el botón de borrado. No hay "deshacer" (salvo restaurar un guardado previo). */
-function deleteProjectFlow(id) {
-  if (authNivel('eliminar_proyecto') !== 'E') { _authBlockWriteToast(); return; }   // V10.4.0 (Gate B)
-  const proj = PROJECTS.find(p => p.id === id);
-  if (!proj) return;
-  if (!STATE.adminMode) {
-    showToast({ kind: 'warning', title: 'Solo administrador', body: 'Activa el Modo administrador para eliminar proyectos.' });
-    return;
-  }
-  window._delExpected = proj.name;
-  const root = document.getElementById('modalRoot');
-  root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width: 520px; border: 1px solid var(--negative);">
-        <div class="modal-header">
-          <div class="modal-title" style="color: var(--negative);">⚠ Eliminar proyecto</div>
-          <div style="font-size: 12px; color: var(--ink-muted); margin-top: 4px;">Esto es <strong>irreversible</strong>: se borra “${escapeHtml(proj.name)}” y todos sus datos de esta sesión. Si no exportaste un guardado, no hay vuelta atrás.</div>
-        </div>
-        <div class="modal-body">
-          <label class="field-label">Para confirmar, escribe el nombre exacto del proyecto:</label>
-          <div style="font-family: monospace; background: var(--accent-bg); color: var(--ink-primary); padding: 6px 10px; border-radius: 6px; margin: 8px 0; user-select: all;">${escapeHtml(proj.name)}</div>
-          <input class="input" id="delConfirmInput" placeholder="Escribe el nombre aquí" autocomplete="off"
-                 oninput="document.getElementById('delConfirmBtn').disabled = (this.value.trim() !== window._delExpected);">
-        </div>
-        <div class="modal-footer">
-          <button class="btn" onclick="closeModal()">Cancelar</button>
-          <button class="btn btn-danger" id="delConfirmBtn" disabled onclick="confirmDeleteProject('${id}')">Eliminar definitivamente</button>
-        </div>
-      </div>
-    </div>`;
-}
-async function confirmDeleteProject(id) {
-  const i = PROJECTS.findIndex(p => p.id === id);
-  if (i === -1) { closeModal(); return; }
-  const proj = PROJECTS[i];
-  const name = proj.name;
-  // V10.5.0 (fix BD Expert): persistir el borrado en Supabase ANTES de sacarlo
-  // de memoria. Sin esto el proyecto seguía con deleted_at = NULL y reaparecía
-  // al recargar. Es un UPDATE puntual (no RPC, no reemplazo de estado completo).
-  // Si el UPDATE falla, NO se saca de memoria.
-  if (sb && PROJECTS_SOURCE === 'supabase' && DAL_KNOWN_PROJECT_IDS.has(id)) {
-    const btn = document.getElementById('delConfirmBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Eliminando…'; }
-    try {
-      const now = new Date().toISOString();
-      const { error } = await sb.from('projects')
-        .update({ deleted_at: now, updated_at: now })
-        .eq('id', id).eq('organization_id', ORG_ID);
-      if (error) throw error;
-    } catch (e) {
-      console.error('[delete] no se pudo marcar deleted_at en Supabase:', e);
-      if (btn) { btn.disabled = false; btn.textContent = 'Eliminar definitivamente'; }
-      showToast({ kind: 'warning', title: 'No se pudo eliminar', body: 'No se pudo escribir el borrado en Supabase. El proyecto NO se eliminó. Revisa la conexión e inténtalo de nuevo.' });
-      return;   // no sacar de memoria
-    }
-  }
-  proj._deletedAt = new Date().toISOString();
-  proj._deletedState = proj.state;  // recordamos el estado para restaurar
-  TRASH.unshift(proj);              // V5.10 (Respuesta 1): a la papelera, no se destruye
-  PROJECTS.splice(i, 1);
-  closeModal();
-  STATE.currentProject = null;
-  markDirty();
-  navigateToControlRoom();
-  renderMetrics();
-  renderKanban();
-  showToast({ kind: 'success', title: 'Proyecto movido a la papelera', body: `“${escapeHtml(name)}” se puede restaurar desde la Papelera en el Control Room.` });
-}
+/* deleteProjectFlow, confirmDeleteProject -> movidos a src/modules/kanban.js (Etapa 2) */
 
 /* V11.9.0 · trae de la base los proyectos borrados (deleted_at IS NOT NULL) y
    los ensambla a TRASH, para que la Papelera muestre también los eliminados en
@@ -17259,54 +17000,7 @@ document.getElementById('globalSearch').addEventListener('input', (e) => {
 /* V5.6 (Nota 3): creación real de proyecto. Modal con campos mínimos
    (cliente, nombre, PE). Usa un draft en memoria porque showModal cierra
    el modal antes de ejecutar onConfirm (los inputs del DOM ya no existen). */
-function newProject() {
-  if (authNivel('crear_proyecto') !== 'E') { _authBlockWriteToast(); return; }   // V10.4.0 (Gate B)
-  window._npDraft = { nombre: '', cliente: '', pe: '' };
-  showModal({
-    title: 'Nuevo proyecto',
-    body: `
-      <div style="display:flex; flex-direction:column; gap:12px;">
-        <div>
-          <label class="field-label">Nombre del proyecto *</label>
-          <input class="input" oninput="window._npDraft.nombre = this.value" placeholder="Ej: Lanzamiento Primavera">
-        </div>
-        <div>
-          <label class="field-label">Cliente *</label>
-          <input class="input" oninput="window._npDraft.cliente = this.value" placeholder="Ej: Watt's">
-        </div>
-        <div>
-          <label class="field-label">Productor Ejecutivo</label>
-          <input class="input" oninput="window._npDraft.pe = this.value" placeholder="Ej: Agustín Muñoz">
-        </div>
-        <p style="font-size:12px; color:var(--ink-faint); margin:0;">Se crea en estado <strong>Venta</strong>, con la estructura de presupuesto por defecto lista para cotizar.</p>
-      </div>`,
-    confirmLabel: 'Crear proyecto',
-    cancelLabel: 'Cancelar',
-    onConfirm: () => {
-      const d = window._npDraft || {};
-      const nombre = (d.nombre || '').trim();
-      const cliente = (d.cliente || '').trim();
-      const pe = (d.pe || '').trim();
-      if (!nombre || !cliente) {
-        showToast({ kind: 'error', title: 'Faltan datos', body: 'El nombre del proyecto y el cliente son obligatorios.' });
-        return;
-      }
-      const id = 'P-' + Date.now();
-      PROJECTS.push({
-        id, client: cliente, name: nombre, state: 'venta',
-        pe: pe || '—', amount: 0, currency: 'CLP',
-        alerts: 0, lastActivity: 'Recién creado', date: '—',
-        data: buildProjectData({ infoProyecto: { cliente, nombreProyecto: nombre, productorEjecutivo: pe, fechaCotizacion: new Date().toISOString().slice(0, 10) } })
-      });
-      markDirty();
-      renderMetrics();
-      renderKanban();
-      showToast({ kind: 'success', title: 'Proyecto creado', body: `“${escapeHtml(nombre)}” creado en Venta. Ábrelo para empezar a cotizar.` });
-      navigateToProject(id);
-    },
-    onCancel: () => {}
-  });
-}
+/* newProject -> movido a src/modules/kanban.js (Etapa 2) */
 
 /* V5.6 (Nota 3): carga los proyectos de ejemplo a demanda. */
 function loadDemoData() {

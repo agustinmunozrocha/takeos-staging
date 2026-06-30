@@ -1,17 +1,14 @@
-// Punto de entrada de módulos de TakeOS — Etapa 1.
+// Punto de entrada de módulos de TakeOS — Etapa 2.
 //
-// Importa las piezas extraídas a src/lib/ y las re-expone en window (el
-// "puente") para que el <script> clásico inline y los onclick inline las
-// sigan encontrando como globales mientras dure la migración.
-//
-// Patrón por cada pieza extraída:
-//   import { fn } from './lib/...';
-//   window.fn = fn;   // ← puente
+// Importa las piezas extraídas a src/lib/ y src/modules/ y las re-expone en
+// window (el "puente") para que el <script> clásico inline y los onclick
+// inline las sigan encontrando como globales mientras dure la migración.
 import { escapeHtml, safeUrl, showToast } from './lib/helpers.js';
 import { supabaseInit } from './lib/supabase.js';
-import { dalBootTaxRates } from './lib/rates.js'; // su import ya setea las tasas default en window
+import { dalBootTaxRates } from './lib/rates.js';
 import { STATE } from './lib/state.js';
-import './lib/auth.js'; // auto-puentea authNivel, authPuedeVer/Editar, authEsAdmin... a window
+import './lib/auth.js';
+import './modules/kanban.js'; // puentea STATES, renderKanban, navigateToControlRoom, etc.
 
 window.escapeHtml = escapeHtml;
 window.safeUrl = safeUrl;
