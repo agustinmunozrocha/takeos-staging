@@ -2575,11 +2575,11 @@ const DEMO_PROJECTS = [
 
 /* V5.6 (Nota 3): el Control Room arranca vacío para uso operacional real.
    Los proyectos demo se cargan a demanda con "Cargar datos de ejemplo". */
-const PROJECTS = [];
+const PROJECTS = []; window.PROJECTS = PROJECTS; // puente para src/modules/kanban.js
 /* V5.10 (Respuesta 1): papelera. Eliminar un proyecto NO lo destruye: lo mueve
    aquí. Se conserva indefinidamente (pesa poco) y se respalda en el guardado.
    Desde la papelera se puede restaurar. */
-const TRASH = [];
+const TRASH = []; window.TRASH = TRASH; // puente para src/modules/kanban.js
 /* V7.9: perfil de la empresa/productora emisora (datos para documentos). Global, persiste en save y nube. NO vive en Notificaciones. */
 let EMPRESA_PERFIL = {
   /* V11.0.0 · multi-tenant: el perfil nace VACÍO. Los datos de la organización
@@ -19416,8 +19416,8 @@ function _dalPerfilSaveSoon() {
    por id), sin tocar lo operativo. No destructivo: si un proyecto no está en
    Supabase, queda 100% como estaba.
    ════════════════════════════════════════════════════════════════════ */
-let PROJECTS_SOURCE = 'pending';
-const DAL_KNOWN_PROJECT_IDS = new Set();
+var PROJECTS_SOURCE = 'pending'; // var → window.PROJECTS_SOURCE automático (leído desde módulos ES)
+const DAL_KNOWN_PROJECT_IDS = new Set(); window.DAL_KNOWN_PROJECT_IDS = DAL_KNOWN_PROJECT_IDS; // puente para módulos
 
 /* V10.6.0 · Flags SUPA_SOLE eliminados (Supabase es la única fuente, sin doble escritura). */
 
