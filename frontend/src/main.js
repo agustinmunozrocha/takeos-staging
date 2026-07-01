@@ -13,6 +13,7 @@ import './modules/notificaciones.js'; // puentea bellToggle, notifInit, renderNo
 import './modules/presupuesto-cotizacion.js'; // puentea renderPresupuesto, renderCotizacion, calcSummaryFin, cot*, budget*, etc.
 import './modules/locaciones.js'; // puentea bdLocFind, projLocList, renderLocaciones, openLocDetail, loc*, locScout*, scout*
 import './modules/legal.js'; // puentea renderLegal, legalSetSub, legalSetFiltro, openLegalGen, legalDoGenerate, legalExportPDF, legal* (todas)
+import './modules/plan-rodaje.js'; // puentea renderPlanRodaje, exportPlanRodajePDF, pr*, renderHojaLlamado, exportHojaLlamadoPDF, printViaIframe, hl* (todas)
 
 window.escapeHtml = escapeHtml;
 window.safeUrl = safeUrl;
