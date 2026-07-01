@@ -4481,3 +4481,4 @@ window.cotPrevSetOptLive           = cotPrevSetOptLive;
 window.cotPrevBuildAndLoad         = cotPrevBuildAndLoad;
 window.cotPrevRenderPanel          = cotPrevRenderPanel;
 window.cotPrevSaveSettings         = cotPrevSaveSettings;
+window.CotPreview                  = CotPreview;
