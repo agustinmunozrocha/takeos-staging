@@ -12,6 +12,7 @@ import './modules/kanban.js'; // puentea STATES, renderKanban, navigateToControl
 import './modules/notificaciones.js'; // puentea bellToggle, notifInit, renderNotificaciones, ntf*, etc.
 import './modules/presupuesto-cotizacion.js'; // puentea renderPresupuesto, renderCotizacion, calcSummaryFin, cot*, budget*, etc.
 import './modules/locaciones.js'; // puentea bdLocFind, projLocList, renderLocaciones, openLocDetail, loc*, locScout*, scout*
+import './modules/legal.js'; // puentea renderLegal, legalSetSub, legalSetFiltro, openLegalGen, legalDoGenerate, legalExportPDF, legal* (todas)
 
 window.escapeHtml = escapeHtml;
 window.safeUrl = safeUrl;
