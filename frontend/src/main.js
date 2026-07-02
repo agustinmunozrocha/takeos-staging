@@ -19,7 +19,9 @@ import './modules/bd-excel.js'; // puentea _normKey, _norm*BD, ensureXLSX, expor
 import './modules/buscador.js'; // puentea globalSearchInput, globalSearchKey, _gsearchHide, _gsearchGo
 import './modules/config.js'; // puentea openConfigPanel, openEmpresaPerfil, orgLogo, _orgLogos, _emp*, _cp*, _pd*, abrirFlujoCrearProductora, abrirPrivacidadDatos
 import './modules/dal.js'; // puentea dalBoot*, dalGuardar*, _dal*SaveSoon, dalTouchProyecto, dal* (Supabase DAL completo)
-import './modules/gastos.js'; // puentea renderGastos, renderCFO, openGlobalCFO, go*, cfo*, chipax* — goWire registra Gastos/CFO en window.MODULES
+import './modules/gastos.js';
+import './modules/persistencia-local.js'; // puentea markDirty, autosaveNow, undoLast/redoLast, exportSave, snapshots, import*
+import './modules/perfil-onboarding.js'; // puentea abrirPerfilUsuario, _rutValido, _regionCanonica // puentea renderGastos, renderCFO, openGlobalCFO, go*, cfo*, chipax* — goWire registra Gastos/CFO en window.MODULES
 
 window.escapeHtml = escapeHtml;
 window.safeUrl = safeUrl;
