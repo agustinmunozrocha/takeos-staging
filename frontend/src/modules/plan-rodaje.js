@@ -1492,3 +1492,14 @@ window.hojaPreviewGenerar    = hojaPreviewGenerar;
 window.hlPrevSetMargen       = hlPrevSetMargen;
 window.exportHojaLlamadoPDF  = exportHojaLlamadoPDF;
 window.printViaIframe        = printViaIframe;   // legal.js lo llama como global
+
+// ── Bridges agregados por auditoría 2-jul (consumidos por index.html u otros módulos sin bridge) ──
+window._callSheetSignature = _callSheetSignature;
+window._hashStr = _hashStr;
+window.getConfirmedCrew = getConfirmedCrew;
+window.prCompressImage = prCompressImage;
+window.prComputeTimes = prComputeTimes;
+window.prEffectiveStartMin = prEffectiveStartMin;
+window.prFmtClock = prFmtClock;
+window.prFmtDur = prFmtDur;
+window.prParseHM = prParseHM;

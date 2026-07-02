@@ -884,3 +884,10 @@ window.legalDoGenerate      = legalDoGenerate;
 window.legalExportPDF       = legalExportPDF;
 window.legalComboboxFilter  = legalComboboxFilter;
 window.legalMoneyInput      = legalMoneyInput;
+
+// ── Bridges agregados por auditoría 2-jul (consumidos por index.html u otros módulos sin bridge) ──
+window.legalAllTplEntries = legalAllTplEntries;
+window.legalPersonData = legalPersonData;
+window.legalRep = legalRep;
+window.legalTplGet = legalTplGet;
+window.legalVarMap = legalVarMap;

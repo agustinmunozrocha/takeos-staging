@@ -737,3 +737,14 @@ window.ntfInsertVar        = ntfInsertVar;
 window.ntfOpenFromHoja     = ntfOpenFromHoja;
 window.NTF_LABELS          = NTF_LABELS;
 window.NOTIF_VAR_KEYS      = NOTIF_VAR_KEYS;
+
+// ── Bridges agregados por auditoría 2-jul (consumidos por index.html u otros módulos sin bridge) ──
+window._dteWord = _dteWord;
+window._fechaCorta = _fechaCorta;
+window._rebindRenderModal = _rebindRenderModal;
+window.notifDefaultTemplates = notifDefaultTemplates;
+window.notifEmpresaDefault = notifEmpresaDefault;
+window.notifLoadConfig = notifLoadConfig;
+window.notifRenderPanel = notifRenderPanel;
+window.ntfEnsureSched = ntfEnsureSched;
+window.ntfTemplates = ntfTemplates;
