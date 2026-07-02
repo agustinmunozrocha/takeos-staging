@@ -1877,3 +1877,4 @@ window.dalLoadPermisos = dalLoadPermisos;
 window.dalLoadProyectos = dalLoadProyectos;
 window.dalResolveIdentidad = dalResolveIdentidad;
 window.dalTouchProyecto = dalTouchProyecto;
+window._DAL_TIPOCUENTA_LABEL = _DAL_TIPOCUENTA_LABEL; // el perfil personal (clásico) la lee a pelo — regresión latente B1 detectada en pre-análisis B2
