@@ -27,6 +27,9 @@ import './modules/documentos.js'; // C1: Creative Hub del proyecto
 import './modules/rodajes.js'; // C1: días de rodaje
 import './modules/info-proyecto.js'; // C2: Info Proyecto + gate aprobación + papelera
 import './modules/crew.js'; // C2: crew render/externos/exports PDF
+import './modules/tareas.js'; // C3: tareas/señales/menciones/mis-tareas
+import './modules/cargos.js'; // C3: cargos del proyecto + tope colaboradores
+import './modules/invitaciones.js'; // C3: invitaciones (incl. dalInvitar)
 import './modules/calculadoras.js'; // C1: tributaria + costo real + horas extra (estado _calc* en window) // puentea abrirPerfilUsuario, _rutValido, _regionCanonica // puentea renderGastos, renderCFO, openGlobalCFO, go*, cfo*, chipax* — goWire registra Gastos/CFO en window.MODULES
 
 window.escapeHtml = escapeHtml;
