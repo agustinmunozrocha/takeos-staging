@@ -25,6 +25,8 @@ import './modules/persistencia-local.js'; // puentea markDirty, autosaveNow, und
 import './modules/perfil-onboarding.js';
 import './modules/documentos.js'; // C1: Creative Hub del proyecto
 import './modules/rodajes.js'; // C1: días de rodaje
+import './modules/info-proyecto.js'; // C2: Info Proyecto + gate aprobación + papelera
+import './modules/crew.js'; // C2: crew render/externos/exports PDF
 import './modules/calculadoras.js'; // C1: tributaria + costo real + horas extra (estado _calc* en window) // puentea abrirPerfilUsuario, _rutValido, _regionCanonica // puentea renderGastos, renderCFO, openGlobalCFO, go*, cfo*, chipax* — goWire registra Gastos/CFO en window.MODULES
 
 window.escapeHtml = escapeHtml;
