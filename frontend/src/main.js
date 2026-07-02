@@ -22,7 +22,10 @@ import './modules/config.js'; // puentea openConfigPanel, openEmpresaPerfil, org
 import './modules/dal.js'; // puentea dalBoot*, dalGuardar*, _dal*SaveSoon, dalTouchProyecto, dal* (Supabase DAL completo)
 import './modules/gastos.js';
 import './modules/persistencia-local.js'; // puentea markDirty, autosaveNow, undoLast/redoLast, exportSave, snapshots, import*
-import './modules/perfil-onboarding.js'; // puentea abrirPerfilUsuario, _rutValido, _regionCanonica // puentea renderGastos, renderCFO, openGlobalCFO, go*, cfo*, chipax* — goWire registra Gastos/CFO en window.MODULES
+import './modules/perfil-onboarding.js';
+import './modules/documentos.js'; // C1: Creative Hub del proyecto
+import './modules/rodajes.js'; // C1: días de rodaje
+import './modules/calculadoras.js'; // C1: tributaria + costo real + horas extra (estado _calc* en window) // puentea abrirPerfilUsuario, _rutValido, _regionCanonica // puentea renderGastos, renderCFO, openGlobalCFO, go*, cfo*, chipax* — goWire registra Gastos/CFO en window.MODULES
 
 window.escapeHtml = escapeHtml;
 window.safeUrl = safeUrl;
