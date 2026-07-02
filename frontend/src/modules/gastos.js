@@ -1671,3 +1671,7 @@ window.goValidar = goValidar;
 window.openGlobalCFO = openGlobalCFO;
 window.renderCFO = renderCFO;
 window.renderGastos = renderGastos;
+
+// ── Bridges auditoría pre-B (nombres pasados como string a goCompCell → onclick generado) ──
+window.goVerComprobante = goVerComprobante;
+window.goCfoVer         = goCfoVer;
