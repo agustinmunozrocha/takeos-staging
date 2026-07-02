@@ -51,3 +51,17 @@ window.TAKEOS_ACCESO = null;      // { modulo: 'E'|'L'|'none' } o null (no carga
 window.DAL_SESSION_UID = null;
 window.DAL_SESSION_EMAIL = '';
 window.USUARIO_ACTUAL = '';
+
+// Flags de origen de datos del DAL (Etapa B1). 'pending' → 'supabase' tras la
+// primera lectura exitosa (fail-safe: sin lectura confirmada NO se escribe).
+// Los ESCRIBE dal.js (via window.X); los LEEN dal.js, el monolito y varios
+// modulos (gastos/kanban/notificaciones desnudo o window.; legal desnudo).
+window.CONTACTS_SOURCE  = 'pending';
+window.LOCATIONS_SOURCE = 'pending';
+window.LEGAL_SOURCE     = 'pending';
+window.PERFIL_SOURCE    = 'pending';
+window.PROJECTS_SOURCE  = 'pending';
+// Tope de colaboradores por plan (cache por org). Lo escribe dal.js
+// (dalCargarTopeColaboradores); lo lee la UI de cargos del monolito.
+window._TOPE_COLAB     = null;
+window._TOPE_COLAB_ORG = null;

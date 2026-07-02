@@ -13,6 +13,7 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY;
 console.info('[supabase] base:', SUPABASE_URL);
 
 let sb = null;
+if (!('sb' in window)) window.sb = null; // la propiedad existe desde el eval del módulo: los guards `if (!sb)` del DAL nunca pueden lanzar ReferenceError
 export function supabaseInit() {
   if (sb) return sb;
   try {
