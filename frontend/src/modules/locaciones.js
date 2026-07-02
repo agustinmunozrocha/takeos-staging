@@ -4,8 +4,8 @@
 import { STATE } from '../lib/state.js';
 import { escapeHtml, showToast, safeUrl } from '../lib/helpers.js';
 
-const LOC_ORIENTACIONES = ['—', 'Norte', 'Sur', 'Oriente', 'Poniente', 'Nororiente', 'Norponiente', 'Suroriente', 'Surponiente'];
-const REGIONES_CHILE = ['Arica y Parinacota', 'Tarapacá', 'Antofagasta', 'Atacama', 'Coquimbo', 'Valparaíso', 'Metropolitana de Santiago', "Libertador General Bernardo O'Higgins", 'Maule', 'Ñuble', 'Biobío', 'La Araucanía', 'Los Ríos', 'Los Lagos', 'Aysén del General Carlos Ibáñez del Campo', 'Magallanes y de la Antártica Chilena'];
+// LOC_ORIENTACIONES: ahora en lib/data.js (window) — dedup B3
+// REGIONES_CHILE local eliminada (estaba muerta) — dedup B3
 
 function bdLocFind(locId) { return window.BD_LOC.find(l => l.locId === locId) || null; }
 function projLocList(project) { const d = project && project.data; if (!d) return []; if (!Array.isArray(d.locaciones)) d.locaciones = []; return d.locaciones; }

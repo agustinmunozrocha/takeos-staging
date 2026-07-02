@@ -7,6 +7,7 @@ import { escapeHtml, safeUrl, showToast } from './lib/helpers.js';
 import { supabaseInit } from './lib/supabase.js';
 import { dalBootTaxRates } from './lib/rates.js';
 import { STATE } from './lib/state.js';
+import './lib/data.js'; // catálogos y presets en window (LOC_*, REGIONES, BANCOS, DEFAULT_*, DTE_*, UNIDAD, DEMO_PROJECTS)
 import './lib/auth.js';
 import './modules/kanban.js'; // puentea STATES, renderKanban, navigateToControlRoom, etc.
 import './modules/notificaciones.js'; // puentea bellToggle, notifInit, renderNotificaciones, ntf*, etc.
