@@ -18,6 +18,7 @@ import './modules/bd.js'; // puentea renderBD*, openEmpresa*, empresa*, archivar
 import './modules/bd-excel.js'; // puentea _normKey, _norm*BD, ensureXLSX, exportBDExcelV71, importBDExcelV71, buildPersonasDatalist, etc.
 import './modules/buscador.js'; // puentea globalSearchInput, globalSearchKey, _gsearchHide, _gsearchGo
 import './modules/config.js'; // puentea openConfigPanel, openEmpresaPerfil, orgLogo, _orgLogos, _emp*, _cp*, _pd*, abrirFlujoCrearProductora, abrirPrivacidadDatos
+import './modules/gastos.js'; // puentea renderGastos, renderCFO, openGlobalCFO, go*, cfo*, chipax* — goWire registra Gastos/CFO en window.MODULES
 
 window.escapeHtml = escapeHtml;
 window.safeUrl = safeUrl;
