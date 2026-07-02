@@ -440,3 +440,116 @@ window.buildProjectData = buildProjectData;
 window.hydrateContactStore = hydrateContactStore;
 window.ingestLegacyIntoContactos = ingestLegacyIntoContactos;
 window.syncLegacyFromContactos = syncLegacyFromContactos;
+
+// ═══ Helpers de stores + modelo de locaciones de proyecto (Etapa C6) ═══
+function normLocName(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' '); }
+// LOC_ESTADO_RANK → movido a src/lib/data.js (Etapa B3)
+function dedupeProjectLocaciones(project) {
+  const d = project && project.data;
+  if (!d || !Array.isArray(d.locaciones) || d.locaciones.length < 2) return;
+  const rank = e => LOC_ESTADO_RANK[e] || 0;
+  const fold = (keep, u) => {
+    if (rank(u.estado) > rank(keep.estado)) keep.estado = u.estado;
+    if (!keep.costo && u.costo) keep.costo = u.costo;
+    if (!keep.contratacion && u.contratacion) keep.contratacion = u.contratacion;
+    if (!keep.notasProy && u.notasProy) keep.notasProy = u.notasProy;
+  };
+  const byId = {}; const pass1 = [];
+  d.locaciones.forEach(u => { if (!u || !u.locId) return; if (byId[u.locId]) fold(byId[u.locId], u); else { byId[u.locId] = u; pass1.push(u); } });
+  const byName = {}; const result = [];
+  pass1.forEach(u => {
+    const nm = normLocName((bdLocFind(u.locId) || {}).nombre);
+    if (!nm) { result.push(u); return; }
+    if (byName[nm]) fold(byName[nm], u); else { byName[nm] = u; result.push(u); }
+  });
+  if (result.length !== d.locaciones.length) { d.locaciones.length = 0; result.forEach(u => d.locaciones.push(u)); }
+}
+
+function migrateProjectLocaciones(project) {
+  if (!project || !project.data) return;
+  const d = project.data;
+  if (!Array.isArray(d.locaciones)) d.locaciones = [];
+  const hl = d.hojaLlamado;
+  const legacy = hl && Array.isArray(hl.locaciones) ? hl.locaciones : [];
+  if (!legacy.length || d._locMigrated) { d._locMigrated = true; return; }
+  legacy.forEach(old => {
+    const locId = old.id || nextLocIdBD();
+    if (!bdLocFind(locId)) {
+      BD_LOC.push({ locId: locId, nombre: old.nombre || '', direccion: old.direccion || '', direccion2: old.direccion2 || '', comuna: old.comuna || '', ciudad: old.ciudad || 'Santiago', region: old.region || '', maps: old.maps || '', orientacion: old.orientacion || '—', contactos: [], notas: old.notas || '', fotos: [] });
+    }
+    if (!projLocFind(project, locId)) {
+      d.locaciones.push({ locId: locId, estado: 'confirmada', costo: 0, contratacion: '', notasProy: '' });
+    }
+  });
+  d._locMigrated = true;
+  // hl.locaciones queda como campo legado (ya no se renderiza ni edita).
+}
+function ensureProjectLoc(project) { if (project && project.data) { if (!Array.isArray(project.data.locaciones)) project.data.locaciones = []; if (!project.data._locMigrated) migrateProjectLocaciones(project); dedupeProjectLocaciones(project); } return project ? project.data.locaciones : []; }
+
+/* V8.3 — BD DE LEGAL (transversal, canónica). Cuarta categoría de la BD,
+   junto a Personas/Empresas/Locaciones. Los documentos legales no mueren
+   con el proyecto: viven en este archivo global y consultable. Cada
+   registro referencia un proyecto y una contraparte (persona o locación).
+   El tab Legal de un proyecto es una vista filtrada de BD_LEGAL. */
+function _genId(prefix, store) {
+  let id;
+  do { id = prefix + '_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4); }
+  while (store[id]);
+  return id;
+}
+function _clearStore(s) { Object.keys(s).forEach(k => delete s[k]); }
+function _norm(v) { return (v == null) ? '' : String(v).trim(); }
+function _dedupKeys(rut, email, nombre) {
+  const k = [];
+  if (rut) k.push('rut::' + rut);
+  if (email) k.push('email::' + email);
+  if (nombre) k.push('name::' + nombre.toLowerCase());
+  return k;
+}
+
+// MODELO CONTACTOS: _tipoDTEaCodigo, _buildPerfilPago/Talento, normalizeContacto, ingestLegacyIntoContactos, _legacyPersonaView, _legacyTalentoView, syncLegacyFromContactos, hydrateContactStore, migratePersona(s), getBDCasting → movido a src/lib/modelo.js (Etapa C5)
+
+
+/* ════════════════════════════════════════════════════════════════════
+   ESTRUCTURA POR DEFECTO DE DEPARTAMENTOS (Presupuesto)
+   ════════════════════════════════════════════════════════════════════
+   Rescatado del V4. Define los roles iniciales que tiene un proyecto
+   nuevo al crearse. La idea es que el usuario rara vez agregue roles
+   nuevos: edita los que vienen por defecto.
+   ════════════════════════════════════════════════════════════════════ */
+// DEFAULT_DEPARTAMENTOS, DEFAULT_GASTOS, DEFAULT_EQUIPOS, DEFAULT_TALENTOS → movido a src/lib/data.js (Etapa B3)
+
+/* ════════════════════════════════════════════════════════════════════
+   FÁBRICA: data por defecto de un proyecto vacío
+   ════════════════════════════════════════════════════════════════════
+   Cuando un proyecto se crea, esta fábrica le da estructura inicial.
+   Aquí no se piensa en presentación, solo en estructura del dato.
+   ════════════════════════════════════════════════════════════════════ */
+/* V6.0: valores por defecto de las condiciones del servicio, tomados de la
+   carta de cotización real de Primate Films (caso Carpintero Negro). Son
+   variables editables: la Carta de Cotización (V6.1) las inyecta en el texto.
+   Montos en CLP; porcentajes como enteros (50 = 50%). */
+// COTIZACION_CONDICIONES_DEFAULTS → movido a src/lib/data.js (Etapa B3)
+
+// FÁBRICA PROYECTOS: _clientUuid, buildDefaultProjectData, buildProjectData → movido a src/lib/modelo.js (Etapa C5)
+
+/* ════════════════════════════════════════════════════════════════════
+   V5.6 (Nota 3): DATOS DE EJEMPLO.
+   El Control Room arranca VACÍO para uso real. Estos proyectos demo solo
+   se cargan con el botón "Cargar datos de ejemplo". Siguen la spec de
+   Agustín: nomenclatura "Proyecto de Cliente", 5–15M cobrados a cliente,
+   5–15 personas de crew, margen 20–40%, e invitados de cliente en la
+   hoja de llamado. Montos verificados por script.
+   ════════════════════════════════════════════════════════════════════ */
+// DEMO_PROJECTS (su inicializador corre al evaluar data.js; builders clásicos ya globales) → movido a src/lib/data.js (Etapa B3)
+
+/* V5.6 (Nota 3): el Control Room arranca vacío para uso operacional real.
+   Los proyectos demo se cargan a demanda con "Cargar datos de ejemplo". */
+
+// ── Bridges C6 (barrido final) ──
+window._clearStore = _clearStore;
+window._dedupKeys = _dedupKeys;
+window._genId = _genId;
+window._norm = _norm;
+window.ensureProjectLoc = ensureProjectLoc;
+window.normLocName = normLocName;

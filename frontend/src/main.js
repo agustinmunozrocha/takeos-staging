@@ -38,6 +38,7 @@ import './modules/admin.js'; // C4: modo admin + estado proyecto + respaldo
 import './modules/plan-limites.js'; // C4: CTA + FRENTE D (manejarErrorPlan)
 import './modules/espacio.js'; // C4: espacio de usuario (arrancarTakeOS/resolverEspacio quedan en index)
 import './modules/calculadoras.js'; // C1: tributaria + costo real + horas extra (estado _calc* en window) // puentea abrirPerfilUsuario, _rutValido, _regionCanonica // puentea renderGastos, renderCFO, openGlobalCFO, go*, cfo*, chipax* — goWire registra Gastos/CFO en window.MODULES
+import './lib/boot.js'; // C6 ⚠ SIEMPRE ÚLTIMO: boot con todos los bridges ya en window
 
 window.escapeHtml = escapeHtml;
 window.safeUrl = safeUrl;
