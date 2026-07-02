@@ -6,8 +6,7 @@
 import { STATE } from '../lib/state.js';
 import { escapeHtml, showToast, safeUrl } from '../lib/helpers.js';
 
-// Constante de módulo (copia local; la definición en index.html queda inerte)
-const UNIDAD_OPTIONS = ['Tarifa Plana', 'Jornadas', 'Horas', 'Personas', 'Locaciones', 'Fotografías'];
+// UNIDAD_OPTIONS: ahora en lib/data.js (window) — dedup B3
 
 // ── A0: cotizadoLocked (disperso, línea 1583)
 function cotizadoLocked(project) {
