@@ -50,7 +50,7 @@ window.TAKEOS_ACCESO = null;      // { modulo: 'E'|'L'|'none' } o null (no carga
 // se extraeran limpio en Etapa 2. Aqui dejamos el ESTADO coherente en state.js.
 window.DAL_SESSION_UID = null;
 window.DAL_SESSION_EMAIL = '';
-window.USUARIO_ACTUAL = '';
+if (!('USUARIO_ACTUAL' in window)) window.USUARIO_ACTUAL = ''; // guard: una IIFE clásica lo restaura desde localStorage en parse-time, ANTES de este eval — no pisarlo (auditoría de cierre 2-jul)
 
 // Flags de origen de datos del DAL (Etapa B1). 'pending' → 'supabase' tras la
 // primera lectura exitosa (fail-safe: sin lectura confirmada NO se escribe).

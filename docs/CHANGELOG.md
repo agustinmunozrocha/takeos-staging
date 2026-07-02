@@ -1,5 +1,16 @@
 # Changelog — TakeOS
 
+## V11.31.0 — 30 de junio de 2026
+### Finanzas (CFO): validar gastos y las acciones de la cola ahora SÍ persisten
+
+Rama `fix/cfo-persistir-validacion-gastos`. Solo **frontend**. Bugfix de persistencia en la vista global de Finanzas.
+
+Al validar un gasto (o pagar reembolsos, fijar fecha de pago u objetivo) el cambio se veía bien pero **no se guardaba**: al refrescar volvía a "por validar". La causa no era la base de datos: en la vista global de Finanzas no hay un proyecto "abierto", y el guardado automático a Supabase solo se disparaba cuando había uno, así que el cambio quedaba solo en el respaldo local del navegador y se perdía al recargar.
+
+- `goValidar`, `goPagarReemb`, `goPagarTodos`, `goSetFechaPago` y `goSetObjetivo` ahora encolan explícitamente el guardado del proyecto del gasto (`dalTouchProyecto`) tras marcar el cambio, igual que ya hacía "Observar" un gasto.
+- `goPagarTodos` encola cada proyecto que tenía reembolsos pendientes (la operación cruza varios proyectos a la vez).
+- **Sin cambios de base de datos:** usa el mismo guardado de operaciones (`guardar_operaciones_4b`) que ya existía; solo se corrige que efectivamente se llame.
+
 ## V11.30.0 — 29 de junio de 2026
 ### Base de Datos: archivar / restaurar (Administrador) + logo Chipax
 
