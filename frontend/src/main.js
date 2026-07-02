@@ -16,6 +16,8 @@ import './modules/legal.js'; // puentea renderLegal, legalSetSub, legalSetFiltro
 import './modules/plan-rodaje.js'; // puentea renderPlanRodaje, exportPlanRodajePDF, pr*, renderHojaLlamado, exportHojaLlamadoPDF, printViaIframe, hl* (todas)
 import './modules/bd.js'; // puentea renderBD*, openEmpresa*, empresa*, archivar*, openPersonaForm, openGlobalBDPersonas, crewAddToBD, openPersonaByName, etc.
 import './modules/bd-excel.js'; // puentea _normKey, _norm*BD, ensureXLSX, exportBDExcelV71, importBDExcelV71, buildPersonasDatalist, etc.
+import './modules/buscador.js'; // puentea globalSearchInput, globalSearchKey, _gsearchHide, _gsearchGo
+import './modules/config.js'; // puentea openConfigPanel, openEmpresaPerfil, orgLogo, _orgLogos, _emp*, _cp*, _pd*, abrirFlujoCrearProductora, abrirPrivacidadDatos
 
 window.escapeHtml = escapeHtml;
 window.safeUrl = safeUrl;
