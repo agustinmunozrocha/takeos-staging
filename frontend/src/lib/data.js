@@ -147,6 +147,13 @@ function montoNetoDesde(costoReal, dte) { const c = Number(costoReal) || 0; if (
 function montoBrutoDesde(liquido, dte) { const l = Number(liquido) || 0; if (!l) return 0; return dteTieneRetencion(dte) ? Math.round(l / factorRetencionDte(dte)) : Math.round(l); }
 const UNIDAD_OPTIONS = ['Tarifa Plana', 'Jornadas', 'Horas', 'Personas', 'Locaciones', 'Fotografías'];
 
+// Fórmulas tributarias puras (viajaron con su data DTE; consumidas por el
+// clásico calcCostoEmpresa y por notificaciones/gastos/legal):
+window.dteTieneRetencion  = dteTieneRetencion;
+window.factorRetencionDte = factorRetencionDte;
+window.montoNetoDesde     = montoNetoDesde;
+window.montoBrutoDesde    = montoBrutoDesde;
+
 // ── Window bridges — DEBEN preceder a DEMO_PROJECTS: su inicializador llama
 // al builder CLÁSICO, que lee window.DEFAULT_* (lección del bug del 2-jul) ──
 window.LOC_ORIENTACIONES     = LOC_ORIENTACIONES;     // locaciones.js (tras dedup)
