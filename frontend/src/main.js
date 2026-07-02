@@ -7,8 +7,12 @@ import { escapeHtml, safeUrl, showToast } from './lib/helpers.js';
 import { supabaseInit } from './lib/supabase.js';
 import { dalBootTaxRates } from './lib/rates.js';
 import { STATE } from './lib/state.js';
+import './lib/modelo.js'; // C5 ⚠ antes de data.js: DEMO_PROJECTS llama buildProjectData en eval
 import './lib/data.js'; // catálogos y presets en window (LOC_*, REGIONES, BANCOS, DEFAULT_*, DTE_*, UNIDAD, DEMO_PROJECTS)
 import './lib/auth.js';
+import './lib/calc.js'; // C5: fórmulas/formatos
+import './lib/ui.js'; // C5: modales/tooltip/combobox/tema
+import './lib/nav.js'; // C5 ⚠ antes de gastos.js: goWire lee window.MODULES en eval
 import './modules/kanban.js'; // puentea STATES, renderKanban, navigateToControlRoom, etc.
 import './modules/notificaciones.js'; // puentea bellToggle, notifInit, renderNotificaciones, ntf*, etc.
 import './modules/presupuesto-cotizacion.js'; // puentea renderPresupuesto, renderCotizacion, calcSummaryFin, cot*, budget*, etc.
