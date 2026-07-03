@@ -116,6 +116,14 @@ function _setOrgActiva(orgId){
        los flags *_SOURCE one-way impedían recargar. Hallazgo 🔴 de la Fase 0. */
     if (s !== window.ORG_ID) {
       try {
+        /* Rescate del guardado pendiente ANTES de demoler el estado: si el
+           usuario editó dentro de la ventana del debounce (1,5 s), el touch
+           re-encola lo sucio y el flush arma el payload SÍNCRONO con la org
+           saliente (el RPC resuelve la org de filas existentes desde la BD,
+           así que el write tardío no puede cruzarse). Sin esto, la edición se
+           descartaba en silencio al cambiar de productora. */
+        try { if (window.STATE && window.STATE.currentProject && window.dalTouchProyecto) window.dalTouchProyecto(window.STATE.currentProject); } catch (e) {}
+        try { if (window.dalFlushProyectos) window.dalFlushProyectos(); } catch (e) {}
         PROJECTS.length = 0; TRASH.length = 0;
         [BD_LOC, BD_LEGAL, BD_LEGAL_TPL].forEach(function (a) { a.length = 0; });
         [BD_CONTACTOS, BD_EMPRESAS_BYID, BD_PERSONAS, BD_TALENTOS, BD_EMPRESAS].forEach(function (o) {
@@ -128,7 +136,25 @@ function _setOrgActiva(orgId){
         window.TAKEOS_ACCESO = null;                      // fail-closed hasta dalLoadPermisos de la nueva org
         if (window.STATE) window.STATE.currentProject = null;
         if (window.dalResetOrg) window.dalResetOrg();     // sets de IDs conocidos + timers pendientes del DAL + época (aborta cadenas de boot en vuelo)
-        if (window._persisResetOrg) window._persisResetOrg();   // pilas de deshacer de la org anterior
+        if (window._persisResetOrg) window._persisResetOrg();   // pilas de deshacer + timer de autosave de la org anterior
+        /* Reset de VISTA (el modelo ya está limpio, pero la vista NO): si el
+           cambio de org ocurre desde dentro de un proyecto, el #projectView de
+           la org anterior quedaba VISIBLE (sidebar/breadcrumb/inputs con sus
+           nombres) mientras el kanban nuevo se pintaba en el #controlRoomView
+           oculto — la "vista fantasma" que se leía como sangrado entre orgs.
+           Inline y NO navigateToControlRoom(): su guarda !_TIENE_EMPRESA
+           redirige al Panel según el orden del llamador, y esto debe cubrir
+           también los early-returns del boot (error de red / org sin filas). */
+        try {
+          if (window.STATE) { window.STATE.currentView = 'control-room'; window.STATE.currentModule = null; }
+          var _pv = document.getElementById('projectView'); if (_pv) _pv.classList.add('hidden');
+          var _crv = document.getElementById('controlRoomView'); if (_crv) _crv.classList.remove('hidden');
+          var _bdv = document.getElementById('bdGlobalView'); if (_bdv) _bdv.classList.add('hidden');
+          var _mm = document.getElementById('moduleMain'); if (_mm) _mm.innerHTML = '';
+          var _bm = document.getElementById('bdGlobalMain'); if (_bm) _bm.innerHTML = '';
+          var _sp = document.getElementById('sidebarProject'); if (_sp) _sp.innerHTML = '';
+          var _bc = document.getElementById('breadcrumb'); if (_bc) _bc.innerHTML = '<span class="breadcrumb-current">Control Room</span>';
+        } catch (e) {}
       } catch (e) { console.error('[org] reset al cambiar de organización', e); }
     }
     ORG_ID = s;
@@ -528,7 +554,7 @@ function arrancarTakeOS() {
      jamás se entra al Control Room (se re-deriva la vista correcta). */
   var _pend = false; try { _pend = !!sessionStorage.getItem('takeos_ir_proyecto'); } catch (e) {}
   if (!_TIENE_EMPRESA && !_pend) { resolverEspacioYArrancar(); return; }
-  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootPersonasExternos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} }).then(function(){ try { _cpTourInicialQuizas(); } catch (e) {} }).then(function(){ try { setTimeout(_pdCookiesBootCheck, 1200); } catch (e) {} });
+  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootPersonasExternos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} }).then(function(){ try { _cpTourInicialQuizas(); } catch (e) {} }).then(function(){ try { setTimeout(_pdCookiesBootCheck, 1200); } catch (e) {} }).catch(function(e){ console.error('[boot] cadena dal interrumpida', e); try { _bootCoverHide(); } catch (_) {} });
 }
 
 // _espIniciales, _espSello, _titleCaseNombre, ESPACIO_DEMO, _espConstruir, _espCargarConteos → movido a src/modules/espacio.js (Etapa C4)

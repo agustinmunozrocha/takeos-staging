@@ -1338,6 +1338,11 @@ async function dalBootProyectos() {
           try { _bootCoverHide(); } catch (e) {}
         }, 60);
       } else {
+        /* D0 · la vista guardada viene de OTRA organización (cambio de org desde
+           dentro de un proyecto o de la BD global): no hay nada que restaurar y
+           la vista activa en pantalla es un fantasma de la org anterior (con sus
+           nombres). Navegamos al Control Room de la org nueva. */
+        try { if (_lv && _lv.org !== ORG_ID) navigateToControlRoom(); } catch (_e2) {}
         _bootCoverHide();
       }
     }
@@ -1519,8 +1524,10 @@ async function dalGuardarProyecto(project) {
   if (!built) return true;   // Pasada 1 · no-op: nada cambió → no se llama al RPC
   project._saving = true;
   try {
+    const _epRPC = _dalEpoca();
     const { data, error } = await sb.rpc('guardar_proyecto', { p: built.payload });
     if (error) throw error;
+    if (_epRPC !== _dalEpoca()) return true;   // la org cambió durante el RPC: el write ya aterrizó en la org saliente; no re-contaminar DAL_KNOWN_* ni adoptar sobre un objeto muerto
     _dalAdoptarRespuesta(project, built.meta, data);   // adopta versiones nuevas + limpia las marcas de lo enviado
     DAL_KNOWN_PROJECT_IDS.add(project.id);
     return true;
@@ -1841,8 +1848,10 @@ function dalTouchProyecto(project) {
   _dalProyFlushTimer = setTimeout(dalFlushProyectos, 1500);
 }
 async function dalFlushProyectos() {
+  const _ep = _dalEpoca();
   const ids = Array.from(_dalDirtyProjects); _dalDirtyProjects.clear();
   for (const id of ids) {
+    if (_ep !== _dalEpoca()) return;   // la org cambió a mitad del flush: lo ya despachado aterriza bien; no seguir con estado ajeno
     const p = PROJECTS.find(function(x){ return x.id === id; });
     if (!p) continue;
     if (p._autosaveSuspendedByConflict) continue;        // Pasada 1 · proyecto con conflicto pendiente: no autosalvar
@@ -1891,4 +1900,5 @@ window.dalLoadPermisos = dalLoadPermisos;
 window.dalLoadProyectos = dalLoadProyectos;
 window.dalResolveIdentidad = dalResolveIdentidad;
 window.dalTouchProyecto = dalTouchProyecto;
+window.dalFlushProyectos = dalFlushProyectos;   // D0 · rescate pre-reset en el cambio de org (boot.js/_setOrgActiva)
 window._DAL_TIPOCUENTA_LABEL = _DAL_TIPOCUENTA_LABEL; // el perfil personal (clásico) la lee a pelo — regresión latente B1 detectada en pre-análisis B2
