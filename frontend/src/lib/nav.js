@@ -9,7 +9,7 @@ import { STATE } from './state.js';
 import { authPuedeVer } from './auth.js';
 import { sectionResponsableHTML } from './ui.js';
 
-import { gancho, valor } from './ganchos.js';
+import { define, gancho, valor } from './ganchos.js';
 export function navigateToModule(moduleKey) {
   // V10.4.0 (Gate B): no navegar a módulos sin acceso; caer al primero visible
   if (!authPuedeVer(moduleKey)) {
@@ -191,6 +191,7 @@ export const MODULES = {   // MODULES se asigna al cierre de la definición (lí
     description: 'PDF de business intelligence generado automáticamente al cerrar un proyecto. Métricas, gráficos, conclusiones por IA. Diferenciador estratégico de TakeOS como SaaS. Ver sección 14 del PRD V2.'
   }
 };
+define('MODULES', MODULES);   // ui.js lo consume vía valor() (ui→nav sería ciclo: nav importa sectionResponsableHTML de ui)
 
 /* Dispatcher. Si el módulo tiene función render, la ejecuta.
    Si no, dibuja el stub de Capa 1.
