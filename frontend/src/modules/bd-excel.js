@@ -16,7 +16,6 @@
    - Importación parcial + resumen de lo omitido.
    ════════════════════════════════════════════════════════════════════ */
 
-const BD_IMPORT_HEADERS = ['Nombre','Email','Teléfono','Rol habitual','Tipo DTE','RUT','Banco','Tipo de cuenta','N° de cuenta','Restricciones alimenticias','Dirección','Dirección (línea 2)','Comuna'];
 
 function _normKey(s) {
   return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -595,69 +594,10 @@ function triggerBDExcelImport() {
    (fusión: agrega y actualiza, nunca borra). La limpieza puntual se hace por ficha. */
 
 // Descarga una plantilla .xlsx generada en el navegador (mismas columnas).
-async function downloadBDTemplate() {
-  let XLSX;
-  try { XLSX = await ensureXLSX(); }
-  catch (e) { showToast({ kind: 'error', title: 'No se pudo generar la plantilla', body: e.message }); return; }
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([BD_IMPORT_HEADERS]);
-  ws['!cols'] = BD_IMPORT_HEADERS.map(h => ({ wch: Math.max(14, h.length + 4) }));
-  XLSX.utils.book_append_sheet(wb, ws, 'Personas');
-  const instr = [
-    ['Plantilla de importación — Base de Datos de Personas · TakeOS'],
-    [''],
-    ['1. Completa una fila por persona en la hoja "Personas", desde la fila 2.'],
-    ['2. Guarda como .xlsx y súbela en Base de Datos → "Importar desde Excel".'],
-    [''],
-    ['Reglas:'],
-    ['• Único campo obligatorio: Nombre. Las filas sin nombre se omiten.'],
-    ['• Los duplicados se detectan por RUT; si la persona ya existe, se rellenan solo los campos vacíos.'],
-    ['• La importación es parcial: al final verás un resumen de lo agregado, fusionado y omitido.'],
-    ['• Tipo DTE: usa "boleta" o "factura". N° de cuenta: déjalo como texto para no perder ceros.'],
-    [''],
-    ['Ejemplo:'],
-    BD_IMPORT_HEADERS,
-    ['Juan Pérez Soto','juan.perez@gmail.com','+56 9 1234 5678','Gaffer','boleta','12.345.678-9','Banco de Chile','Cuenta Corriente','00012345678','Sin gluten','Av. Siempreviva 742','Depto 502','Providencia']
-  ];
-  const wi = XLSX.utils.aoa_to_sheet(instr);
-  wi['!cols'] = [{ wch: 90 }];
-  XLSX.utils.book_append_sheet(wb, wi, 'Instrucciones');
-  XLSX.writeFile(wb, 'TakeOS_Plantilla_BD_Personas.xlsx');
-  showToast({ kind: 'success', title: 'Plantilla descargada', body: 'Llénala y vuelve a "Importar desde Excel".' });
-}
 
 // Dispara el selector de archivo de importación.
-function triggerBDImport() {
-  if (dalBulkFrozen()) return;   // V9.6.3: esta ruta (1 hoja) escribe a BD_PERSONAS y NO llega al canónico/Supabase; bloqueada bajo Supabase para no perder datos al recargar. Usa "Importar desde Excel".
-  const inp = document.getElementById('bdImportInput');
-  if (inp) { inp.value = ''; inp.click(); }
-}
 
 // Lee y procesa el archivo elegido.
-async function importBDFromInput(input) {
-  const file = input.files && input.files[0];
-  if (!file) return;
-  let XLSX;
-  try { XLSX = await ensureXLSX(); }
-  catch (e) { showToast({ kind: 'error', title: 'No se pudo importar', body: e.message }); return; }
-
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    let rows;
-    try {
-      const wb = XLSX.read(ev.target.result, { type: 'array' });
-      const sheetName = wb.SheetNames.find(n => _normKey(n) === 'personas') || wb.SheetNames[0];
-      const ws = wb.Sheets[sheetName];
-      rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: '' });
-    } catch (e) {
-      showToast({ kind: 'error', title: 'Archivo inválido', body: 'No pude leer el Excel. ¿Es un .xlsx válido?' });
-      return;
-    }
-    processBDRows(rows);
-  };
-  reader.onerror = () => showToast({ kind: 'error', title: 'Error de lectura', body: 'No se pudo leer el archivo.' });
-  reader.readAsArrayBuffer(file);
-}
 
 // Convierte filas crudas → personas, deduplica por RUT, fusiona y resume.
 function processBDRows(rows) {
@@ -803,9 +743,6 @@ window.exportBDExcelV71     = exportBDExcelV71;
 window.downloadBDPlantilla  = downloadBDPlantilla;
 window.importBDExcelV71     = importBDExcelV71;
 window.triggerBDExcelImport = triggerBDExcelImport;
-window.downloadBDTemplate   = downloadBDTemplate;
-window.triggerBDImport      = triggerBDImport;
-window.importBDFromInput    = importBDFromInput;
 window.processBDRows        = processBDRows;
 window.showBDImportResult   = showBDImportResult;
 window.buildPersonasDatalist = buildPersonasDatalist; // presupuesto-cotizacion.js:296 e INFO PROYECTO (index) la llaman

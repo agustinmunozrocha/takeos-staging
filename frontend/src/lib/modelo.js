@@ -221,26 +221,10 @@ function hydrateContactStore(obj) {
 
 /* Chokepoint histórico: cualquier ruta que antes llamaba migrateAllPersonas()
    ahora simplemente re-sincroniza las proyecciones desde el canónico. */
-function migratePersona(p) {            // mantenido por compat con código viejo
-  if (!p || typeof p !== 'object') return p;
-  if (!Array.isArray(p.roles)) p.roles = ['Crew'];
-  const cuenta = p.nCuenta || p.numeroCuenta || ''; p.nCuenta = cuenta; p.numeroCuenta = cuenta;
-  const email = p.email || p.mail || ''; p.email = email; p.mail = email;
-  return p;
-}
-function migrateAllPersonas() { syncLegacyFromContactos(); }
 
 /* Vista del autocompletado del Presupuesto: solo Crew + Interno. */
 /* getBDPresupuesto → movido a src/modules/presupuesto-cotizacion.js (Etapa 2) */
 /* Vista de casting (incremento 2 la usará en UI). */
-function getBDCasting() {
-  const out = {};
-  Object.keys(BD_CONTACTOS).forEach(id => {
-    const c = BD_CONTACTOS[id];
-    if (c.roles.indexOf('Talento') !== -1) out[id] = c;
-  });
-  return out;
-}
 
 /* _clientUuid: necesaria en startup (buildDefaultProjectData / DEMO_PROJECTS).
    El módulo presupuesto-cotizacion.js tiene su propia copia y puentea window._clientUuid

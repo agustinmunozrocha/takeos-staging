@@ -509,8 +509,6 @@ function ntfSetChannel(c) { ntfState().channel = c; renderNotificaciones(); }
 function ntfSetViewAs(name) { ntfState().viewAs = name; ntfState().override = false; renderNotificaciones(); }
 function ntfToggleRec(nombre, on) { const st = ntfState(); st.sel[ntfCurTpl().key + '::' + nombre] = on; renderNotificaciones(); }
 function ntfSelAll(on) { const st = ntfState(); const tpl = ntfCurTpl(); notifRecipients(STATE.currentProject).forEach(r => st.sel[tpl.key + '::' + r.nombre] = on); renderNotificaciones(); }
-function ntfAddFiles(files) { const st = ntfState(); for (let i = 0; i < files.length; i++) st.adjuntos.push(files[i].name); showToast({ kind: 'info', title: 'Adjunto agregado', body: 'El archivo se adjunta de verdad al conectar el backend.', duration: 2600 }); renderNotificaciones(); }
-function ntfRemoveFile(i) { ntfState().adjuntos.splice(i, 1); renderNotificaciones(); }
 function ntfStartOverride() { ntfState().override = true; renderNotificaciones(); }
 function ntfOverrideInput() { const el = document.getElementById('ntfOverrideBody'); if (el) ntfState()._pendingOverride = ntfSerialize(el); }
 function ntfSaveOverride() { const st = ntfState(); const tpl = ntfCurTpl(); const ovKey = tpl.key + '::' + st.viewAs; if (st._pendingOverride != null) st.overrides[ovKey] = st._pendingOverride; st.override = false; st._pendingOverride = null; window.markDirty(); showToast({ kind: 'success', title: 'Override guardado', body: 'Solo para ' + escapeHtml(String(st.viewAs).split(' ')[0]) + ' · no afecta la plantilla. (Persistencia entre sesiones con el backend.)' }); renderNotificaciones(); }
@@ -598,8 +596,6 @@ function ntfViewPlantillas(project) {
 }
 function ntfSetEditChannel(c) { ntfState().editChannel = c; renderNotificaciones(); }
 function ntfSetTplName(v) { if (!ntfCanEdit(ntfCurEditTpl())) return; ntfCurEditTpl().nombre = v; window.markDirty(); notifSaveConfig(); }
-function ntfToggleDist() { const t = ntfCurEditTpl(); if (!ntfCanEdit(t)) return; t.distinguir = !t.distinguir; if (t.distinguir && !t.wsp) t.wsp = t.cuerpo; window.markDirty(); notifSaveConfig(); renderNotificaciones(); }
-function ntfTogglePublic() { if (!ntfIsAdmin()) { showToast({ kind: 'warning', title: 'Requiere admin', body: 'Hacer pública o privada una plantilla requiere modo administrador.' }); return; } const t = ntfCurEditTpl(); t.privada = !t.privada; window.markDirty(); notifSaveConfig(); renderNotificaciones(); }
 function ntfNewTemplate() {
   const key = 'custom_' + Date.now();
   const cfg = getNotifConfig();
@@ -704,8 +700,6 @@ window.ntfSetChannel       = ntfSetChannel;
 window.ntfSetViewAs        = ntfSetViewAs;
 window.ntfToggleRec        = ntfToggleRec;
 window.ntfSelAll           = ntfSelAll;
-window.ntfAddFiles         = ntfAddFiles;
-window.ntfRemoveFile       = ntfRemoveFile;
 window.ntfStartOverride    = ntfStartOverride;
 window.ntfOverrideInput    = ntfOverrideInput;
 window.ntfSaveOverride     = ntfSaveOverride;
@@ -718,8 +712,6 @@ window.ntfToggleHist       = ntfToggleHist;
 window.ntfSetEditSubver    = ntfSetEditSubver;
 window.ntfSetEditChannel   = ntfSetEditChannel;
 window.ntfSetTplName       = ntfSetTplName;
-window.ntfToggleDist       = ntfToggleDist;
-window.ntfTogglePublic     = ntfTogglePublic;
 window.ntfNewTemplate      = ntfNewTemplate;
 window.ntfFmt              = ntfFmt;
 window.ntfInsertVar        = ntfInsertVar;

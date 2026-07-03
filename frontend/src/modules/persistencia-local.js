@@ -9,6 +9,10 @@ let UNDO_STACK = [];
 let UNDO_BASELINE = null;
 const UNDO_MAX = 30;
 let REDO_STACK = [];   // V7.8: pila de rehacer (Cmd+Shift+Z)
+window._persisResetOrg = function () {
+  UNDO_STACK = []; REDO_STACK = []; UNDO_BASELINE = null;   // D0 · el historial de deshacer no cruza organizaciones
+  if (_autosaveTimer) { clearTimeout(_autosaveTimer); _autosaveTimer = null; }   // que el autosave de 2 s no pise el airbag local con el estado recién vaciado
+};
 
 /* ════════════════════════════════════════════════════════════════════
    V5.5 — SISTEMA DE GUARDADO / CARGA (save file .json + autoguardado)
@@ -70,21 +74,6 @@ function buildSaveObject() {
    sincronizarse TODO. Por eso el payload de nube va SIN fotos: las fotos viven
    en localStorage (este navegador) y se reinyectan al cargar. Cross-device
    real requiere Supabase Storage, pendiente. */
-function stripLocPhotosForCloud(bdLocArr) {
-  return (bdLocArr || []).map(l => {
-    const n = (l && l.fotos ? l.fotos.length : 0);
-    const c = Object.assign({}, l);
-    c.fotos = [];
-    if (n) c._fotosLocal = n;   // marcador informativo
-    return c;
-  });
-}
-function buildCloudSaveObject() {
-  const o = buildSaveObject();
-  o.bdLoc = stripLocPhotosForCloud(o.bdLoc);
-  o._photosStripped = true;
-  return o;
-}
 /* Reinyecta en BD_LOC (en memoria) las fotos guardadas en localStorage, que NO
    viajan por la nube. Solo rellena registros que llegan SIN fotos, así no pisa
    fotos entrantes de un cliente antiguo que todavía las envíe. */
@@ -262,7 +251,8 @@ function _readSnapshots() {
 }
 function _writeSnapshots(list) {
   if (!hasLS()) return;
-  try { window.localStorage.setItem(SNAP_KEY, JSON.stringify(list)); } catch (e) {}
+  try { window.localStorage.setItem(SNAP_KEY, JSON.stringify(list)); }
+  catch (e) { console.error('[snapshots] no se pudo escribir el snapshot de seguridad', e); _persisAvisarFallo('No se pudo guardar el snapshot de seguridad previo a la operación. Considera exportar un respaldo (.json) manualmente.'); }
 }
 function pushSnapshot(label) {
   const snap = {
@@ -275,7 +265,6 @@ function pushSnapshot(label) {
   while (list.length > SNAP_MAX) list.pop();
   _writeSnapshots(list);
 }
-function listSnapshots() { return _readSnapshots(); }
 function restoreSnapshot(index) {
   const list = _readSnapshots();
   const snap = list[index];
@@ -475,29 +464,25 @@ function importSingleProjectFromInput(input) {
 }
 
 /* ─── AUTOGUARDADO (localStorage, best-effort) ─────────────────────── */
+let _persisFalloAvisado = false;
+function _persisAvisarFallo(body) {
+  /* D0 · el fallo de escritura local (quota llena, modo privado) era tragado en
+     silencio por ~30 llamadores que jamás revisan el retorno. Un aviso por
+     sesión: informar sin spamear. Hallazgo 🔴 de la Fase 0. */
+  if (_persisFalloAvisado) return; _persisFalloAvisado = true;
+  try { showToast({ kind: 'warning', title: 'Respaldo local con problemas', body: body, duration: 9000 }); } catch (e) {}
+}
 function autosaveNow() {
   let ok = false;
   if (hasLS()) {
-    try { window.localStorage.setItem(LS_KEY, JSON.stringify(buildSaveObject())); ok = true; } catch (e) {}
+    try { window.localStorage.setItem(LS_KEY, JSON.stringify(buildSaveObject())); ok = true; }
+    catch (e) { console.error('[autosave] no se pudo escribir localStorage', e); _persisAvisarFallo('El autoguardado local falló (¿espacio del navegador lleno?). Tus cambios siguen yendo a la nube, pero el respaldo offline no se está actualizando.'); }
   }
   return ok;
 }
 function scheduleAutosave() {
   if (_autosaveTimer) clearTimeout(_autosaveTimer);
   _autosaveTimer = setTimeout(autosaveNow, 2000);
-}
-function loadAutosaveRaw() {
-  if (!hasLS()) return null;
-  try {
-    const raw = window.localStorage.getItem(LS_KEY);
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    return validateSaveObject(obj) ? null : obj;
-  } catch (e) { return null; }
-}
-function discardAutosave() {
-  if (!hasLS()) return;
-  try { window.localStorage.removeItem(LS_KEY); } catch (e) {}
 }
 
 /* ─── ESTADO "SIN GUARDAR" (dirty) ─────────────────────────────────── */
@@ -619,23 +604,6 @@ function redoLast() {
 
 /* Al volver a abrir: si hay autoguardado válido, ofrecer restaurarlo
    (no clobbear en silencio, para no confundir entre archivos/versiones). */
-function offerAutosaveRestore() {
-  const obj = loadAutosaveRaw();
-  if (!obj) return;
-  const savedWhen = obj.savedAt ? new Date(obj.savedAt).toLocaleString('es-CL') : 'fecha desconocida';
-  showModal({
-    danger: false,
-    title: 'Autoguardado disponible',
-    body: `Hay un autoguardado en este navegador del ${escapeHtml(savedWhen)} (${obj.projects.length} proyecto(s)).<br><br>¿Restaurar tu trabajo, o empezar con los datos de demostración?<br><br><span style="color:var(--ink-faint);font-size:12px;">El autoguardado es solo un airbag local. Tu respaldo serio es el archivo .json que exportas con “Guardar”.</span>`,
-    confirmLabel: 'Restaurar mi trabajo',
-    cancelLabel: 'Usar datos demo',
-    onConfirm: () => {
-      applyLoadedState(obj);
-      showToast({ kind: 'success', title: 'Trabajo restaurado', body: 'Se cargó tu autoguardado más reciente.' });
-    },
-    onCancel: () => {}
-  });
-}
 
 // ── Window bridges Persistencia local (verificados caller por caller en pre-análisis) ──
 window.markDirty                    = markDirty;                    // ~35 sitios clásicos + 9 módulos + listeners DOMContentLoaded (por referencia)

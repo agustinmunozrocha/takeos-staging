@@ -560,14 +560,6 @@ function ensureHojaDia(diaId) {
   return dia;
 }
 
-function nextLocId(locaciones) {
-  let max = 0;
-  locaciones.forEach(l => {
-    const m = /^LOC-(\d+)$/.exec(l.id || '');
-    if (m) max = Math.max(max, parseInt(m[1], 10));
-  });
-  return 'LOC-' + String(max + 1).padStart(2, '0');
-}
 
 function renderHojaLlamado() {
   const project = STATE.currentProject;
@@ -899,30 +891,8 @@ function deleteCitExterna(diaId, idx) {
   renderHojaLlamado();
 }
 
-function addLocacion() {
-  const hl = STATE.currentProject.data.hojaLlamado;
-  hl.locaciones.push({ id: nextLocId(hl.locaciones), nombre: '', direccion: '', maps: '', notas: '' });
-  renderHojaLlamado();
-}
 
-function updateLocacionField(idx, field, value) {
-  STATE.currentProject.data.hojaLlamado.locaciones[idx][field] = value;
-}
 
-function deleteLocacion(idx) {
-  const hl = STATE.currentProject.data.hojaLlamado;
-  const loc = hl.locaciones[idx];
-  // Limpiar referencias a esta locación en las citaciones de todos los días
-  for (const diaId in hl.dias) {
-    const dia = hl.dias[diaId];
-    for (const nombre in dia.crewOverrides) {
-      if (dia.crewOverrides[nombre].locacionId === loc.id) dia.crewOverrides[nombre].locacionId = '';
-    }
-    dia.citacionesExternas.forEach(e => { if (e.locacionId === loc.id) e.locacionId = ''; });
-  }
-  hl.locaciones.splice(idx, 1);
-  renderHojaLlamado();
-}
 
 /* V5.3.1 (Notas 3+4): exportar a PDF AVANZA la versión automáticamente
    (obligatorio, sin bypass) y registra el timestamp del momento exacto
@@ -1484,9 +1454,6 @@ window.toggleCrewPresente    = toggleCrewPresente;
 window.addCitacionExterna    = addCitacionExterna;
 window.updateCitExterna      = updateCitExterna;
 window.deleteCitExterna      = deleteCitExterna;
-window.addLocacion           = addLocacion;
-window.updateLocacionField   = updateLocacionField;
-window.deleteLocacion        = deleteLocacion;
 window.hojaPreviewPDF        = hojaPreviewPDF;
 window.hojaPreviewGenerar    = hojaPreviewGenerar;
 window.hlPrevSetMargen       = hlPrevSetMargen;

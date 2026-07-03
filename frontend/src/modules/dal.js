@@ -93,11 +93,6 @@ const _DAL_ROLE_LABEL = { crew: 'Crew', interno: 'Interno', talento: 'Talento', 
 const _DAL_TIPOCUENTA_LABEL = { corriente: 'Cuenta Corriente', vista: 'Cuenta Vista', ahorro: 'Cuenta de Ahorro', rut: 'Cuenta RUT', chequera_electronica: 'Chequera Electr\u00f3nica' };
 const _DAL_TIPO_EMPRESA_LABEL = { cliente: 'Cliente', proveedor: 'Proveedor', agencia: 'Agencia', socio: 'Socio' };
 function _dalBancoNombre(codigo) { if (!codigo) return ''; const b = BANCOS_CHILE.find(x => x.codigo === String(codigo)); return b ? b.nombre : ''; }
-function _dalCumpleDesdeISO(fecha) {   // 'AAAA-MM-DD' -> 'DD/MM' (formato que usa la app)
-  if (!fecha) return '';
-  const m = String(fecha).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  return m ? (('0' + m[3]).slice(-2) + '/' + ('0' + m[2]).slice(-2)) : '';
-}
 
 /* Fila de Supabase (con satelites embebidos) -> contacto canonico BD_CONTACTOS[id]. */
 function _dalContactoDesdeRow(r) {
@@ -214,7 +209,9 @@ function dalApplyTanda1(data) {
    los contactos/empresas ya cargados y refresca la pantalla.
    Si falla, NO toca nada: la app sigue con el estado actual. */
 async function dalBootContactos() {
+  const _ep = _dalEpoca();
   const data = await dalLoadTanda1();
+  if (_ep !== _dalEpoca()) return false;   // cadena obsoleta: la org cambió durante la carga
   if (!data) { console.warn('[dal] sin datos de Supabase; la BD mantiene su estado actual'); return false; }
   dalApplyTanda1(data);
   const nC = Object.keys(data.contactos).length, nE = Object.keys(data.empresas).length;
@@ -234,10 +231,12 @@ async function dalBootContactos() {
    que el proyecto las muestre. Gateada estrictamente a tipo 'externo': no toca a
    los internos (que sí leen contacts por RLS). Apoya el Frente F. */
 async function dalBootPersonasExternos() {
+  const _ep = _dalEpoca();
   try {
     if (!sb) return;
     if (typeof TAKEOS_PERFIL === 'undefined' || !TAKEOS_PERFIL || TAKEOS_PERFIL.tipo !== 'externo') return;
     var r = await sb.rpc('personas_de_mis_proyectos');
+    if (_ep !== _dalEpoca()) return;   // cadena obsoleta
     if (r.error) throw r.error;
     var filas = Array.isArray(r.data) ? r.data : [];
     if (!filas.length) return;
@@ -271,14 +270,6 @@ async function dalBootPersonasExternos() {
 /* \u00bfLa escritura de la BD esta congelada? (porque ya leemos de Supabase pero
    la escritura no llegó a Supabase, y se perderia al recargar). La usan los
    editores de la Base de Datos para avisar y no guardar. */
-function dalBulkFrozen() {
-  if (CONTACTS_SOURCE !== 'supabase') return false;
-  // V9.6.3: "Importar" (fusión) ya sincroniza a Supabase. Solo "Reemplazar todo" sigue
-  // bloqueado: borrar de Supabase lo que no está en el Excel exige una RPC de reemplazo
-  // atómico (no un borrado masivo frágil desde el cliente sobre datos bancarios).
-  try { showToast({ kind: 'info', title: 'Reemplazo total pendiente', body: 'El "Reemplazar todo" hacia Supabase llega con una RPC de reemplazo atómico. Por ahora usa "Importar desde Excel" (fusión, que sí escribe a Supabase) o edita por ficha.', duration: 7000 }); } catch (e) {}
-  return true;
-}
 
 /* ── V9.4.4 · BD de Locaciones (BD_LOC), transversal ──────────────────────
    Lectura desde la tabla `locations`. Las FOTOS no viven en Supabase todavía
@@ -315,7 +306,9 @@ function dalApplyLocaciones(locs) {
 }
 async function dalBootLocaciones(opts) {
   const silent = opts && opts.silent;
+  const _ep = _dalEpoca();
   const locs = await dalLoadLocaciones();
+  if (_ep !== _dalEpoca()) return false;   // cadena obsoleta
   if (!locs) { if (!silent) console.warn('[dal] sin locaciones de Supabase; BD_LOC mantiene su estado actual'); return false; }
   dalApplyLocaciones(locs);
   try { restoreLocalLocPhotos(); } catch (e) {}   // reinyecta fotos de localStorage
@@ -373,7 +366,9 @@ function dalApplyLegal(data) {
 }
 async function dalBootLegal(opts) {
   const silent = opts && opts.silent;
+  const _ep = _dalEpoca();
   const data = await dalLoadLegal();
+  if (_ep !== _dalEpoca()) return false;   // cadena obsoleta
   if (!data) { if (!silent) console.warn('[dal] sin legal de Supabase; mantiene su estado actual'); return false; }
   dalApplyLegal(data);
   if (!silent) {
@@ -436,7 +431,9 @@ function dalApplyPerfil(profile, nombreCanonico) {
 }
 async function dalBootPerfil(opts) {
   const silent = opts && opts.silent;
+  const _ep = _dalEpoca();
   const res = await dalLoadPerfil();
+  if (_ep !== _dalEpoca()) return false;   // cadena obsoleta
   if (!res) { if (!silent) console.warn('[dal] sin perfil de Supabase; mantiene su estado actual'); return false; }
   dalApplyPerfil(res.profile, res.nombreCanonico);
   return true;
@@ -520,6 +517,7 @@ async function dalResolveIdentidad() {
    de permisos. Corre tras dalBootContactos -> dalResolveIdentidad. */
 async function dalLoadPermisos() {
   if (!sb || !DAL_SESSION_UID) return;
+  const _ep = _dalEpoca();
   try {
     const { data: mem, error: e1 } = await sb
       .from('memberships')
@@ -527,6 +525,7 @@ async function dalLoadPermisos() {
       .eq('user_id', DAL_SESSION_UID)
       .eq('organization_id', ORG_ID)
       .maybeSingle();
+    if (_ep !== _dalEpoca()) return;   // cadena obsoleta
     if (e1) throw e1;
     if (!mem) { console.warn('[auth] sin membresía para el usuario (fail-open)'); return; }
     const pp = mem.permission_profiles || {};
@@ -542,6 +541,7 @@ async function dalLoadPermisos() {
       .select('modulo, nivel')
       .eq('profile_id', mem.profile_id);
     if (e2) throw e2;
+    if (_ep !== _dalEpoca()) return;   // cadena obsoleta
     const acc = {};
     (perms || []).forEach(function (p) { acc[p.modulo] = p.nivel; });
     TAKEOS_ACCESO = Object.keys(acc).length ? acc : null;
@@ -1288,9 +1288,11 @@ async function dalReloadProyecto(id) {
 }
 
 async function dalBootProyectos() {
+  const _ep = _dalEpoca();
   const rows = await dalLoadProyectos();
-  if (!rows) { _bootCoverHide(); return; }            // error o sin red -> estado actual intacto
-  if (!rows.length) { _bootCoverHide(); return; }     // sin proyectos migrados -> estado actual intacto (NO destructivo)
+  if (_ep !== _dalEpoca()) return;                    // cadena obsoleta: no aplica ni toca el veil (la cadena vigente lo cierra)
+  if (!rows) { try { renderMetrics(); renderKanban(); } catch (e) {} _bootCoverHide(); return; }   // error o sin red -> se pinta el estado actual (post-reset: tablero vacío honesto, no fantasmas de la org anterior)
+  if (!rows.length) { window.PROJECTS_SOURCE = 'supabase'; try { renderMetrics(); renderKanban(); } catch (e) {} _bootCoverHide(); return; }   // org sin proyectos: la nube respondió -> escritura habilitada y tablero vacío real (sin esto el flag quedaba 'pending' y nada sincronizaba)
   let aplicados = 0;
   rows.forEach(function(p){
     const partes = _dalProyectoPartes(p);
@@ -1336,6 +1338,11 @@ async function dalBootProyectos() {
           try { _bootCoverHide(); } catch (e) {}
         }, 60);
       } else {
+        /* D0 · la vista guardada viene de OTRA organización (cambio de org desde
+           dentro de un proyecto o de la BD global): no hay nada que restaurar y
+           la vista activa en pantalla es un fantasma de la org anterior (con sus
+           nombres). Navegamos al Control Room de la org nueva. */
+        try { if (_lv && _lv.org !== ORG_ID) navigateToControlRoom(); } catch (_e2) {}
         _bootCoverHide();
       }
     }
@@ -1517,8 +1524,10 @@ async function dalGuardarProyecto(project) {
   if (!built) return true;   // Pasada 1 · no-op: nada cambió → no se llama al RPC
   project._saving = true;
   try {
+    const _epRPC = _dalEpoca();
     const { data, error } = await sb.rpc('guardar_proyecto', { p: built.payload });
     if (error) throw error;
+    if (_epRPC !== _dalEpoca()) return true;   // la org cambió durante el RPC: el write ya aterrizó en la org saliente; no re-contaminar DAL_KNOWN_* ni adoptar sobre un objeto muerto
     _dalAdoptarRespuesta(project, built.meta, data);   // adopta versiones nuevas + limpia las marcas de lo enviado
     DAL_KNOWN_PROJECT_IDS.add(project.id);
     return true;
@@ -1811,6 +1820,26 @@ async function dalGuardarOperaciones4e(project) {
 /* Debounce por proyecto: junta ediciones y escribe los proyectos tocados. */
 const _dalDirtyProjects = new Set();
 let _dalProyFlushTimer = null;
+
+/* D0 · Reset del estado interno del DAL al cambiar de organización activa.
+   Sin esto, los sets de IDs conocidos y los timers de guardado pendientes
+   sobreviven al cambio de org → fusiones contra IDs ajenos y writes tardíos
+   contra la org equivocada. Lo invoca _setOrgActiva (boot.js) vía window. */
+function _dalEpoca() { return window._ORG_EPOCA || 0; }
+/* Las cadenas de boot capturan la época al entrar y abortan tras cada await si
+   cambió: una cadena obsoleta no puede re-poblar los stores recién reseteados
+   con datos de la org anterior (hallazgo de la auditoría adversarial de D0). */
+function dalResetOrg() {
+  try {
+    window._ORG_EPOCA = _dalEpoca() + 1;   // invalida toda cadena de boot en vuelo
+    [DAL_KNOWN_LOC_IDS, DAL_KNOWN_LEGAL_DOC_IDS, DAL_KNOWN_LEGAL_TPL_IDS,
+     DAL_KNOWN_CONTACT_IDS, DAL_KNOWN_COMPANY_IDS, DAL_KNOWN_PROJECT_IDS,
+     _dalDirtyProjects].forEach(function (s) { s.clear(); });
+    Object.keys(_dalSaveTimers).forEach(function (k) { clearTimeout(_dalSaveTimers[k]); delete _dalSaveTimers[k]; });
+    clearTimeout(_dalProyFlushTimer); _dalProyFlushTimer = null;
+  } catch (e) { console.error('[dal] reset de org', e); }
+}
+window.dalResetOrg = dalResetOrg;
 function dalTouchProyecto(project) {
   if (PROJECTS_SOURCE !== 'supabase' || !project || !project.id) return;
   if (project._autosaveSuspendedByConflict) return;   // Pasada 1 · autosave suspendido por conflicto (hasta recargar)
@@ -1819,8 +1848,10 @@ function dalTouchProyecto(project) {
   _dalProyFlushTimer = setTimeout(dalFlushProyectos, 1500);
 }
 async function dalFlushProyectos() {
+  const _ep = _dalEpoca();
   const ids = Array.from(_dalDirtyProjects); _dalDirtyProjects.clear();
   for (const id of ids) {
+    if (_ep !== _dalEpoca()) return;   // la org cambió a mitad del flush: lo ya despachado aterriza bien; no seguir con estado ajeno
     const p = PROJECTS.find(function(x){ return x.id === id; });
     if (!p) continue;
     if (p._autosaveSuspendedByConflict) continue;        // Pasada 1 · proyecto con conflicto pendiente: no autosalvar
@@ -1837,13 +1868,6 @@ async function dalFlushProyectos() {
 }
 
 /* Banner visible dentro del modulo Base de Datos (claridad sobre comodidad). */
-function dalBannerHTML() {
-  if (CONTACTS_SOURCE !== 'supabase') return '';
-  return '<div style="margin-bottom:var(--space-4);padding:10px 14px;border:1px solid var(--accent,#B03A2F);border-radius:8px;background:rgba(176,58,47,0.08);color:var(--ink-secondary);font-size:13px;line-height:1.5;">'
-    + '<strong style="color:var(--accent,#B03A2F);">Lectura desde Supabase (V9.1.0).</strong> '
-    + 'Esta Base de Datos se carga desde la base relacional. La <strong>edici\u00f3n est\u00e1 en pausa</strong> hasta la V9.1.1; evita editar contactos o empresas mientras tanto.'
-    + '</div>';
-}
 
 // ── Window bridges DAL (3 barridos: consumo externo, auto-consumo, nombre-string) ──
 window._conflictoBannerHide = _conflictoBannerHide;
@@ -1862,7 +1886,6 @@ window.dalBootLocaciones = dalBootLocaciones;
 window.dalBootPerfil = dalBootPerfil;
 window.dalBootPersonasExternos = dalBootPersonasExternos;
 window.dalBootProyectos = dalBootProyectos;
-window.dalBulkFrozen = dalBulkFrozen;
 window.dalCargarCargos = dalCargarCargos;
 window.dalCargarTopeColaboradores = dalCargarTopeColaboradores;
 window.dalEliminarLegalDoc = dalEliminarLegalDoc;
@@ -1877,4 +1900,5 @@ window.dalLoadPermisos = dalLoadPermisos;
 window.dalLoadProyectos = dalLoadProyectos;
 window.dalResolveIdentidad = dalResolveIdentidad;
 window.dalTouchProyecto = dalTouchProyecto;
+window.dalFlushProyectos = dalFlushProyectos;   // D0 · rescate pre-reset en el cambio de org (boot.js/_setOrgActiva)
 window._DAL_TIPOCUENTA_LABEL = _DAL_TIPOCUENTA_LABEL; // el perfil personal (clásico) la lee a pelo — regresión latente B1 detectada en pre-análisis B2

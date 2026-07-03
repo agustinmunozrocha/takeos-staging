@@ -371,6 +371,7 @@ function _markHeaderDirty(project) {
 /* _budgetQueueDeletes → movido a src/modules/presupuesto-cotizacion.js (Etapa 2) */
 
 function updateInfoField(field, value) {
+  if (!STATE.currentProject) return;   // vista fantasma (p.ej. tras cambio de org): no hay proyecto que editar
   STATE.currentProject.data.infoProyecto[field] = value;
   _markHeaderDirty(STATE.currentProject);   // Pasada 1 · cabecera tocada (se versiona como unidad bajo info_proyecto)
   // Para campos que afectan el resumen financiero, re-render del KPI bar.
@@ -379,6 +380,7 @@ function updateInfoField(field, value) {
 
 /* V8.3: setter del bloque Derechos (objeto anidado en infoProyecto). */
 function updateDerechos(field, value) {
+  if (!STATE.currentProject) return;   // vista fantasma: ídem updateInfoField
   const ip = STATE.currentProject.data.infoProyecto;
   if (!ip.derechos || typeof ip.derechos !== 'object') ip.derechos = { tiempo: '', plataformas: '', territorio: '' };
   ip.derechos[field] = value;
@@ -548,3 +550,8 @@ window.renderInfoProyecto = renderInfoProyecto;
 window.restoreFromTrash = restoreFromTrash;
 window.updateDerechos = updateDerechos;
 window.updateInfoField = updateInfoField;
+
+// D0 · puentes que faltaban desde la Etapa C (barrido 3 re-ejecutado): los
+// handlers on* generados los invocan como globales.
+window.updateProjectHeader = updateProjectHeader;
+window._infoEmpresaBDHint = _infoEmpresaBDHint;

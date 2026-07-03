@@ -46,7 +46,6 @@ const CHIPAX_TIPODOC = {
   'Boleta': 'Boleta', 'Honorario': 'Boleta', 'Boleta de honorarios': 'Boleta',
   'Otro': 'Recibo'
 };
-const GO_LINEAS_BASE = ['Dirección', 'Producción', 'Arte', 'Cámara', 'Iluminación', 'Locaciones', 'Talento', 'Transporte', 'Catering', 'Postproducción', 'Caja de Producción', 'Otros'];
 const GO_MEDIOS = ['Tarjeta empresa (débito)', 'Tarjeta empresa (crédito)', 'Transferencia cuenta empresa', 'Caja de producción', 'Reembolso a colaborador', 'Otro'];
 const GO_TIPOS = ['Factura', 'Factura Exenta', 'Boleta', 'Invoice', 'Otro'];   // Pasada 4 (#6) · tipos de documento del gasto
 const GO_ESTADOS = { pendiente: 'Pendiente', por_revisar: 'Por revisar', validado: 'Validado', en_observacion: 'En observación' };
@@ -71,10 +70,6 @@ function goData(project) {
   if (typeof d.cajaDevuelto !== 'number') d.cajaDevuelto = 0;   // Pasada 4 · devoluciones de caja (no persiste aún; ver handoff BD)
   if (!Array.isArray(d.cajaMovs)) d.cajaMovs = [];              // Pasada 4 · libreta de ingresos/devoluciones de caja (en memoria; persiste con el handoff BD)
   return d;
-}
-function goLineas(project) {
-  const d = goData(project);
-  return GO_LINEAS_BASE.concat(d.lineasExtra.filter(l => GO_LINEAS_BASE.indexOf(l) < 0));
 }
 function goPresById(project, id) { return goData(project).presupuestos.find(p => p.id === id) || null; }
 function goPresList(project) { return goData(project).presupuestos; }
@@ -412,13 +407,6 @@ function goCajaHistorial() {
 }
 
 /* ---------- acciones proyecto ---------- */
-function goEditCaja() {
-  const project = STATE.currentProject; const d = goData(project);
-  const v = window.prompt('Monto entregado a la Caja de Producción (CLP):', String(d.cajaProd || 0));
-  if (v === null) return;
-  d.cajaProd = parseInt(String(v).replace(/\D/g, '')) || 0;
-  markDirty(); renderGastos();
-}
 function goMarcarListo(id) {
   const project = STATE.currentProject; const m = goMovs(project).find(x => x.id === id);
   if (m) { m.estado = 'por_revisar'; markDirty(); renderGastos(); showToast({ kind: 'success', title: 'Gasto listo', body: 'Pasó a la cola de validación de Finanzas.' }); }

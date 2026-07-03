@@ -209,3 +209,7 @@ window.fmtFechaLarga = fmtFechaLarga;
 window.renderRodajes = renderRodajes;
 window.toggleRodajeActivo = toggleRodajeActivo;
 window.updateRodajeField = updateRodajeField;
+
+// D0 · puentes que faltaban desde la Etapa C (barrido 3 re-ejecutado): los
+// handlers on* generados los invocan como globales.
+window.recalcRodajesKPI = recalcRodajesKPI;

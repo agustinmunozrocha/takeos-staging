@@ -94,3 +94,8 @@ function manejarErrorPlan(err) {
 window._planModalVenta = _planModalVenta;
 window._planVerPlanes = _planVerPlanes;
 window.manejarErrorPlan = manejarErrorPlan;
+
+// D0 · puentes que faltaban desde la Etapa C (barrido 3 re-ejecutado): los
+// handlers on* generados los invocan como globales.
+window.ctaProdCerrar = ctaProdCerrar;
+window.ctaProdSaberMas = ctaProdSaberMas;

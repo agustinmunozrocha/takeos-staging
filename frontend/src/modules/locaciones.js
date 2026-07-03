@@ -304,7 +304,6 @@ function openLocDetail(locId) {
 
 function locSetEstado(locId, estado) { const u = projLocFind(STATE.currentProject, locId); if (!u) return; u.estado = estado; window.markDirty(); renderLocaciones(); openLocDetail(locId); showToast({ kind: 'info', title: 'Estado actualizado', body: 'Locación marcada como ' + window.LOC_ESTADOS[estado].toLowerCase() + '.' }); }
 function locSetBD(locId, field, value) { const l = bdLocFind(locId); if (!l) return; l[field] = value; window.markDirty(); window.autosaveNow(); _dalLocacionSaveSoon(locId); }
-function locSetDueno(locId, field, value) { const l = bdLocFind(locId); if (!l) return; if (!l.dueno) l.dueno = { nombre: '', mail: '', tel: '' }; l.dueno[field] = value; window.markDirty(); window.autosaveNow(); _dalLocacionSaveSoon(locId); }
 function locAddContacto(locId) { const l = bdLocFind(locId); if (!l) return; if (!Array.isArray(l.contactos)) l.contactos = []; l.contactos.push({ nombre: '', mail: '', tel: '', obs: '', relacion: '' }); window.markDirty(); window.autosaveNow(); _dalLocacionSaveSoon(locId); openLocDetail(locId); }
 function locSetContacto(locId, i, field, value) { const l = bdLocFind(locId); if (!l || !Array.isArray(l.contactos) || !l.contactos[i]) return; l.contactos[i][field] = value; window.markDirty(); window.autosaveNow(); _dalLocacionSaveSoon(locId); }
 function locDelContacto(locId, i) { const l = bdLocFind(locId); if (!l || !Array.isArray(l.contactos)) return; l.contactos.splice(i, 1); window.markDirty(); window.autosaveNow(); _dalLocacionSaveSoon(locId); openLocDetail(locId); }
@@ -661,7 +660,6 @@ function comboboxFilterLocScout(inputEl) {
   if (wrap.classList.contains('cbx-anchored')) { dropdown.style.left = ''; dropdown.style.top = ''; dropdown.style.width = ''; }
   else { positionComboboxDropdown(inputEl, dropdown); }
 }
-function locScoutDelFila(i) { const s = locEnsureScout(STATE.currentProject); s.filas.splice(i, 1); window.markDirty(); renderLocaciones(); }
 function locScoutAddQuien() { const s = locEnsureScout(STATE.currentProject); s.quienes.push(''); window.markDirty(); renderLocaciones(); }
 function locScoutSetQuien(i, value) { const s = locEnsureScout(STATE.currentProject); s.quienes[i] = value; window.markDirty(); }
 function locScoutDelQuien(i) { const s = locEnsureScout(STATE.currentProject); s.quienes.splice(i, 1); window.markDirty(); renderLocaciones(); }
@@ -842,7 +840,6 @@ window.locEnsureScout        = locEnsureScout;
 // Gestión de fichas de locación
 window.locSetEstado          = locSetEstado;
 window.locSetBD              = locSetBD;
-window.locSetDueno           = locSetDueno;
 window.locSetContacto        = locSetContacto;
 window.locSetProj            = locSetProj;
 window.locAddContacto        = locAddContacto;
@@ -878,7 +875,6 @@ window.locScoutDragLeave     = locScoutDragLeave;
 window.locScoutDrop          = locScoutDrop;
 window.locScoutMoverParada   = locScoutMoverParada;
 window.locScoutAddLocBD      = locScoutAddLocBD;
-window.locScoutDelFila       = locScoutDelFila;
 window.locScoutAddQuien      = locScoutAddQuien;
 window.locScoutSetQuien      = locScoutSetQuien;
 window.locScoutDelQuien      = locScoutDelQuien;

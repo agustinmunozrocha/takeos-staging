@@ -8,7 +8,6 @@ const CHIPAX_LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOEAAADhCAMAA
 function cfgSetUsaChipax(on) {
   try { EMPRESA_PERFIL.usaChipax = !!on; markDirty(); _dalPerfilSaveSoon(); } catch (e) {}
 }
-function bdSetFormLink(v) { if (typeof EMPRESA_PERFIL !== 'undefined') { EMPRESA_PERFIL.linkFormularioPago = (v || '').trim(); markDirty(); _dalPerfilSaveSoon(); } }
 
 /* ─── PANEL DE CONFIGURACIÓN (V7.4) ────────────────────────────────────
    Casa de las herramientas globales que antes saturaban la barra superior.
@@ -2165,7 +2164,6 @@ window._pdRevocarConfirmar = _pdRevocarConfirmar;
 window._pdRevocarHTML = _pdRevocarHTML;
 window.abrirFlujoCrearProductora = abrirFlujoCrearProductora;
 window.abrirPrivacidadDatos = abrirPrivacidadDatos;
-window.bdSetFormLink = bdSetFormLink;
 window.cfgSetUsaChipax = cfgSetUsaChipax;
 window.closeConfigPanel = closeConfigPanel;
 window.irAlPanelPersonal = irAlPanelPersonal;
