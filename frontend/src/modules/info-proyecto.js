@@ -544,20 +544,13 @@ async function restoreFromTrash(id) {
 // ── Window bridges (3 barridos func+const) ──
 window._markRowDirty = _markRowDirty;
 window.collectApprovalBlockers = collectApprovalBlockers;
-window.infoContactoChanged = infoContactoChanged;
-window.infoEmpresaChanged = infoEmpresaChanged;
-window.infoVincularEmpresa = infoVincularEmpresa;
-window.infoVincularEmpresaPorNombre = infoVincularEmpresaPorNombre;
 window.openTrash = openTrash;
 window.renderInfoProyecto = renderInfoProyecto;
 window.restoreFromTrash = restoreFromTrash;
-window.updateDerechos = updateDerechos;
 window.updateInfoField = updateInfoField;
 
 // D0 · puentes que faltaban desde la Etapa C (barrido 3 re-ejecutado): los
 // handlers on* generados los invocan como globales.
-window.updateProjectHeader = updateProjectHeader;
-window._infoEmpresaBDHint = _infoEmpresaBDHint;
 
 // D2 · acciones delegadas (comboboxes de 4 eventos → una acción por combobox)
 registrarAcciones('info', {

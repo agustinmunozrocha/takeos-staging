@@ -610,15 +610,7 @@ function _hepConfirm() {
 }
 
 // ── Window bridges (3 barridos: externos, auto-consumo, nombre-string) ──
-window._crcConfirm = _crcConfirm;
-window._crcUpdateOut = _crcUpdateOut;
 window._heComputeCosto = _heComputeCosto;
-window._hecClear = _hecClear;
-window._hecConfirm = _hecConfirm;
-window._hecSetModo = _hecSetModo;
-window._hecSetUsaProyecto = _hecSetUsaProyecto;
-window._hecUpdateOut = _hecUpdateOut;
-window._hepConfirm = _hepConfirm;
 window.calcUpdate = calcUpdate;
 window.openCalculadoraTributaria = openCalculadoraTributaria;
 window.openCostoRealCalc = openCostoRealCalc;
