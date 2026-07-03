@@ -10,7 +10,7 @@ import { escapeHtml, showToast, safeUrl } from '../lib/helpers.js';
 export function bdLocFind(locId) { return window.BD_LOC.find(l => l.locId === locId) || null; }
 function projLocList(project) { const d = project && project.data; if (!d) return []; if (!Array.isArray(d.locaciones)) d.locaciones = []; return d.locaciones; }
 function projLocFind(project, locId) { return projLocList(project).find(u => u.locId === locId) || null; }
-function nextLocIdBD() { let m = 0; window.BD_LOC.forEach(l => { const x = /LOC-(\d+)/.exec(l.locId || ''); if (x) m = Math.max(m, +x[1]); }); return 'LOC-' + String(m + 1).padStart(2, '0'); }
+export function nextLocIdBD() { let m = 0; window.BD_LOC.forEach(l => { const x = /LOC-(\d+)/.exec(l.locId || ''); if (x) m = Math.max(m, +x[1]); }); return 'LOC-' + String(m + 1).padStart(2, '0'); }
 function locNombre(locId) { const l = bdLocFind(locId); return l ? (l.nombre || 'sin nombre') : (locId || '—'); }
 /* V8.3.1 — normaliza una locación de la BD al esquema nuevo (idempotente):
    migra `dueno` → `contactos[]`, agrega direccion2/region/orientacion. */
@@ -219,7 +219,7 @@ function locCardHTML(uso) {
   </div>`;
 }
 
-function openLocDetail(locId) {
+export function openLocDetail(locId) {
   const project = STATE.currentProject;
   const l = bdLocFind(locId); const uso = projLocFind(project, locId);
   if (!l) return;   // V8.4.1: la locación puede abrirse desde la BD aunque no esté en este proyecto (uso = null)

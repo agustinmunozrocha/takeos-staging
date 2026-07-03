@@ -92,7 +92,7 @@ function goData(project) {
 }
 function goPresById(project, id) { return goData(project).presupuestos.find(p => p.id === id) || null; }
 function goPresList(project) { return goData(project).presupuestos; }
-function goMovs(project) { return goData(project).movimientos; }
+export function goMovs(project) { return goData(project).movimientos; }
 function goGastado(project, presId) { return goMovs(project).filter(m => m.pres === presId).reduce((s, m) => s + (m.monto || 0), 0); }
 function goLineaOf(project, m) { const e = goPresById(project, m.pres); return e ? e.linea : 'Otros'; }
 function goCuentaChipax(linea) { return CHIPAX_CUENTA[linea] || 'Otros Costos Operacionales'; }

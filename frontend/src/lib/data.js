@@ -123,8 +123,8 @@ export const DTE_OPTIONS = [
   { value: 'factura_exenta',   label: 'Factura exenta' },
   { value: 'boleta_terceros',  label: 'Boleta a terceros' }
 ];
-const DTE_LABEL = Object.fromEntries(DTE_OPTIONS.map(o => [o.value, o.label])); window.DTE_LABEL = DTE_LABEL;
-const DTE_LABEL_SHORT = { boleta: 'Boleta', factura: 'Factura', factura_exenta: 'F. Exenta', boleta_terceros: 'B. Terceros' }; window.DTE_LABEL_SHORT = DTE_LABEL_SHORT;
+export const DTE_LABEL = Object.fromEntries(DTE_OPTIONS.map(o => [o.value, o.label])); window.DTE_LABEL = DTE_LABEL;
+export const DTE_LABEL_SHORT = { boleta: 'Boleta', factura: 'Factura', factura_exenta: 'F. Exenta', boleta_terceros: 'B. Terceros' }; window.DTE_LABEL_SHORT = DTE_LABEL_SHORT;
 export const DTE_CON_RETENCION = ['boleta', 'boleta_terceros']; window.DTE_CON_RETENCION = DTE_CON_RETENCION;
 
 /* ════════════════════════════════════════════════════════════════════

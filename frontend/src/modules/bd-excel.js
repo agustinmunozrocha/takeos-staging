@@ -107,7 +107,7 @@ const HEADERS_TALENTOS_V71 = [
 ];
 
 // Normalizadores espejo del build_bd.py
-function _normRutBD(rut) {
+export function _normRutBD(rut) {
   if (rut == null) return '';
   const clean = String(rut).replace(/[^\dkK]/g, '').toUpperCase();
   if (clean.length < 7) return '';
@@ -118,7 +118,7 @@ function _normRutBD(rut) {
   const bodyFmt = chunks.map(c => c.split('').reverse().join('')).reverse().join('.');
   return `${bodyFmt}-${dv}`;
 }
-function _normPhoneBD(p) {
+export function _normPhoneBD(p) {
   if (p == null) return '';
   let digits = String(p).replace(/\D/g, '');
   if (!digits) return '';
@@ -127,12 +127,12 @@ function _normPhoneBD(p) {
   if (digits.length === 8) return `+56 2 ${digits.slice(0,4)} ${digits.slice(4)}`;
   return digits ? `+${digits}` : '';
 }
-function _normEmailBD(e) {
+export function _normEmailBD(e) {
   if (e == null) return '';
   const s = String(e).toLowerCase().trim();
   return s.indexOf('@') === -1 ? '' : s;
 }
-function _normNameBD(n) {
+export function _normNameBD(n) {
   if (n == null) return '';
   const low = ['de','del','la','las','el','los','y','da','do'];
   return String(n).trim().split(/\s+/).map((w, i) => {

@@ -426,7 +426,7 @@ window.ingestLegacyIntoContactos = ingestLegacyIntoContactos;
 window.syncLegacyFromContactos = syncLegacyFromContactos;
 
 // ═══ Helpers de stores + modelo de locaciones de proyecto (Etapa C6) ═══
-function normLocName(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' '); }
+export function normLocName(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' '); }
 // LOC_ESTADO_RANK → movido a src/lib/data.js (Etapa B3)
 function dedupeProjectLocaciones(project) {
   const d = project && project.data;

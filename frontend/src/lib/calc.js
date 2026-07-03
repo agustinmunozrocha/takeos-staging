@@ -155,7 +155,7 @@ function deltaClassGanancia(n) {
   return r > 0 ? 'positive' : 'negative';
 }
 
-function initials(name) {
+export function initials(name) {
   if (!name) return '··';
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }

@@ -145,7 +145,7 @@ function setupTooltipListeners() {
    </div>
    ════════════════════════════════════════════════════════════════════ */
 
-function comboboxAddToBD(btn) {
+export function comboboxAddToBD(btn) {
   const wrap = btn && btn.closest ? btn.closest('.combobox-wrap') : null;
   const inp = wrap ? wrap.querySelector('.combobox-input') : null;
   const nombre = inp ? (inp.value || '').trim() : '';
@@ -158,7 +158,7 @@ function comboboxAddToBD(btn) {
    del data-emp-rol del input. Si la empresa ya existe, NO se duplica: se le
    suma el rol que falta a su Tipo (p. ej. un Cliente pasa a "Cliente, Proveedor").
    Tras crear/actualizar, la deja seleccionada en el input. */
-function _empTieneRol(tipo, rol) {
+export function _empTieneRol(tipo, rol) {
   if (!rol) return true;
   return String(tipo || '').toLowerCase().split(',').map(s => s.trim()).indexOf(String(rol).toLowerCase()) !== -1;
 }
@@ -377,7 +377,7 @@ export function bancoSelectHTML(current, opts) {
   o += BANCOS_CHILE.map(b => '<option' + (cur === b.nombre ? ' selected' : '') + '>' + escapeHtml(b.nombre) + '</option>').join('');
   return '<select class="select"' + (opts.id ? ' id="' + opts.id + '"' : '') + (opts.onchange ? ' onchange="' + opts.onchange + '"' : '') + '>' + o + '</select>';
 }
-function pfBancoChange(nombre) { const cb = document.getElementById('pf_codigoBanco'); if (cb) cb.value = bancoCodigo(nombre); }
+export function pfBancoChange(nombre) { const cb = document.getElementById('pf_codigoBanco'); if (cb) cb.value = bancoCodigo(nombre); }
 
 export function _toISODate(v) {
   if (!v) return '';
@@ -387,7 +387,7 @@ export function _toISODate(v) {
   if (m) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
   return '';
 }
-function _edadDesde(iso) {
+export function _edadDesde(iso) {
   if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
   const b = new Date(iso + 'T00:00:00'); if (isNaN(b.getTime())) return '';
   const now = new Date(); let age = now.getFullYear() - b.getFullYear();
@@ -443,7 +443,7 @@ function comboboxFilterEmpresas(inputEl) {
   else { positionComboboxDropdown(inputEl, dropdown); }
 }
 
-async function _locThumbAsync(locId, path) {
+export async function _locThumbAsync(locId, path) {
   try {
     if (!sb || !sb.storage) return;
     const { data, error } = await sb.storage.from('fotos-locaciones').createSignedUrl(path, 3600);
