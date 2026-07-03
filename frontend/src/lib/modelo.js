@@ -377,7 +377,7 @@ export function buildDefaultProjectData() {
 }
 
 /* Helper para hidratar datos demo: aplica overrides sobre el default */
-function buildProjectData(overrides) {
+export function buildProjectData(overrides) {
   const data = buildDefaultProjectData();
   if (overrides.infoProyecto) Object.assign(data.infoProyecto, overrides.infoProyecto);
   if (overrides.finanzas) Object.assign(data.finanzas, overrides.finanzas);
@@ -468,7 +468,7 @@ function migrateProjectLocaciones(project) {
   d._locMigrated = true;
   // hl.locaciones queda como campo legado (ya no se renderiza ni edita).
 }
-function ensureProjectLoc(project) { if (project && project.data) { if (!Array.isArray(project.data.locaciones)) project.data.locaciones = []; if (!project.data._locMigrated) migrateProjectLocaciones(project); dedupeProjectLocaciones(project); } return project ? project.data.locaciones : []; }
+export function ensureProjectLoc(project) { if (project && project.data) { if (!Array.isArray(project.data.locaciones)) project.data.locaciones = []; if (!project.data._locMigrated) migrateProjectLocaciones(project); dedupeProjectLocaciones(project); } return project ? project.data.locaciones : []; }
 
 /* V8.3 — BD DE LEGAL (transversal, canónica). Cuarta categoría de la BD,
    junto a Personas/Empresas/Locaciones. Los documentos legales no mueren

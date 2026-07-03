@@ -36,7 +36,7 @@ function nextDiaId(rodajes) {
   return 'DIA-' + String(max + 1).padStart(2, '0');
 }
 
-function fmtFechaLarga(iso) {
+export function fmtFechaLarga(iso) {
   if (!iso) return '';
   // iso = 'YYYY-MM-DD' del input date. Construir fecha local sin TZ shift.
   const [y, m, d] = iso.split('-').map(Number);

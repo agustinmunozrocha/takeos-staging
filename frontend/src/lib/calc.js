@@ -94,7 +94,7 @@ export function calcProjectTotals(project) {
 /* ════════════════════════════════════════════════════════════════════
    FORMATEADORES
    ════════════════════════════════════════════════════════════════════ */
-function formatCLP(amount) {
+export function formatCLP(amount) {
   if (amount === 0) return '$0';
   if (amount >= 1000000) return '$' + (amount / 1000000).toFixed(1).replace('.0', '') + 'M';
   return '$' + amount.toLocaleString('es-CL');
@@ -237,7 +237,7 @@ function onMoneyInput(input, sectionKey, dept, idx, field) {
 /* V5.5 (Nota 3): normaliza cualquier entrada a hora 24h "HH:MM".
    Acepta "7"→07:00, "730"→07:30, "1845"→18:45, "13:0"→13:00.
    Devuelve '' si está vacío o es inválido (hora>23 o min>59). */
-function normalizeTime24(raw) {
+export function normalizeTime24(raw) {
   if (raw == null) return '';
   const s = String(raw).trim();
   if (!s) return '';

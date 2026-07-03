@@ -766,7 +766,7 @@ function _dalLocacionRowPayload(l) {
     updated_at: new Date().toISOString()
   };
 }
-async function dalGuardarLocacion(l) {
+export async function dalGuardarLocacion(l) {
   if (!sb || LOCATIONS_SOURCE !== 'supabase' || !l || !l.locId) return { ok: false, skipped: true };
   const isNew = !DAL_KNOWN_LOC_IDS.has(l.locId);
   const row = _dalLocacionRowPayload(l);

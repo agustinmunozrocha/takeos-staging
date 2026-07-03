@@ -507,7 +507,7 @@ function clearDirty() {
 }
 
 /* V5.11 (Nota 1) — Undo básico */
-function captureUndoBaseline() {
+export function captureUndoBaseline() {
   const p = STATE.currentProject;
   UNDO_STACK = [];
   UNDO_BASELINE = p ? { id: p.id, snap: JSON.stringify(p) } : null;

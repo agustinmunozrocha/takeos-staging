@@ -78,7 +78,7 @@ function refreshSidebarTaskCounters() {
   });
 }
 
-function marcarSenal(project, sig) {
+export function marcarSenal(project, sig) {
   const arr = ensureSenales(project); const visto = [currentUser()];
   const ex = arr.find(x => x.tipo === sig.tipo && x.seccion === sig.seccion);
   if (ex) { ex.ts = Date.now(); ex.vistoPor = visto; ex.descripcion = sig.descripcion || ex.descripcion; }

@@ -1,6 +1,20 @@
 // Plan de Rodaje + Hoja de Llamado — extraído de index.html (Etapa A2)
 // src/modules/plan-rodaje.js
 
+// D1d · imports reales. DIFERIDA la arista a crew (getCrewForExport queda vía
+// window): crew ya importa plan-rodaje — no cerrar el ciclo ESM.
+import { escapeHtml, safeUrl, showToast } from '../lib/helpers.js';
+import { BD_PERSONAS, EMPRESA_PERFIL, STATE } from '../lib/state.js';
+import { ensureProjectLoc } from '../lib/modelo.js';
+import { normalizeTime24 } from '../lib/calc.js';
+import { closeModal, hideTooltip } from '../lib/ui.js';
+import { CotPreview, _budgetColTh, _budgetColWGet } from './presupuesto-cotizacion.js';
+import { bdLocFind, projLocConfirmadas, projLocList } from './locaciones.js';
+import { markDirty } from './persistencia-local.js';
+import { fmtFechaLarga } from './rodajes.js';
+import { marcarSenal } from './tareas.js';
+import { orgNombre } from '../lib/boot.js';
+
 var PR_DRAG_ID = null;
 let HL_DRAG = null;
 var _hlPrevMargen = 13;

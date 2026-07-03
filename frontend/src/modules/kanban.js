@@ -7,8 +7,22 @@
 // Puentes a window al final del archivo: todo lo que el HTML inline o el
 // monolito clásico referencian como global.
 
-import { STATE } from '../lib/state.js';
+// D1d · imports reales — kanban evalúa en pos 16: DIFERIDAS las aristas a
+// tareas (×3: tareas importa kanban — ciclo), config (irAlPanelPersonal:
+// config importa kanban — ciclo; además window-read en la guarda :142) y boot
+// (_firstVisibleModule: no arrastrar boot a 16 por 1 símbolo). VETADOS:
+// currentUser, _TIENE_EMPRESA (window mutables).
 import { escapeHtml, showToast } from '../lib/helpers.js';
+import { PROJECTS, STATE, TRASH } from '../lib/state.js';
+import { buildProjectData } from '../lib/modelo.js';
+import { _authBlockWriteToast, authNivel, authPuedeVer } from '../lib/auth.js';
+import { formatCLP } from '../lib/calc.js';
+import { closeModal, showModal } from '../lib/ui.js';
+import { navigateToModule } from '../lib/nav.js';
+import { calcSummaryFin } from './presupuesto-cotizacion.js';
+import { DAL_KNOWN_PROJECT_IDS } from './dal.js';
+import { captureUndoBaseline, markDirty } from './persistencia-local.js';
+
 // authNivel y authPuedeVer se leen desde window (auth.js auto-puentea a window en Etapa 1)
 
 // ── Constantes ──────────────────────────────────────────────────────────────

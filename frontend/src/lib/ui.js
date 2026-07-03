@@ -94,7 +94,7 @@ function showTooltip(triggerEl) {
   _activeTooltip = tip;
 }
 
-function hideTooltip() {
+export function hideTooltip() {
   if (_activeTooltip) {
     _activeTooltip.remove();
     _activeTooltip = null;
@@ -250,7 +250,7 @@ function comboboxFilter(inputEl) {
   else { positionComboboxDropdown(inputEl, dropdown); }
 }
 
-function positionComboboxDropdown(inputEl, dropdown) {
+export function positionComboboxDropdown(inputEl, dropdown) {
   // position:fixed + cálculo desde el rect del input para evitar clipping
   // por overflow de tablas o cualquier ancestor.
   const rect = inputEl.getBoundingClientRect();

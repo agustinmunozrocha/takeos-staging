@@ -43,7 +43,7 @@ function authNivelModulo(appKey) {
   if (!code) return 'none';
   return authNivel(code);
 }
-function authPuedeVer(appKey) { return authNivelModulo(appKey) !== 'none'; }
+export function authPuedeVer(appKey) { return authNivelModulo(appKey) !== 'none'; }
 export function authEsAdmin() { return TAKEOS_PERFIL && (TAKEOS_PERFIL.codigo === 1 || TAKEOS_PERFIL.nombre === 'Administrador'); }
 /* V10.5.2: editar responsables de sección es exclusivo de Administrador (1) y Ejecutivo (2).
    El servidor (RPC 4b) ya ignora los responsables para el resto; esto alinea la UI.
@@ -67,7 +67,7 @@ function authPuedeGuardarOperaciones() {
   return authNivel('operacion_creatividad') === 'E';
 }
 let _authBlockToastAt = 0;
-function _authBlockWriteToast() {
+export function _authBlockWriteToast() {
   const now = Date.now();
   if (now - _authBlockToastAt < 4000) return;   // un solo aviso, no spam
   _authBlockToastAt = now;

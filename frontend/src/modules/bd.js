@@ -39,7 +39,7 @@ function tipoCuentaSelectHTML(current, opts) {
    V8.5 · CUMPLEAÑOS (solo día y mes; el año no se guarda)
    ════════════════════════════════════════════════════════════════════ */
 
-function openPersonaByName(nombre) {
+export function openPersonaByName(nombre) {
   if (!nombre) return;
   for (const id in BD_CONTACTOS) { if (BD_CONTACTOS[id] && BD_CONTACTOS[id].nombre === nombre) { openPersonaForm('edit', id); return; } }
   openPersonaForm('create', null); const el = document.getElementById('pf_nombre'); if (el) { el.value = nombre; el.focus(); }

@@ -1052,7 +1052,7 @@ export function _budgetColGrip(sectionKey, colId) {
 }
 /* <th> redimensionable NO ordenable (DTE, Unidad, DTE real, Conf.). Los ordenables
    ya salen por _budgetSortTh con su mismo grip. */
-function _budgetColTh(sectionKey, colId, extraClass, innerHTML, styleExtra) {
+export function _budgetColTh(sectionKey, colId, extraClass, innerHTML, styleExtra) {
   var cls = 'bcol-resizable' + (extraClass ? ' ' + extraClass : '');
   return '<th class="' + cls + '" data-bsec="' + sectionKey + '" data-bcol="' + colId + '"'
     + ' style="width:' + _budgetColWGet(sectionKey, colId) + 'px;' + (styleExtra || '') + '">'
@@ -4056,7 +4056,7 @@ function cotDocBuildHTML(project, opts) {
    tamaño escalado. Pinch-zoom de trackpad (wheel+ctrlKey y gestos de Safari) sin
    frenar el scroll nativo. Misma geometría que el PDF → fidelidad 1:1. */
 let _cotPrevOpts = null;
-const CotPreview = {
+export const CotPreview = {
   canvas: null, wrap: null, frame: null, pageW: 794, pageH: 1123, contentH: 1123, mode: 'page', zoom: 100, scale: 1, _bindInner: null, _onResize: null,
   init(canvas, wrap, frame) {
     this.canvas = canvas; this.wrap = wrap; this.frame = frame; this.mode = 'page'; this.zoom = 100;

@@ -1,14 +1,29 @@
 // Módulo Locaciones + Scouting — Etapa 2 de modularización Vite.
 // Fichas de locaciones (repo + fotos + estados), plan de scouting y
 // funciones de utilidad compartidas (bdLocFind, projLocList, etc.).
-import { STATE } from '../lib/state.js';
-import { escapeHtml, showToast, safeUrl } from '../lib/helpers.js';
+// D1d · imports reales. DIFERIDAS las aristas a plan-rodaje (pr*, printViaIframe
+// quedan vía window): plan-rodaje importará locaciones — no cerrar el ciclo.
+// VETADO: LOCATIONS_SOURCE (dal lo escribe). Hoists: bd 22→19, boot 24→19.
+import { escapeHtml, safeUrl, showToast } from '../lib/helpers.js';
+import { BD_LOC, BD_PERSONAS, STATE } from '../lib/state.js';
+import { ensureProjectLoc, normLocName } from '../lib/modelo.js';
+import { LOC_ESTADOS, LOC_ORIENTACIONES } from '../lib/data.js';
+import { normalizeTime24 } from '../lib/calc.js';
+import { _locThumbAsync, closeModal, positionComboboxDropdown, regionSelectHTML } from '../lib/ui.js';
+import { CotPreview } from './presupuesto-cotizacion.js';
+import { openPersonaByName } from './bd.js';
+import { _normKey } from './bd-excel.js';
+import { _dalLocacionSaveSoon, dalGuardarLocacion } from './dal.js';
+import { autosaveNow, markDirty } from './persistencia-local.js';
+import { fmtFechaLarga } from './rodajes.js';
+import { orgNombre } from '../lib/boot.js';
+
 
 // LOC_ORIENTACIONES: ahora en lib/data.js (window) — dedup B3
 // REGIONES_CHILE local eliminada (estaba muerta) — dedup B3
 
 export function bdLocFind(locId) { return window.BD_LOC.find(l => l.locId === locId) || null; }
-function projLocList(project) { const d = project && project.data; if (!d) return []; if (!Array.isArray(d.locaciones)) d.locaciones = []; return d.locaciones; }
+export function projLocList(project) { const d = project && project.data; if (!d) return []; if (!Array.isArray(d.locaciones)) d.locaciones = []; return d.locaciones; }
 function projLocFind(project, locId) { return projLocList(project).find(u => u.locId === locId) || null; }
 export function nextLocIdBD() { let m = 0; window.BD_LOC.forEach(l => { const x = /LOC-(\d+)/.exec(l.locId || ''); if (x) m = Math.max(m, +x[1]); }); return 'LOC-' + String(m + 1).padStart(2, '0'); }
 function locNombre(locId) { const l = bdLocFind(locId); return l ? (l.nombre || 'sin nombre') : (locId || '—'); }
@@ -29,7 +44,7 @@ export function locPrimaryContact(l) { const cs = (l && Array.isArray(l.contacto
 export function locFullAddress(l) { if (!l) return ''; return [l.direccion, l.direccion2, l.comuna, l.ciudad, l.region].filter(Boolean).join(', '); }
 /* Locaciones del proyecto en estado Confirmada (las únicas que ofrecen
    Hoja de Llamado y Plan de Rodaje). */
-function projLocConfirmadas(project) { return projLocList(project).filter(u => u.estado === 'confirmada' && bdLocFind(u.locId)); }
+export function projLocConfirmadas(project) { return projLocList(project).filter(u => u.estado === 'confirmada' && bdLocFind(u.locId)); }
 
 function locacionOptions(project, selectedId) {
   // V8.2: las opciones salen de las locaciones CONFIRMADAS del proyecto
