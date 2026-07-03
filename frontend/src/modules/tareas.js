@@ -13,6 +13,7 @@ import { navigateToModule, MODULES, renderModule } from '../lib/nav.js';
 import { navigateToProject, renderMetrics, renderKanban } from './kanban.js';
 import { markDirty } from './persistencia-local.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 function ensureTareas(project) { if (!project.data.tareas) project.data.tareas = []; return project.data.tareas; }
 function ensureSenales(project) { if (!project.data.senales) project.data.senales = []; return project.data.senales; }
 function _taskId() { return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -115,7 +116,7 @@ function mentionInput(el) {
   const people = _mentionPeople().filter(n => n.toLowerCase().indexOf(q) !== -1).slice(0, 8);
   if (!people.length) { drop.hidden = true; return; }
   window._mentionTarget = el; window._mentionStart = pos - m[2].length - 1; window._mentionEnd = pos;
-  drop.innerHTML = people.map(n => '<div class="mention-opt" onmousedown="event.preventDefault();mentionPick(' + JSON.stringify(n).replace(/"/g, '&quot;') + ')">@' + escapeHtml(n) + '</div>').join('');
+  drop.innerHTML = people.map(n => '<div class="mention-opt" ' + accionHTML('tm.pick', n, { on: 'mousedown' }) + '>@' + escapeHtml(n) + '</div>').join('');
   const r = el.getBoundingClientRect();
   drop.style.left = (r.left + window.scrollX) + 'px';
   drop.style.top = (r.bottom + window.scrollY + 2) + 'px';
@@ -147,21 +148,21 @@ function _tmFind(id) { const p = STATE.currentProject; if (!p) return null; retu
 function _tmAssigneeSelect(people, current) {
   let list = people.slice(); const u = currentUser(); if (u && list.indexOf(u) === -1) list = [u].concat(list);
   const opts = ['<option value="">— elige a quién —</option>'].concat(list.map(n => '<option value="' + escapeHtml(n) + '"' + (n === current ? ' selected' : '') + '>' + escapeHtml(n) + (n === u ? ' (yo)' : '') + '</option>'));
-  return '<select class="input" id="tmAsignado" onchange="_tm().asignado=this.value">' + opts.join('') + '</select>';
+  return '<select class="input" id="tmAsignado" data-accion="tm.asignado" data-on="change">' + opts.join('') + '</select>';
 }
 function _tmTaskHtml(project, t, people) {
   const st = _tm(); const done = t.estado === 'completada';
   const txt = highlightMentions(escapeHtml(t.texto), people);
-  const atts = (t.adjuntos || []).length ? '<div class="tm-atts">' + t.adjuntos.map(a => '<span class="tm-att">📎 ' + (a.path ? ('<a href="#" onclick="return _abrirAdjTarea(this)" data-bk="' + STORAGE_BUCKET_ADJUNTOS + '" data-pt="' + escapeHtml(a.path) + '">' + escapeHtml(a.name) + '</a>') : escapeHtml(a.name)) + '</span>').join('') + '</div>' : '';
+  const atts = (t.adjuntos || []).length ? '<div class="tm-atts">' + t.adjuntos.map(a => '<span class="tm-att">📎 ' + (a.path ? ('<a href="#" data-accion="tm.adj" data-bk="' + STORAGE_BUCKET_ADJUNTOS + '" data-pt="' + escapeHtml(a.path) + '">' + escapeHtml(a.name) + '</a>') : escapeHtml(a.name)) + '</span>').join('') + '</div>' : '';
   const expanded = st.expanded === t.id; const coms = (t.comentarios || []);
   const comsHtml = expanded ? '<div class="tm-coms">' + (coms.length ? coms.map(c => '<div class="tm-com"><div class="tm-com-h">' + escapeHtml(c.autor) + ' <span class="tm-com-ts">' + escapeHtml(c.ts) + '</span></div><div class="tm-com-b">' + highlightMentions(escapeHtml(c.texto), people) + '</div></div>').join('') : '<div class="tm-hint">Sin comentarios todavía.</div>') +
-    '<div class="tm-addcom"><textarea id="tmCom_' + t.id + '" class="input" rows="2" placeholder="Responder con un comentario… escribe @ para etiquetar" oninput="mentionInput(this)" onblur="mentionBlur()"></textarea><button class="btn btn-secondary btn-sm" onclick="tmAddComentario(\'' + t.id + '\')">Comentar</button></div></div>' : '';
+    '<div class="tm-addcom"><textarea id="tmCom_' + t.id + '" class="input" rows="2" placeholder="Responder con un comentario… escribe @ para etiquetar" data-accion="tm.mention" data-on="input blur"></textarea><button class="btn btn-secondary btn-sm" ' + accionHTML('tm.comentar', t.id) + '>Comentar</button></div></div>' : '';
   return '<div class="tm-task' + (done ? ' done' : '') + '">' +
     '<div class="tm-task-top">' +
-      '<label class="tm-check"><input type="checkbox" ' + (done ? 'checked' : '') + ' onchange="tmToggle(\'' + t.id + '\')"></label>' +
+      '<label class="tm-check"><input type="checkbox" ' + (done ? 'checked' : '') + ' ' + accionHTML('tm.toggle', t.id, { on: 'change' }) + '></label>' +
       '<div class="tm-task-main"><div class="tm-task-text">' + txt + '</div>' +
         '<div class="tm-task-meta">Para <strong>' + escapeHtml(t.asignadoA || '\u2014') + '</strong> \u00b7 de ' + escapeHtml(t.creadoPor || '\u2014') + atts + '</div></div>' +
-      '<button class="tm-com-toggle" onclick="tmToggleExpand(\'' + t.id + '\')">' + (expanded ? 'Ocultar' : ('Comentar' + (coms.length ? ' · ' + coms.length : ''))) + '</button>' +
+      '<button class="tm-com-toggle" ' + accionHTML('tm.expand', t.id) + '>' + (expanded ? 'Ocultar' : ('Comentar' + (coms.length ? ' · ' + coms.length : ''))) + '</button>' +
     '</div>' + comsHtml + '</div>';
 }
 function renderTareasModal() {
@@ -175,16 +176,16 @@ function renderTareasModal() {
     ? '<div class="tm-create"><div class="tm-create-h">Solo lectura</div><div class="tm-hint" style="margin-top:6px;">Tu perfil puede ver las tareas de esta sección, pero no crearlas ni editarlas.</div></div>'
     : ('<div class="tm-create"><div class="tm-create-h">Crear tarea</div>' +
     '<div class="tm-field"><label>Asignar a</label>' + _tmAssigneeSelect(people, st.asignado) + '</div>' +
-    '<div class="tm-field"><label>Tarea</label><textarea id="tmNuevoTexto" class="input" rows="3" placeholder="Ej: toma todas las personas de esta base de datos y agrégalas como visitas externas. Escribe @ para etiquetar." oninput="mentionInput(this)" onblur="mentionBlur()"></textarea></div>' +
-    '<div class="tm-field"><label>Adjuntos</label>' + ((st.adjuntos || []).length ? '<div class="tm-atts">' + st.adjuntos.map((a, i) => '<span class="tm-att">\ud83d\udcce ' + escapeHtml(a.name) + ' <button onclick="tmRemoveAtt(' + i + ')">\u2715</button></span>').join('') + '</div>' : '<div class="tm-hint">Sin adjuntos.</div>') +
-      '<input type="file" id="tmFile" multiple style="display:none;" onchange="tmAddFiles(this.files)"><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'tmFile\').click()">+ Adjuntar archivo</button></div>' +
-    '<div class="tm-create-actions"><button class="btn btn-ghost btn-sm" onclick="tmSelfAssign()">Auto-asignármela</button><button class="btn btn-primary btn-sm" onclick="tmCrear()">Crear tarea</button></div></div>');
+    '<div class="tm-field"><label>Tarea</label><textarea id="tmNuevoTexto" class="input" rows="3" placeholder="Ej: toma todas las personas de esta base de datos y agrégalas como visitas externas. Escribe @ para etiquetar." data-accion="tm.mention" data-on="input blur"></textarea></div>' +
+    '<div class="tm-field"><label>Adjuntos</label>' + ((st.adjuntos || []).length ? '<div class="tm-atts">' + st.adjuntos.map((a, i) => '<span class="tm-att">\ud83d\udcce ' + escapeHtml(a.name) + ' <button ' + accionHTML('tm.quitarAdj', i) + '>\u2715</button></span>').join('') + '</div>' : '<div class="tm-hint">Sin adjuntos.</div>') +
+      '<input type="file" id="tmFile" multiple style="display:none;" data-accion="tm.files" data-on="change"><button class="btn btn-ghost btn-sm" data-accion="tm.filesBtn">+ Adjuntar archivo</button></div>' +
+    '<div class="tm-create-actions"><button class="btn btn-ghost btn-sm" data-accion="tm.self">Auto-asignármela</button><button class="btn btn-primary btn-sm" data-accion="tm.crear">Crear tarea</button></div></div>');
   const list = tareas.length ? tareas.map(t => _tmTaskHtml(project, t, people)).join('') : '<div class="tm-empty">Sin tareas en esta sección todavía.</div>';
   const root = document.getElementById('modalRoot');
-  root.innerHTML = '<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:640px;width:94vw;max-height:88vh;overflow:auto;">' +
-    '<div class="modal-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><div><div class="modal-title">Tareas \u00b7 ' + escapeHtml(secLabel) + '</div><div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">' + escapeHtml(project.name) + ' \u00b7 viendo como <strong>' + escapeHtml(currentUser()) + '</strong></div></div><button class="go-x" onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">\u00d7</button></div>' +
+  root.innerHTML = '<div class="modal-backdrop"><div class="modal" style="max-width:640px;width:94vw;max-height:88vh;overflow:auto;">' +
+    '<div class="modal-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><div><div class="modal-title">Tareas \u00b7 ' + escapeHtml(secLabel) + '</div><div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">' + escapeHtml(project.name) + ' \u00b7 viendo como <strong>' + escapeHtml(currentUser()) + '</strong></div></div><button class="go-x" data-accion="ui.cerrar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">\u00d7</button></div>' +
     '<div class="modal-body">' + createForm + '<div class="tm-list">' + list + '</div></div>' +
-    '<div class="modal-footer"><button class="btn" onclick="closeModal()">Cerrar</button></div></div></div>';
+    '<div class="modal-footer"><button class="btn" data-accion="ui.cerrar">Cerrar</button></div></div></div>';
 }
 /* ── V9.5.1 · Adjuntos de tareas en Supabase Storage (bucket privado) ─────
    El binario sí está disponible (el File del input): se sube directo. La BD
@@ -259,7 +260,7 @@ function renderMisTareas() {
     Object.keys(byProj).forEach(pid => {
       const g = byProj[pid];
       misTareas += '<div class="crt-subgroup"><div class="crt-subgroup-h">' + e(g.project.name) + ' <span class="crt-count">' + g.items.length + '</span></div>' +
-        g.items.map(t => '<div class="crt-item"><label class="tm-check"><input type="checkbox" onchange="crtToggle(\'' + g.project.id + '\',\'' + t.id + '\')"></label><div class="crt-item-main"><div class="crt-item-text">' + highlightMentions(e(t.texto), projectPeople(g.project)) + '</div><div class="crt-item-meta">' + modTitle(t.seccion) + ' \u00b7 de ' + e(t.creadoPor || '\u2014') + '</div></div><button class="btn btn-ghost btn-sm" onclick="crtGoTask(\'' + g.project.id + '\',\'' + t.seccion + '\')">Abrir</button></div>').join('') + '</div>';
+        g.items.map(t => '<div class="crt-item"><label class="tm-check"><input type="checkbox" ' + accionHTML('tm.crtToggle', g.project.id, t.id, { on: 'change' }) + '></label><div class="crt-item-main"><div class="crt-item-text">' + highlightMentions(e(t.texto), projectPeople(g.project)) + '</div><div class="crt-item-meta">' + modTitle(t.seccion) + ' \u00b7 de ' + e(t.creadoPor || '\u2014') + '</div></div><button class="btn btn-ghost btn-sm" ' + accionHTML('tm.crtGo', g.project.id, t.seccion) + '>Abrir</button></div>').join('') + '</div>';
     });
   }
 
@@ -269,7 +270,7 @@ function renderMisTareas() {
   if (!menciones.length) {
     mencionesHtml = '<div class="crt-empty">Nadie te ha mencionado todavía.</div>';
   } else {
-    mencionesHtml = menciones.map(m => '<div class="crt-item crt-mencion"><div class="crt-item-main"><div class="crt-item-text">' + highlightMentions(e(m.texto), projectPeople(m.project)) + '</div><div class="crt-item-meta">' + e(m.project.name) + ' \u00b7 ' + modTitle(m.tarea.seccion) + ' \u00b7 ' + (m.tipo === 'comentario' ? 'comentario de ' : 'tarea de ') + e(m.autor) + '</div></div><button class="btn btn-ghost btn-sm" onclick="crtGoTask(\'' + m.project.id + '\',\'' + m.tarea.seccion + '\')">Ver</button></div>').join('');
+    mencionesHtml = menciones.map(m => '<div class="crt-item crt-mencion"><div class="crt-item-main"><div class="crt-item-text">' + highlightMentions(e(m.texto), projectPeople(m.project)) + '</div><div class="crt-item-meta">' + e(m.project.name) + ' \u00b7 ' + modTitle(m.tarea.seccion) + ' \u00b7 ' + (m.tipo === 'comentario' ? 'comentario de ' : 'tarea de ') + e(m.autor) + '</div></div><button class="btn btn-ghost btn-sm" ' + accionHTML('tm.crtGo', m.project.id, m.tarea.seccion) + '>Ver</button></div>').join('');
   }
 
   // 3) REQUIEREN ATENCIÓN — señales del sistema dirigidas a mí
@@ -278,7 +279,7 @@ function renderMisTareas() {
   if (!senalesRows.length) {
     atencionHtml = '<div class="crt-empty">Nada requiere tu atención.</div>';
   } else {
-    atencionHtml = senalesRows.map(o => '<div class="crt-item crt-senal"><div class="crt-item-main"><div class="crt-item-text">' + e(o.sg.descripcion) + '</div><div class="crt-item-meta">' + e(o.project.name) + ' \u00b7 ' + modTitle(o.sg.seccion) + '</div></div><div class="crt-item-actions"><button class="btn btn-ghost btn-sm" onclick="crtGoSenal(\'' + o.project.id + '\',\'' + o.sg.seccion + '\')">Ir</button><button class="btn btn-secondary btn-sm" onclick="marcarSenalVista(\'' + o.project.id + '\',\'' + o.sg.id + '\')">Visto</button></div></div>').join('');
+    atencionHtml = senalesRows.map(o => '<div class="crt-item crt-senal"><div class="crt-item-main"><div class="crt-item-text">' + e(o.sg.descripcion) + '</div><div class="crt-item-meta">' + e(o.project.name) + ' \u00b7 ' + modTitle(o.sg.seccion) + '</div></div><div class="crt-item-actions"><button class="btn btn-ghost btn-sm" ' + accionHTML('tm.crtSenal', o.project.id, o.sg.seccion) + '>Ir</button><button class="btn btn-secondary btn-sm" ' + accionHTML('tm.senalVista', o.project.id, o.sg.id) + '>Visto</button></div></div>').join('');
   }
 
   const group = (titulo, count, contenido) =>
@@ -297,7 +298,6 @@ function crtGoTask(projId, seccion) { if (!PROJECTS.find(x => x.id === projId)) 
 function crtGoSenal(projId, seccion) { if (!PROJECTS.find(x => x.id === projId)) return; navigateToProject(projId); setTimeout(() => { try { navigateToModule(seccion); } catch (e) {} }, 90); }
 
 // ── Window bridges (3 barridos func+const) ──
-window._abrirAdjTarea = _abrirAdjTarea;
 window._tm = _tm;
 window.crtGoSenal = crtGoSenal;
 window.crtGoTask = crtGoTask;
@@ -305,19 +305,30 @@ window.crtToggle = crtToggle;
 window.ensureSenales = ensureSenales;
 window.ensureTareas = ensureTareas;
 window.marcarSenal = marcarSenal;
-window.marcarSenalVista = marcarSenalVista;
 window.mentionBlur = mentionBlur;
 window.mentionInput = mentionInput;
-window.mentionPick = mentionPick;
 window.openTareasModal = openTareasModal;
 window.refreshSidebarTaskCounters = refreshSidebarTaskCounters;
 window.renderMisTareas = renderMisTareas;
 window.sectionTaskCount = sectionTaskCount;
-window.tmAddComentario = tmAddComentario;
-window.tmAddFiles = tmAddFiles;
-window.tmCrear = tmCrear;
-window.tmRemoveAtt = tmRemoveAtt;
-window.tmSelfAssign = tmSelfAssign;
-window.tmToggle = tmToggle;
-window.tmToggleExpand = tmToggleExpand;
 window.userSenales = userSenales;
+
+// D2 · acciones delegadas
+registrarAcciones('tm', {
+  pick: function (a, el, ev) { ev.preventDefault(); mentionPick(a[0]); },
+  asignado: function (a, el) { _tm().asignado = el.value; },
+  adj: function (a, el, ev) { ev.preventDefault(); _abrirAdjTarea(el); },
+  mention: function (a, el, ev) { if (ev.type === 'input') mentionInput(el); else mentionBlur(); },
+  comentar: function (a) { tmAddComentario(a[0]); },
+  toggle: function (a) { tmToggle(a[0]); },
+  expand: function (a) { tmToggleExpand(a[0]); },
+  quitarAdj: function (a) { tmRemoveAtt(a[0]); },
+  files: function (a, el) { tmAddFiles(el.files); },
+  filesBtn: function () { document.getElementById('tmFile').click(); },
+  self: function () { tmSelfAssign(); },
+  crear: function () { tmCrear(); },
+  crtToggle: function (a) { crtToggle(a[0], a[1]); },
+  crtGo: function (a) { crtGoTask(a[0], a[1]); },
+  crtSenal: function (a) { crtGoSenal(a[0], a[1]); },
+  senalVista: function (a) { marcarSenalVista(a[0], a[1]); },
+});

@@ -11,6 +11,7 @@ import { getConfirmedCrew, printViaIframe } from './plan-rodaje.js';
 import { markDirty } from './persistencia-local.js';
 import { orgNombre } from '../lib/boot.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 function renderCrew() {
   const project = STATE.currentProject;
   if (!project) return;
@@ -78,9 +79,9 @@ function renderCrew() {
       <div class="kpi-cell">
         <div class="kpi-label">Acciones</div>
         <div style="display:flex; flex-direction:column; gap:4px; margin-top:4px;">
-          <button class="btn btn-primary btn-sm" onclick="exportCrewListPDF()">Crew List (PDF)</button>
-          <button class="btn btn-secondary btn-sm" onclick="exportCateringPDF()">Catering (PDF)</button>
-          <button class="btn btn-secondary btn-sm" onclick="exportTransportePDF()">Transporte (PDF)</button>
+          <button class="btn btn-primary btn-sm" data-accion="crew.pdfCrew">Crew List (PDF)</button>
+          <button class="btn btn-secondary btn-sm" data-accion="crew.pdfCatering">Catering (PDF)</button>
+          <button class="btn btn-secondary btn-sm" data-accion="crew.pdfTransporte">Transporte (PDF)</button>
         </div>
       </div>
     </div>
@@ -124,12 +125,12 @@ function renderCrewRow(p, transportOpts) {
     <tr>
       <td><strong>${escapeHtml(p.nombre)}</strong></td>
       <td class="auto">${escapeHtml(p.rol || '—')} · ${escapeHtml(p.source)}</td>
-      <td class="auto" style="white-space: nowrap;">${bd?.telefono || `<a role="button" tabindex="0" class="crew-bd-link" style="color: var(--negative); cursor: pointer; text-decoration: underline dotted;" onclick="crewAddToBD('${escapeHtml(p.nombre)}')" title="Agregar a la Base de Datos">⚠ Sin BD</a>`}</td>
+      <td class="auto" style="white-space: nowrap;">${bd?.telefono || `<a role="button" tabindex="0" class="crew-bd-link" style="color: var(--negative); cursor: pointer; text-decoration: underline dotted;" ${accionHTML('crew.addBD', p.nombre)} title="Agregar a la Base de Datos">⚠ Sin BD</a>`}</td>
       <td class="auto">${bd?.mail || '—'}</td>
       <td class="auto">${bd?.restriccion || '—'}</td>
-      <td class="auto">${bd ? `${escapeHtml(bd.direccion)}<br><span style="color: var(--ink-faint); font-size: 11px;">${escapeHtml(bd.comuna)}</span>` : `<a role="button" tabindex="0" class="crew-bd-link" style="color: var(--negative); font-size: 11px; cursor: pointer; text-decoration: underline dotted;" onclick="crewAddToBD('${escapeHtml(p.nombre)}')" title="Crear ficha en la Base de Datos">+ Agregar persona a la BD</a>`}</td>
+      <td class="auto">${bd ? `${escapeHtml(bd.direccion)}<br><span style="color: var(--ink-faint); font-size: 11px;">${escapeHtml(bd.comuna)}</span>` : `<a role="button" tabindex="0" class="crew-bd-link" style="color: var(--negative); font-size: 11px; cursor: pointer; text-decoration: underline dotted;" ${accionHTML('crew.addBD', p.nombre)} title="Crear ficha en la Base de Datos">+ Agregar persona a la BD</a>`}</td>
       <td>
-        <select class="cell-select" onchange="STATE.currentProject.data.crewExtra['${escapeHtml(p.nombre)}'].medioTransporte = this.value;">
+        <select class="cell-select" ${accionHTML('crew.transporte', p.nombre, { on: 'change' })}>
           ${transportOpts.map(t =>
             `<option value="${t}" ${extra.medioTransporte === t ? 'selected' : ''}>${t || '— Seleccionar —'}</option>`
           ).join('')}
@@ -184,22 +185,22 @@ function renderCrewExternosSection(project) {
   const tipoOpts = ['cliente', 'agencia', 'visita'];
   const rows = ext.map((x, i) => `
     <tr>
-      <td><select class="cell-select" onchange="updateCrewExterno(${i},'tipo',this.value)">
+      <td><select class="cell-select" ${accionHTML('crew.ext', i, 'tipo', { on: 'change' })}>
         ${tipoOpts.map(t => `<option value="${t}" ${x.tipo === t ? 'selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('')}
       </select></td>
-      <td><input class="cell-input" value="${escapeHtml(x.nombre || '')}" placeholder="Nombre" onchange="updateCrewExterno(${i},'nombre',this.value)"></td>
-      <td><input class="cell-input" value="${escapeHtml(x.rol || '')}" placeholder="Rol / empresa" onchange="updateCrewExterno(${i},'rol',this.value)"></td>
-      <td><input class="cell-input" value="${escapeHtml(x.telefono || '')}" placeholder="+56 …" onchange="updateCrewExterno(${i},'telefono',this.value)"></td>
-      <td><input class="cell-input" value="${escapeHtml(x.restriccion || '')}" placeholder="—" onchange="updateCrewExterno(${i},'restriccion',this.value)"></td>
-      <td><input class="cell-input" value="${escapeHtml(x.direccion || '')}" placeholder="Dirección" onchange="updateCrewExterno(${i},'direccion',this.value)"></td>
-      <td><input class="cell-input" value="${escapeHtml(x.comuna || '')}" placeholder="Comuna" onchange="updateCrewExterno(${i},'comuna',this.value)"></td>
-      <td><button class="row-delete" title="Quitar" onclick="removeCrewExterno(${i})">×</button></td>
+      <td><input class="cell-input" value="${escapeHtml(x.nombre || '')}" placeholder="Nombre" ${accionHTML('crew.ext', i, 'nombre', { on: 'change' })}></td>
+      <td><input class="cell-input" value="${escapeHtml(x.rol || '')}" placeholder="Rol / empresa" ${accionHTML('crew.ext', i, 'rol', { on: 'change' })}></td>
+      <td><input class="cell-input" value="${escapeHtml(x.telefono || '')}" placeholder="+56 …" ${accionHTML('crew.ext', i, 'telefono', { on: 'change' })}></td>
+      <td><input class="cell-input" value="${escapeHtml(x.restriccion || '')}" placeholder="—" ${accionHTML('crew.ext', i, 'restriccion', { on: 'change' })}></td>
+      <td><input class="cell-input" value="${escapeHtml(x.direccion || '')}" placeholder="Dirección" ${accionHTML('crew.ext', i, 'direccion', { on: 'change' })}></td>
+      <td><input class="cell-input" value="${escapeHtml(x.comuna || '')}" placeholder="Comuna" ${accionHTML('crew.ext', i, 'comuna', { on: 'change' })}></td>
+      <td><button class="row-delete" title="Quitar" ${accionHTML('crew.extQuitar', i)}>×</button></td>
     </tr>`).join('');
   return `
     <div class="dept" style="margin-top: var(--space-5);">
       <div class="dept-header" style="cursor: default;">
         <div class="dept-title">Externos — cliente, agencia, visitas</div>
-        <button class="btn btn-secondary btn-sm" onclick="addCrewExterno()">+ Agregar externo</button>
+        <button class="btn btn-secondary btn-sm" data-accion="crew.extAdd">+ Agregar externo</button>
       </div>
       <div class="dept-body">
         <div style="overflow-x: auto;">
@@ -304,17 +305,17 @@ function exportTransportePDF() {
   window._transportSel = new Set(people.map((_, i) => i));
   const list = people.map((p, i) => `
     <label style="display:flex; align-items:flex-start; gap:8px; padding:7px 0; border-bottom:1px solid var(--rule);">
-      <input type="checkbox" checked onchange="if(this.checked)window._transportSel.add(${i}); else window._transportSel.delete(${i});">
+      <input type="checkbox" checked ${accionHTML('crew.selTrans', i, { on: 'change' })}>
       <span style="flex:1;"><strong>${escapeHtml(p.nombre)}</strong> <span style="color:var(--ink-muted);">· ${escapeHtml(p.rol || '')}</span><br>
         <span style="font-size:11px; color:var(--ink-muted);">${p.direccion ? escapeHtml(p.direccion) : '(sin dirección)'}${p.comuna ? ', ' + escapeHtml(p.comuna) : ''}</span></span>
     </label>`).join('');
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width:560px;">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width:560px;">
         <div class="modal-header"><div class="modal-title">Exportar Transporte</div><div style="font-size:12px;color:var(--ink-muted);margin-top:4px;">Elige quiénes van en el PDF. Incluye dirección y comuna (datos sensibles).</div></div>
         <div class="modal-body" style="max-height:50vh; overflow:auto;">${list}</div>
-        <div class="modal-footer"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="doExportTransporte()">Exportar seleccionados</button></div>
+        <div class="modal-footer"><button class="btn" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="crew.transExport">Exportar seleccionados</button></div>
       </div>
     </div>`;
 }
@@ -337,12 +338,23 @@ function doExportTransporte() {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window.addCrewExterno = addCrewExterno;
 window.doExportTransporte = doExportTransporte;
 window.exportCateringPDF = exportCateringPDF;
 window.exportCrewListPDF = exportCrewListPDF;
 window.exportTransportePDF = exportTransportePDF;
 window.getCrewForExport = getCrewForExport;
-window.removeCrewExterno = removeCrewExterno;
 window.renderCrew = renderCrew;
-window.updateCrewExterno = updateCrewExterno;
+
+// D2 · acciones delegadas (crewAddToBD vía window: arista diferida ui/bd)
+registrarAcciones('crew', {
+  pdfCrew: function () { exportCrewListPDF(); },
+  pdfCatering: function () { exportCateringPDF(); },
+  pdfTransporte: function () { exportTransportePDF(); },
+  addBD: function (a) { crewAddToBD(a[0]); },
+  transporte: function (a, el) { STATE.currentProject.data.crewExtra[a[0]].medioTransporte = el.value; },
+  ext: function (a, el) { updateCrewExterno(a[0], a[1], el.value); },
+  extQuitar: function (a) { removeCrewExterno(a[0]); },
+  extAdd: function () { addCrewExterno(); },
+  selTrans: function (a, el) { if (el.checked) window._transportSel.add(a[0]); else window._transportSel.delete(a[0]); },
+  transExport: function () { doExportTransporte(); },
+});

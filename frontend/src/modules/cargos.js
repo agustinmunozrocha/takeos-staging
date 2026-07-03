@@ -17,6 +17,7 @@ import { renderInfoProyecto } from './info-proyecto.js';
 import { invitacionLink, dalInvitar, _invMostrarResultado, PERFIL_CODIGO_POR_NOMBRE } from './invitaciones.js';
 import { _planModalVenta, manejarErrorPlan } from './plan-limites.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 /* ════════════════════════════════════════════════════════════════════
    V11.2.0 · CARGOS DEL PROYECTO
    ════════════════════════════════════════════════════════════════════
@@ -123,8 +124,8 @@ function renderCargos() {
     const estLabel = sinPersona ? '—' : (c.estado === 'activo' ? 'Activo' : (c.estado === 'pendiente' ? 'Invitación pendiente' : (c.estado === 'rechazo' ? 'Rechazó' : (c.estado || '—'))));
     const estTone = c.estado === 'activo' ? 'ok' : (c.estado === 'pendiente' ? 'pend' : (c.estado === 'rechazo' ? 'no' : 'int'));
     const acciones = puede
-      ? ('<button class="btn btn-ghost btn-sm" onclick="cargoEditar(\'' + c.id + '\')">' + (sinPersona ? 'Asignar' : (c.estado === 'rechazo' ? 'Reasignar' : 'Cambiar')) + '</button> '
-        + '<button class="btn btn-ghost btn-sm" onclick="cargoQuitar(\'' + c.id + '\')" title="Eliminar este cargo del proyecto">Quitar</button>')
+      ? ('<button class="btn btn-ghost btn-sm" ' + accionHTML('cargo.editar', c.id) + '>' + (sinPersona ? 'Asignar' : (c.estado === 'rechazo' ? 'Reasignar' : 'Cambiar')) + '</button> '
+        + '<button class="btn btn-ghost btn-sm" ' + accionHTML('cargo.quitar', c.id) + ' title="Eliminar este cargo del proyecto">Quitar</button>')
       : '';
     rows += '<tr>'
       + td('<strong>' + escapeHtml(c.cargo || '—') + '</strong>' + (c.custom ? ' <span style="color:var(--ink-faint);font-size:11px;">(personalizado)</span>' : ''))
@@ -132,7 +133,7 @@ function renderCargos() {
       + td(sinPersona ? '—' : _cargoPill(c.tipo === 'externo' ? 'Externo' : 'Interno', c.tipo === 'externo' ? 'ext' : 'int'))
       + td(sinPersona ? '—' : escapeHtml(c.perfil || '—'))
       + td(sinPersona ? '—' : (c.estado === 'pendiente'
-          ? '<a style="cursor:pointer;text-decoration:none;" title="Copiar el link de invitación de esta persona" onclick="cargoCopiarInvitacion(\'' + c.id + '\')">' + _cargoPill(estLabel + ' ⧉', estTone) + '</a>'
+          ? '<a style="cursor:pointer;text-decoration:none;" title="Copiar el link de invitación de esta persona" ' + accionHTML('cargo.copiarInv', c.id) + '>' + _cargoPill(estLabel + ' ⧉', estTone) + '</a>'
           : _cargoPill(estLabel, estTone)))
       + '<td style="padding:9px 10px;border-bottom:1px solid var(--rule);text-align:right;white-space:nowrap;">' + acciones + '</td>'
       + '</tr>';
@@ -140,7 +141,7 @@ function renderCargos() {
   content.innerHTML = ''
     + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;">'
     +   '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' + _cargoPill('● interno', 'int') + ' ' + _cargoPill('● externo', 'ext') + ' ' + _contadorColab + '</div>'
-    +   (puede ? '<button class="btn btn-primary btn-sm" onclick="cargoAbrirModal()">+ Asignar un cargo</button>' : '<span style="font-size:12px;color:var(--ink-faint);">Asignar cargos es facultad de Administrador y Ejecutivo.</span>')
+    +   (puede ? '<button class="btn btn-primary btn-sm" data-accion="cargo.abrir">+ Asignar un cargo</button>' : '<span style="font-size:12px;color:var(--ink-faint);">Asignar cargos es facultad de Administrador y Ejecutivo.</span>')
     + '</div>'
     + '<div style="border:1px solid var(--rule);border-radius:10px;overflow:hidden;background:var(--bg-card);">'
     +   '<table style="width:100%;border-collapse:collapse;">'
@@ -207,33 +208,33 @@ function cargoAbrirModal(editId) {
   const tipo = edit ? (edit.tipo || 'interno') : 'interno';
   /* V11.5.0: el backdrop ya no cierra el modal (se perdía lo escrito con un
      click accidental); solo Cancelar o guardar. */
-  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:560px;">'
+  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop"><div class="modal" style="max-width:560px;">'
     + '<div class="modal-header"><div class="modal-title">' + (edit ? 'Editar cargo' : 'Asignar un cargo') + '</div></div>'
     + '<div class="modal-body">'
     /* V11.4.0 · Tipo va PRIMERO: determina qué personas se ofrecen abajo. */
-    +   '<div class="emp-field" style="margin-bottom:12px;"><label>Tipo</label><select class="select" id="cg_tipo" onchange="_cargoTipoChanged(this.value)">'
+    +   '<div class="emp-field" style="margin-bottom:12px;"><label>Tipo</label><select class="select" id="cg_tipo" data-accion="cargo.tipo" data-on="change">'
     +     '<option value="interno"' + (tipo !== 'externo' ? ' selected' : '') + '>Interno (de mi equipo)</option>'
     +     '<option value="externo"' + (tipo === 'externo' ? ' selected' : '') + '>Externo (freelance / invitado)</option>'
     +   '</select><div id="cg_tipoHint" style="font-size:11.5px;color:var(--ink-faint);margin-top:5px;line-height:1.5;"></div></div>'
-    +   '<div class="emp-field" style="margin-bottom:12px;"><label>Cargo</label><select class="select" id="cg_cargo" onchange="_cargoSelChanged(this.value)">' + optsCargo + '</select>'
+    +   '<div class="emp-field" style="margin-bottom:12px;"><label>Cargo</label><select class="select" id="cg_cargo" data-accion="cargo.sel" data-on="change">' + optsCargo + '</select>'
     +     '<input class="input" id="cg_otro" placeholder="Escribe el cargo (ej. Gaffer, Sonidista, Entrevistador)" style="display:' + (selCargoVal === '__otro' ? 'block' : 'none') + ';margin-top:8px;" value="' + (edit && !esPreset ? escapeHtml(edit.cargo || '') : '') + '">'
-    +     (edit ? '' : '<button class="btn btn-ghost btn-sm" id="cg_addRol2" style="margin-top:8px;" onclick="_cargoAgregarRol2()">+ Agregar rol secundario</button>'
+    +     (edit ? '' : '<button class="btn btn-ghost btn-sm" id="cg_addRol2" style="margin-top:8px;" data-accion="cargo.rol2">+ Agregar rol secundario</button>'
     +       '<div id="cg_rol2Wrap" style="display:none;margin-top:8px;"><label style="font-size:11.5px;color:var(--ink-faint);">Rol secundario (misma persona, mismo perfil)</label>'
-    +         '<select class="select" id="cg_cargo2" onchange="var o=document.getElementById(\'cg_otro2\'); if(o) o.style.display = this.value===\'__otro\' ? \'block\' : \'none\';">' + optsCargo2 + '</select>'
+    +         '<select class="select" id="cg_cargo2" data-accion="cargo.otro2" data-on="change">' + optsCargo2 + '</select>'
     +         '<input class="input" id="cg_otro2" placeholder="Escribe el rol secundario" style="display:none;margin-top:8px;"></div>')
     +   '</div>'
     +   '<div class="emp-field" style="margin-bottom:12px;"><label>Persona</label>'
     +     '<span class="combobox-wrap cbx-anchored" style="display:block;">'
     +       '<input class="input combobox-input" id="cg_persona" placeholder="Escribe para buscar…" autocomplete="off" value="' + (edit ? escapeHtml(edit.personaNombre || '') : '') + '"'
-    +         ' onfocus="cargoComboboxFilter(this)" oninput="cargoComboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="cargoPersonaChanged(this.value)">'
+    +         ' data-accion="cargo.persona" data-on="focus input blur change">'
     +       '<div class="combobox-dropdown" hidden></div>'
     +     '</span></div>'
-    +   '<div class="emp-field" style="margin-bottom:12px;"><label>Perfil de acceso</label><select class="select" id="cg_perfil" onchange="_cargoPerfilChecklist(this.value)">' + _cargoOpcionesPerfil(tipo, edit ? edit.perfil : 'Producción') + '</select>'
+    +   '<div class="emp-field" style="margin-bottom:12px;"><label>Perfil de acceso</label><select class="select" id="cg_perfil" data-accion="cargo.perfil" data-on="change">' + _cargoOpcionesPerfil(tipo, edit ? edit.perfil : 'Producción') + '</select>'
     +     '<div id="cg_permGlosario" style="font-size:11px;color:var(--ink-faint);margin-top:8px;line-height:1.5;"><strong>E</strong> = puede editar · <strong>L</strong> = solo lectura · <strong>—</strong> = oculto</div>'
     +     '<div id="cg_permList" style="margin-top:6px;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--ink-secondary);max-height:170px;overflow-y:auto;">Cargando permisos…</div></div>'
     +   '<div class="emp-field" id="cg_emailWrap" style="display:' + (tipo === 'externo' ? 'block' : 'none') + ';"><label>Correo del externo (para invitarle a colaborar)</label><input class="input" id="cg_email" type="email" placeholder="persona@correo.cl"><span class="hint" style="font-size:11.5px;color:var(--ink-faint);">Opcional. Si lo ingresas, se genera la invitación a este cargo con link copiable.</span></div>'
     + '</div>'
-    + '<div class="modal-footer"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="cargoGuardarModal()">' + (edit ? 'Guardar cambios' : 'Asignar') + '</button></div>'
+    + '<div class="modal-footer"><button class="btn" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="cargo.guardar">' + (edit ? 'Guardar cambios' : 'Asignar') + '</button></div>'
     + '</div></div>';
   _cargoTipoChanged(document.getElementById('cg_tipo').value);
   if (edit && edit.perfil) { const s = document.getElementById('cg_perfil'); if (s) s.value = edit.perfil; }
@@ -266,11 +267,11 @@ function cargoComboboxFilter(inputEl) {
   const matched = q ? nombres.filter(function (n) { return _normKey(n).includes(q); }) : nombres;
   let html = matched.slice(0, 20).map(function (n) {
     const meta = tipo === 'externo' && BD_PERSONAS[n] && BD_PERSONAS[n].rolHabitual ? '<div class="combobox-option-meta">' + escapeHtml(BD_PERSONAS[n].rolHabitual) + '</div>' : '';
-    return '<div class="combobox-option" onmousedown="comboboxSelect(this, \'' + escapeHtml(n) + '\')"><div class="combobox-option-main">' + escapeHtml(n) + '</div>' + meta + '</div>';
+    return '<div class="combobox-option" ' + accionHTML('cargo.cbSel', n, { on: 'mousedown' }) + '><div class="combobox-option-main">' + escapeHtml(n) + '</div>' + meta + '</div>';
   }).join('');
   if (!matched.length) html += '<div class="combobox-empty">' + (tipo === 'interno' ? 'Nadie con ese nombre en tu equipo interno.' : 'Sin coincidencias en la Base de Datos.') + '</div>';
   if (matched.length > 20) html += '<div class="combobox-more">+ ' + (matched.length - 20) + ' más — sigue tipeando</div>';
-  if (tipo === 'interno') html += '<div class="combobox-option" style="border-top:1px solid var(--rule);color:var(--accent);font-weight:600;" onmousedown="event.preventDefault(); cargoIrAInvitar();">+ Invitar a alguien a la productora…</div>';
+  if (tipo === 'interno') html += '<div class="combobox-option" style="border-top:1px solid var(--rule);color:var(--accent);font-weight:600;" data-accion="cargo.invitar" data-on="mousedown">+ Invitar a alguien a la productora…</div>';
   dropdown.innerHTML = html;
   dropdown.hidden = false;
   dropdown.onmousedown = function (e) { if (!e.target.closest('.combobox-option')) e.preventDefault(); };
@@ -419,19 +420,28 @@ function cargoQuitar(id) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window._cargoAgregarRol2 = _cargoAgregarRol2;
 window._cargoContactIdPorNombre = _cargoContactIdPorNombre;
-window._cargoPerfilChecklist = _cargoPerfilChecklist;
-window._cargoSelChanged = _cargoSelChanged;
-window._cargoTipoChanged = _cargoTipoChanged;
 window._cargosDerivarRECI = _cargosDerivarRECI;
 window._cargosKey = _cargosKey;
-window.cargoAbrirModal = cargoAbrirModal;
-window.cargoComboboxFilter = cargoComboboxFilter;
-window.cargoCopiarInvitacion = cargoCopiarInvitacion;
-window.cargoEditar = cargoEditar;
-window.cargoGuardarModal = cargoGuardarModal;
-window.cargoIrAInvitar = cargoIrAInvitar;
-window.cargoPersonaChanged = cargoPersonaChanged;
-window.cargoQuitar = cargoQuitar;
 window.renderCargos = renderCargos;
+
+// D2 · acciones delegadas (comboboxSelect/comboboxCloseDelayed vía window: ui)
+registrarAcciones('cargo', {
+  editar: function (a) { cargoEditar(a[0]); },
+  quitar: function (a) { cargoQuitar(a[0]); },
+  copiarInv: function (a) { cargoCopiarInvitacion(a[0]); },
+  abrir: function () { cargoAbrirModal(); },
+  tipo: function (a, el) { _cargoTipoChanged(el.value); },
+  sel: function (a, el) { _cargoSelChanged(el.value); },
+  rol2: function () { _cargoAgregarRol2(); },
+  otro2: function (a, el) { var o = document.getElementById('cg_otro2'); if (o) o.style.display = el.value === '__otro' ? 'block' : 'none'; },
+  persona: function (a, el, ev) {
+    if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else if (ev.type === 'change') cargoPersonaChanged(el.value);
+    else cargoComboboxFilter(el);
+  },
+  perfil: function (a, el) { _cargoPerfilChecklist(el.value); },
+  guardar: function () { cargoGuardarModal(); },
+  cbSel: function (a, el) { comboboxSelect(el, a[0]); },
+  invitar: function (a, el, ev) { ev.preventDefault(); cargoIrAInvitar(); },
+});

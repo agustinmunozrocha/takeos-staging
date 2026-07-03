@@ -10,7 +10,6 @@
 // Firma de toda acción: (args, el, ev) — args del JSON, el = elemento con
 // data-accion, ev = evento nativo (los handlers que usaban this/event).
 import { escapeHtml } from './helpers.js';
-import { closeModal } from './ui.js';
 
 const ACCIONES = {};
 
@@ -55,12 +54,7 @@ function despachar(ev) {
 ['click', 'input', 'change', 'keydown', 'dblclick', 'mousedown', 'paste', 'submit', 'dragover', 'dragleave', 'drop'].forEach(function (t) {
   document.addEventListener(t, despachar);
 });
-
-/* Acciones universales compartidas (el patrón modal aparece en TODOS los
-   módulos): backdrop cierra SOLO si el click fue directo sobre él — la
-   traducción delegada del par onclick="closeModal()" +
-   onclick="event.stopPropagation()" del hijo, que queda obsoleto. */
-registrarAcciones('ui', {
-  cerrar: function () { closeModal(); },
-  backdrop: function (args, el, ev) { if (ev.target === el) closeModal(); },
+['focus', 'blur'].forEach(function (t) {   // no burbujean: captura
+  document.addEventListener(t, despachar, true);
 });
+
