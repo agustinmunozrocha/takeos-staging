@@ -5,22 +5,6 @@
    persona ya seleccionada. UX rota.
    Solución: select nativo + botón "×" explícito. Más simple, sin bug. */
 
-function renderPersonSelect(field, currentValue) {
-  // V6.4 (Nota 1): mismo combobox de búsqueda incremental que la columna
-  // Nombre del Presupuesto. El usuario hace click, escribe, y la lista se
-  // acota dinámicamente. Reutiliza comboboxOpen/Filter/CloseDelayed.
-  return `
-    <div class="combobox-wrap person-combobox">
-      <input class="input combobox-input" value="${escapeHtml(currentValue || '')}"
-             placeholder="Escribe para buscar en la Base de Datos…" autocomplete="off"
-             onfocus="comboboxOpen(this)"
-             oninput="comboboxFilter(this); updateInfoField('${field}', this.value);"
-             onblur="comboboxCloseDelayed(this)"
-             onchange="updateInfoField('${field}', this.value);">
-      <div class="combobox-dropdown" hidden></div>
-    </div>
-  `;
-}
 
 /* ─── TOAST SYSTEM ─────────────────────────────────────────────────── */
 
@@ -754,26 +738,6 @@ document.querySelectorAll('.view-toggle button').forEach(btn => {
 /* newProject -> movido a src/modules/kanban.js (Etapa 2) */
 
 /* V5.6 (Nota 3): carga los proyectos de ejemplo a demanda. */
-function loadDemoData() {
-  showModal({
-    danger: PROJECTS.length > 0,
-    title: 'Cargar datos de ejemplo',
-    body: `Esto carga ${DEMO_PROJECTS.length} proyectos de ejemplo (Watt's, Falabella, Merrell) para explorar el sistema con datos realistas.${PROJECTS.length > 0 ? '<br><br><strong>Reemplazará los proyectos actuales.</strong> Lo que no hayas exportado con “Guardar” se perderá.' : ''}<br><br>¿Continuar?`,
-    confirmLabel: 'Cargar ejemplos',
-    cancelLabel: 'Cancelar',
-    onConfirm: () => {
-      PROJECTS.length = 0;
-      JSON.parse(JSON.stringify(DEMO_PROJECTS)).forEach(p => PROJECTS.push(p));
-      STATE.currentProject = null;
-      navigateToControlRoom();
-      renderMetrics();
-      renderKanban();
-      markDirty();
-      showToast({ kind: 'success', title: 'Ejemplos cargados', body: `${DEMO_PROJECTS.length} proyectos de ejemplo en el Control Room.` });
-    },
-    onCancel: () => {}
-  });
-}
 
 // TOOLTIP GLOBAL: _activeTooltip, showTooltip, hideTooltip, setupTooltipListeners → movido a src/lib/ui.js (Etapa C5)
 
@@ -834,7 +798,6 @@ window.bancoCodigo = bancoCodigo;
 window.bancoSelectHTML = bancoSelectHTML;
 window.comboboxFilterEmpresas = comboboxFilterEmpresas;
 window.fireConfetti = fireConfetti;
-window.loadDemoData = loadDemoData;
 window.pfBancoChange = pfBancoChange;
 window.regionSelectHTML = regionSelectHTML;
 window.sectionResponsableHTML = sectionResponsableHTML;

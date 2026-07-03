@@ -19,29 +19,6 @@ function tipoCuentaSelectHTML(current, opts) {
 /* ════════════════════════════════════════════════════════════════════
    V8.5 · CUMPLEAÑOS (solo día y mes; el año no se guarda)
    ════════════════════════════════════════════════════════════════════ */
-function _cumpleParse(v) {
-  if (!v) return { d: '', m: '' };
-  v = String(v).trim();
-  let mm = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);             // ISO AAAA-MM-DD (legado)
-  if (mm) return { d: ('0' + mm[3]).slice(-2), m: ('0' + mm[2]).slice(-2) };
-  mm = v.match(/^(\d{1,2})[-/](\d{1,2})(?:[-/]\d{2,4})?$/);       // DD/MM o DD/MM/AAAA (legado)
-  if (mm) return { d: ('0' + mm[1]).slice(-2), m: ('0' + mm[2]).slice(-2) };
-  return { d: '', m: '' };
-}
-function _cumpleDia(v) { return _cumpleParse(v).d; }
-function _cumpleMes(v) { return _cumpleParse(v).m; }
-function _buildCumple(d, m) { d = (d || '').trim(); m = (m || '').trim(); return (d && m) ? (d + '/' + m) : ''; }
-function cumpleDiaSelectHTML(cur) {
-  let o = '<option value="">Día</option>';
-  for (let i = 1; i <= 31; i++) { const v = ('0' + i).slice(-2); o += '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + i + '</option>'; }
-  return '<select class="select" id="pf_cumpleDia" style="flex:1;">' + o + '</select>';
-}
-function cumpleMesSelectHTML(cur) {
-  const M = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  let o = '<option value="">Mes</option>';
-  M.forEach((nm, i) => { const v = ('0' + (i + 1)).slice(-2); o += '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + nm + '</option>'; });
-  return '<select class="select" id="pf_cumpleMes" style="flex:1.4;">' + o + '</select>';
-}
 
 function openPersonaByName(nombre) {
   if (!nombre) return;
@@ -686,11 +663,6 @@ function togglePersonExpand(nombre) {
 }
 
 /* Debounce ligero para evitar render en cada keystroke */
-let _bdRenderTimer = null;
-function debouncedBDRender() {
-  clearTimeout(_bdRenderTimer);
-  _bdRenderTimer = setTimeout(() => renderBDPersonas(), 120);
-}
 
 /* ════════════════════════════════════════════════════════════════════
    ARCHIVAR / RESTAURAR la Base de Datos (soft-delete, solo Administrador)
@@ -1147,7 +1119,6 @@ window.openEmpresaProfile     = openEmpresaProfile;
 window.openAddTalentoQuick    = openAddTalentoQuick;
 window.renderBDPersonList     = renderBDPersonList;
 window.togglePersonExpand     = togglePersonExpand;
-window.debouncedBDRender      = debouncedBDRender;
 window._bdPuedeArchivar       = _bdPuedeArchivar;
 window.archivarContactoModal  = archivarContactoModal;
 window.archivarEmpresaModal   = archivarEmpresaModal;
@@ -1165,6 +1136,4 @@ window.openPersonaForm        = openPersonaForm;
 window.togglePfTalento        = togglePfTalento;
 window.submitPersonaForm      = submitPersonaForm;
 window.tipoCuentaSelectHTML   = tipoCuentaSelectHTML;
-window.cumpleDiaSelectHTML    = cumpleDiaSelectHTML;
-window.cumpleMesSelectHTML    = cumpleMesSelectHTML;
 window.openPersonaByName      = openPersonaByName;   // locaciones.js la llama como window.openPersonaByName

@@ -44,7 +44,6 @@ function authNivelModulo(appKey) {
   return authNivel(code);
 }
 function authPuedeVer(appKey) { return authNivelModulo(appKey) !== 'none'; }
-function authPuedeEditar(appKey) { return authNivelModulo(appKey) === 'E'; }
 function authEsAdmin() { return TAKEOS_PERFIL && (TAKEOS_PERFIL.codigo === 1 || TAKEOS_PERFIL.nombre === 'Administrador'); }
 /* V10.5.2: editar responsables de sección es exclusivo de Administrador (1) y Ejecutivo (2).
    El servidor (RPC 4b) ya ignora los responsables para el resto; esto alinea la UI.
@@ -79,7 +78,6 @@ function _authBlockWriteToast() {
 window.authNivel = authNivel;
 window.authNivelModulo = authNivelModulo;
 window.authPuedeVer = authPuedeVer;
-window.authPuedeEditar = authPuedeEditar;
 window.authEsAdmin = authEsAdmin;
 window._puedeEditarResponsables = _puedeEditarResponsables;
 window._puedeEditarTareas = _puedeEditarTareas;

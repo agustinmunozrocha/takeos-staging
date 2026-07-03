@@ -93,11 +93,6 @@ const _DAL_ROLE_LABEL = { crew: 'Crew', interno: 'Interno', talento: 'Talento', 
 const _DAL_TIPOCUENTA_LABEL = { corriente: 'Cuenta Corriente', vista: 'Cuenta Vista', ahorro: 'Cuenta de Ahorro', rut: 'Cuenta RUT', chequera_electronica: 'Chequera Electr\u00f3nica' };
 const _DAL_TIPO_EMPRESA_LABEL = { cliente: 'Cliente', proveedor: 'Proveedor', agencia: 'Agencia', socio: 'Socio' };
 function _dalBancoNombre(codigo) { if (!codigo) return ''; const b = BANCOS_CHILE.find(x => x.codigo === String(codigo)); return b ? b.nombre : ''; }
-function _dalCumpleDesdeISO(fecha) {   // 'AAAA-MM-DD' -> 'DD/MM' (formato que usa la app)
-  if (!fecha) return '';
-  const m = String(fecha).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  return m ? (('0' + m[3]).slice(-2) + '/' + ('0' + m[2]).slice(-2)) : '';
-}
 
 /* Fila de Supabase (con satelites embebidos) -> contacto canonico BD_CONTACTOS[id]. */
 function _dalContactoDesdeRow(r) {
@@ -271,14 +266,6 @@ async function dalBootPersonasExternos() {
 /* \u00bfLa escritura de la BD esta congelada? (porque ya leemos de Supabase pero
    la escritura no llegó a Supabase, y se perderia al recargar). La usan los
    editores de la Base de Datos para avisar y no guardar. */
-function dalBulkFrozen() {
-  if (CONTACTS_SOURCE !== 'supabase') return false;
-  // V9.6.3: "Importar" (fusión) ya sincroniza a Supabase. Solo "Reemplazar todo" sigue
-  // bloqueado: borrar de Supabase lo que no está en el Excel exige una RPC de reemplazo
-  // atómico (no un borrado masivo frágil desde el cliente sobre datos bancarios).
-  try { showToast({ kind: 'info', title: 'Reemplazo total pendiente', body: 'El "Reemplazar todo" hacia Supabase llega con una RPC de reemplazo atómico. Por ahora usa "Importar desde Excel" (fusión, que sí escribe a Supabase) o edita por ficha.', duration: 7000 }); } catch (e) {}
-  return true;
-}
 
 /* ── V9.4.4 · BD de Locaciones (BD_LOC), transversal ──────────────────────
    Lectura desde la tabla `locations`. Las FOTOS no viven en Supabase todavía
@@ -1837,13 +1824,6 @@ async function dalFlushProyectos() {
 }
 
 /* Banner visible dentro del modulo Base de Datos (claridad sobre comodidad). */
-function dalBannerHTML() {
-  if (CONTACTS_SOURCE !== 'supabase') return '';
-  return '<div style="margin-bottom:var(--space-4);padding:10px 14px;border:1px solid var(--accent,#B03A2F);border-radius:8px;background:rgba(176,58,47,0.08);color:var(--ink-secondary);font-size:13px;line-height:1.5;">'
-    + '<strong style="color:var(--accent,#B03A2F);">Lectura desde Supabase (V9.1.0).</strong> '
-    + 'Esta Base de Datos se carga desde la base relacional. La <strong>edici\u00f3n est\u00e1 en pausa</strong> hasta la V9.1.1; evita editar contactos o empresas mientras tanto.'
-    + '</div>';
-}
 
 // ── Window bridges DAL (3 barridos: consumo externo, auto-consumo, nombre-string) ──
 window._conflictoBannerHide = _conflictoBannerHide;
@@ -1862,7 +1842,6 @@ window.dalBootLocaciones = dalBootLocaciones;
 window.dalBootPerfil = dalBootPerfil;
 window.dalBootPersonasExternos = dalBootPersonasExternos;
 window.dalBootProyectos = dalBootProyectos;
-window.dalBulkFrozen = dalBulkFrozen;
 window.dalCargarCargos = dalCargarCargos;
 window.dalCargarTopeColaboradores = dalCargarTopeColaboradores;
 window.dalEliminarLegalDoc = dalEliminarLegalDoc;

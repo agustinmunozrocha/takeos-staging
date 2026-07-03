@@ -10,15 +10,6 @@
 /* V11.3.0 · DOC_CATEGORIES ya NO estructura la pestaña: Documentos es un
    repositorio modular (el usuario crea, nombra y describe cada documento).
    La lista se conserva solo para etiquetar datos creados antes de V11.3. */
-const DOC_CATEGORIES = [
-  { key: 'brief', label: 'Brief de cliente' },
-  { key: 'tratamiento', label: 'Tratamiento de dirección' },
-  { key: 'devolucion', label: 'Devolución de agencia' },
-  { key: 'referencias', label: 'Referencias' },
-  { key: 'reuniones', label: 'Transcripciones / Reuniones' },
-  { key: 'estrategico', label: 'Documentos estratégicos' },
-  { key: 'otros', label: 'Otros' }
-];
 function ensureDocs(project) {
   if (!project.data.documentos) project.data.documentos = { items: [] };
   if (!Array.isArray(project.data.documentos.items)) project.data.documentos.items = [];
