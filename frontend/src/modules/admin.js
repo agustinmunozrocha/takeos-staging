@@ -3,7 +3,7 @@
 /* V11.3.0 · la contraseña compartida del Modo Admin fue eliminada. El permiso
    depende del perfil (solo Administrador); el modo se mantiene como barrera
    operacional consciente, con advertencia, no como autenticación. */
-function _applyAdminUI() {
+export function _applyAdminUI() {
   const btn = document.getElementById('adminToggleBtn');
   const label = document.getElementById('adminToggleLabel');
   if (btn) btn.classList.toggle('is-on', STATE.adminMode);
@@ -11,7 +11,7 @@ function _applyAdminUI() {
   const badge = document.getElementById('adminBadge');
   if (badge) badge.style.display = STATE.adminMode ? 'inline-flex' : 'none';
 }
-function requestAdminPassword(onOk) {
+export function requestAdminPassword(onOk) {
   /* V11.3.0 · ya no hay contraseña: el permiso lo da el perfil (Administrador)
      y este modal es la barrera consciente que explica qué se habilita. */
   if (!_puedeModoAdmin()) {
@@ -43,7 +43,7 @@ function requestAdminPassword(onOk) {
 }
 /* V10.5.1: el modo administrador queda reservado al perfil Administrador (1).
    Fail-open coherente con authNivel: si no hay perfil cargado, no se restringe. */
-function _puedeModoAdmin() {
+export function _puedeModoAdmin() {
   if (!TAKEOS_PERFIL) return true;
   return authEsAdmin();
 }

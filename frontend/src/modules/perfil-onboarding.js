@@ -58,7 +58,7 @@ function _rutValido(s) {
   const dvCalc = res === 11 ? '0' : (res === 10 ? 'K' : String(res));
   return dv === dvCalc;
 }
-async function abrirPerfilUsuario(modoOnboarding, onDone, faltaBanca, soloReqs, invBanner) {
+export async function abrirPerfilUsuario(modoOnboarding, onDone, faltaBanca, soloReqs, invBanner) {
   modoOnboarding = !!modoOnboarding;
   try {
     var client = (typeof sb !== 'undefined' && sb) ? sb : (typeof supabaseInit === 'function' ? supabaseInit() : null);

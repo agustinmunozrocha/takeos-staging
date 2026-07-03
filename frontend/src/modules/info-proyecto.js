@@ -361,7 +361,7 @@ function renderPersonContactSub(personData) {
    así que marcan el cambio explícitamente con estos helpers. _dirtySeq permite,
    al guardar OK, limpiar la marca solo si nadie volvió a editar durante el viaje
    del RPC (sin perder una segunda edición). */
-function _markRowDirty(row) {
+export function _markRowDirty(row) {
   if (row) { row._dirty = true; row._dirtySeq = (row._dirtySeq || 0) + 1; }
   return row;
 }

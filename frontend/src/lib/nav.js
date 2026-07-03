@@ -3,7 +3,7 @@
 // eval y resuelve vía window.MODULES (asignado aquí). Las entradas render son arrows
 // diferidos (lección #7); jamás referencias directas.
 
-function navigateToModule(moduleKey) {
+export function navigateToModule(moduleKey) {
   // V10.4.0 (Gate B): no navegar a módulos sin acceso; caer al primero visible
   if (!authPuedeVer(moduleKey)) {
     const first = _firstVisibleModule();

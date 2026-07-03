@@ -134,7 +134,7 @@ function applyLoadedState(obj) {
 }
 
 /* ─── EXPORTAR (.json) ─────────────────────────────────────────────── */
-function exportSave() {
+export function exportSave() {
   try {
     const data = buildSaveObject();
     const json = JSON.stringify(data, null, 2);
@@ -300,7 +300,7 @@ function deleteSnapshot(index) {
   _writeSnapshots(list);
 }
 
-function openSnapshotsModal() {
+export function openSnapshotsModal() {
   const list = _readSnapshots();
   let body;
   if (list.length === 0) {
@@ -472,7 +472,7 @@ function _persisAvisarFallo(body) {
   if (_persisFalloAvisado) return; _persisFalloAvisado = true;
   try { showToast({ kind: 'warning', title: 'Respaldo local con problemas', body: body, duration: 9000 }); } catch (e) {}
 }
-function autosaveNow() {
+export function autosaveNow() {
   let ok = false;
   if (hasLS()) {
     try { window.localStorage.setItem(LS_KEY, JSON.stringify(buildSaveObject())); ok = true; }
@@ -490,7 +490,7 @@ function _syncDirtyChip() {
   const cb = document.querySelector('.topbar-config-btn');   // V7.5: lucecita de cambios sin guardar
   if (cb) cb.classList.toggle('is-dirty', !!STATE.dirty);
 }
-function markDirty() {
+export function markDirty() {
   STATE.dirty = true;
   const btn = document.getElementById('saveBtn');
   if (btn) btn.classList.add('is-dirty');

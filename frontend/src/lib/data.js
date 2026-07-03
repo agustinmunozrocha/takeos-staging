@@ -117,7 +117,7 @@ const COTIZACION_CONDICIONES_DEFAULTS = {
 };
 window.COTIZACION_CONDICIONES_DEFAULTS = COTIZACION_CONDICIONES_DEFAULTS;
 
-const DTE_OPTIONS = [
+export const DTE_OPTIONS = [
   { value: 'boleta',           label: 'Boleta de honorarios' },
   { value: 'factura',          label: 'Factura' },
   { value: 'factura_exenta',   label: 'Factura exenta' },
@@ -134,17 +134,17 @@ const DTE_CON_RETENCION = ['boleta', 'boleta_terceros']; window.DTE_CON_RETENCIO
    el bruto × (1 − 0,1525). Factura (afecta o exenta): sin retención, el
    monto neto coincide con el costo. Todos los módulos (Presupuesto, Gastos,
    Legal, calculadora) deben usar estas funciones — no recalcular aparte. */
-function dteTieneRetencion(dte) { return DTE_CON_RETENCION.indexOf(dte) !== -1; }
+export function dteTieneRetencion(dte) { return DTE_CON_RETENCION.indexOf(dte) !== -1; }
 /* V9.6.18 · factor de retención según DTE (boleta=BHE, boleta_terceros=BTE).
    Antes ambos usaban FACTOR_BOLETA; ahora cada uno toma su propia tasa de
    tax_rates (BTE = BHE por defecto, así no cambia el cálculo si no hay dato). */
-function factorRetencionDte(dte) {
+export function factorRetencionDte(dte) {
   if (dte === 'boleta_terceros') return FACTOR_BTE;
   if (dteTieneRetencion(dte)) return FACTOR_BOLETA;
   return 1;
 }
-function montoNetoDesde(costoReal, dte) { const c = Number(costoReal) || 0; if (!c) return 0; return dteTieneRetencion(dte) ? Math.round(c * factorRetencionDte(dte)) : Math.round(c); }
-function montoBrutoDesde(liquido, dte) { const l = Number(liquido) || 0; if (!l) return 0; return dteTieneRetencion(dte) ? Math.round(l / factorRetencionDte(dte)) : Math.round(l); }
+export function montoNetoDesde(costoReal, dte) { const c = Number(costoReal) || 0; if (!c) return 0; return dteTieneRetencion(dte) ? Math.round(c * factorRetencionDte(dte)) : Math.round(c); }
+export function montoBrutoDesde(liquido, dte) { const l = Number(liquido) || 0; if (!l) return 0; return dteTieneRetencion(dte) ? Math.round(l / factorRetencionDte(dte)) : Math.round(l); }
 const UNIDAD_OPTIONS = ['Tarifa Plana', 'Jornadas', 'Horas', 'Personas', 'Locaciones', 'Fotografías'];
 
 // Fórmulas tributarias puras (viajaron con su data DTE; consumidas por el

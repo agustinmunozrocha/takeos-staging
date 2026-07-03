@@ -846,7 +846,7 @@ function goFindMov(id) {
   for (const p of PROJECTS) { const m = goMovs(p).find(x => x.id === id); if (m) return { project: p, m: m }; }
   return null;
 }
-function openGlobalCFO() {
+export function openGlobalCFO() {
   STATE.currentView = 'bd-global';
   STATE.currentProject = null;
   STATE.currentModule = 'cfo';

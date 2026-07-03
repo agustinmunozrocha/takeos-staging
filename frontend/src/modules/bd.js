@@ -786,7 +786,7 @@ async function restaurarLocacionBD(locId) {
 /* V5.1.1: rediseñado. Antes movíamos #moduleMain entre vistas creando
    dos elementos con el mismo ID. Ahora #bdGlobalMain es un container
    DEDICADO que vive separado en el DOM desde el inicio. */
-function openGlobalBDPersonas() {
+export function openGlobalBDPersonas() {
   STATE.currentView = 'bd-global';
   STATE.currentProject = null;
   STATE.currentModule = 'bd-personas';

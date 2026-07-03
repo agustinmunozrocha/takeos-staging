@@ -14,14 +14,14 @@ function cfgSetUsaChipax(on) {
    Deshacer se queda en la barra (uso frecuente). Atajo: ⌘ , / Ctrl , */
 /* V11.3.1 · vuelta al «panel personal» (Tu espacio) desde el Control Room.
    Recarga con ?espacio=1: con la sesión vigente (TTL) no pide login. */
-function irAlPanelPersonal() {
+export function irAlPanelPersonal() {
   /* V11.4.1 · sin cortina al ir al panel personal: es navegación interna,
      no un arranque frío. La marca sobrevive a la recarga (sessionStorage). */
   try { sessionStorage.setItem('takeos_sin_veil', '1'); } catch (e) {}
   window.location.href = window.location.pathname + '?espacio=1';
 }
 
-function openConfigPanel() {
+export function openConfigPanel() {
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
     <div class="modal-backdrop" onclick="closeModal()">
@@ -107,7 +107,7 @@ function closeConfigPanel() { closeModal(); }
 function _configPanelOpen() { return !!document.querySelector('.config-panel'); }
 
 /* V7.9: perfil de la empresa/productora emisora (datos para documentos). */
-function openEmpresaPerfil(subInicial) {
+export function openEmpresaPerfil(subInicial) {
   /* V11.11.0 · el panel es PÚBLICO para todo el equipo de la productora:
      Equipo y Diseño son visibles para cualquier perfil (solo lectura para
      quien no es Administrador). "Datos de la empresa" sigue siendo exclusivo
@@ -2035,7 +2035,7 @@ async function _pdCookiesCargar() {
    Control Room), si el usuario aún no decidió con la versión vigente, muestra el
    banner. Corre una sola vez por sesión y no se encima sobre flujos de pantalla
    completa (onboarding, invitación, crear productora, login). */
-async function _pdCookiesBootCheck() {
+export async function _pdCookiesBootCheck() {
   if (_pdCookiesBootHecho) return;
   try {
     if (document.getElementById('perfilUsuario') || document.getElementById('invitacionRecibida') || document.getElementById('crearProductora') || document.getElementById('cloudGate') || document.getElementById('espOnb')) return;

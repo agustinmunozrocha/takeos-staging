@@ -12,7 +12,7 @@
 
 /* ─── MODAL SYSTEM ─────────────────────────────────────────────────── */
 
-function showModal({ title, body, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar', danger = false, onConfirm, onCancel }) {
+export function showModal({ title, body, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar', danger = false, onConfirm, onCancel }) {
   const root = document.getElementById('modalRoot');
   // V7.2: si cancelLabel viene null/vacío, no renderizamos el botón (antes mostraba "null" o un botón vacío)
   const cancelBtn = (cancelLabel != null && String(cancelLabel).trim() !== '')
@@ -54,7 +54,7 @@ function _modalCancel() {
   if (fn) fn();
 }
 
-function closeModal() {
+export function closeModal() {
   document.getElementById('modalRoot').innerHTML = '';
 }
 
@@ -315,7 +315,7 @@ function applyStoredTheme() {
   else document.documentElement.removeAttribute('data-theme');
   updateThemeButton(theme);
 }
-function toggleTheme() {
+export function toggleTheme() {
   const next = getStoredTheme() === 'light' ? 'dark' : 'light';
   try { window.localStorage.setItem(THEME_KEY, next); } catch (e) {}
   applyStoredTheme();

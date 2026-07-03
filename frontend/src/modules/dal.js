@@ -1840,7 +1840,7 @@ function dalResetOrg() {
   } catch (e) { console.error('[dal] reset de org', e); }
 }
 window.dalResetOrg = dalResetOrg;
-function dalTouchProyecto(project) {
+export function dalTouchProyecto(project) {
   if (PROJECTS_SOURCE !== 'supabase' || !project || !project.id) return;
   if (project._autosaveSuspendedByConflict) return;   // Pasada 1 · autosave suspendido por conflicto (hasta recargar)
   _dalDirtyProjects.add(project.id);

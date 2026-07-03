@@ -1,5 +1,14 @@
 // Documentos del proyecto (Creative Hub) — extraído de index.html (Etapa C1)
 
+// D1a · imports reales (los bridges window de los productores se conservan
+// mientras otros consumidores window existan; ver Plan de Desacople v1.1)
+import { escapeHtml, safeUrl, showToast } from '../lib/helpers.js';
+import { sb } from '../lib/supabase.js';
+import { STATE } from '../lib/state.js';
+import { showModal } from '../lib/ui.js';
+import { dalTouchProyecto } from './dal.js';
+import { markDirty, autosaveNow } from './persistencia-local.js';
+
 /* ════════════════════════════════════════════════════════════════════
    V6.7 — MÓDULO DOCUMENTOS / CREATIVE HUB (V1)
    Centro documental del proyecto: reemplaza el rol de Milanote/Excel para

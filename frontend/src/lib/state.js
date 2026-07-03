@@ -135,7 +135,7 @@ const STATES_WITH_LOCKED_BUDGET = ['preproduccion', 'produccion', 'postproduccio
                       tallaPolera, tallaPantalon, tallaCalzado, fotosLink, reelLink } | null
    }
    ════════════════════════════════════════════════════════════════════ */
-const BD_CONTACTOS = {}; window.BD_CONTACTOS = BD_CONTACTOS;             // CANÓNICO (id-keyed)
+export const BD_CONTACTOS = {}; window.BD_CONTACTOS = BD_CONTACTOS;             // CANÓNICO (id-keyed)
 const BD_EMPRESAS_BYID = {}; window.BD_EMPRESAS_BYID = BD_EMPRESAS_BYID; // CANÓNICO (id-keyed)
 const BD_PERSONAS = {}; window.BD_PERSONAS = BD_PERSONAS; // proyección name-keyed (UI)
 const BD_TALENTOS = {}; window.BD_TALENTOS = BD_TALENTOS;                // proyección name-keyed (UI)
@@ -157,7 +157,7 @@ const BD_LEGAL_TPL = [];   // V8.4: plantillas legales personalizadas (las ofici
 
 // ROLES_OPERATIVOS → movido a src/lib/data.js (Etapa B3)
 
-const PROJECTS = []; window.PROJECTS = PROJECTS; // puente para src/modules/kanban.js
+export const PROJECTS = []; window.PROJECTS = PROJECTS; // puente para src/modules/kanban.js
 /* V5.10 (Respuesta 1): papelera. Eliminar un proyecto NO lo destruye: lo mueve
    aquí. Se conserva indefinidamente (pesa poco) y se respalda en el guardado.
    Desde la papelera se puede restaurar. */

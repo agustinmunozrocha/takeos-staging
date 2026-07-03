@@ -103,7 +103,7 @@ function formatCLP(amount) {
 /* fmtMoney: formato completo con separadores de miles (sin abreviar)
    Para totales y celdas. formatCLP es para Control Room donde el
    espacio escasea. */
-function fmtMoney(n) {
+export function fmtMoney(n) {
   if (n === null || n === undefined) return '—';
   if (n === 0) return '$0';
   return '$' + Math.round(n).toLocaleString('es-CL');
@@ -188,7 +188,7 @@ function readNum(input) {
    ÚLTIMO es el decimal; si hay uno solo, 1–2 dígitos finales = decimal, 3+ o
    repetido = miles. Antes los inputs eran type=number y "94.395" se leía como
    94,395 (94 pesos). Ahora son texto y se normalizan al perder foco. */
-function parseMoneyCLP(raw) {
+export function parseMoneyCLP(raw) {
   if (raw == null) return null;
   let s = String(raw).trim().replace(/[^\d.,\-]/g, '');
   if (s === '' || s === '-' || s === '.' || s === ',') return null;
@@ -221,7 +221,7 @@ function parseMoneyCLP(raw) {
 
 /* Valor formateado para mostrar dentro de un input de texto monetario
    (separador de miles chileno, sin símbolo $). */
-function displayMoneyInputValue(n) {
+export function displayMoneyInputValue(n) {
   if (n == null || !isFinite(n)) return '';
   return Math.round(n).toLocaleString('es-CL');
 }

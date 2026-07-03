@@ -1,6 +1,21 @@
 // Buscador Global (barra superior) — extraído de index.html (Etapa A5)
 // src/modules/buscador.js
 
+// D1a · imports reales. OJO: estos imports HOISTEAN la eval de config, gastos,
+// persistencia-local y admin a la pos de buscador (19) — auditado seguro: sus
+// top-levels son inertes y goWire (gastos) solo necesita state (pos 4) y nav
+// (pos 10). Línea roja #2: nav JAMÁS debe importar de gastos.
+import { escapeHtml, showToast } from '../lib/helpers.js';
+import { STATE, BD_CONTACTOS, PROJECTS } from '../lib/state.js';
+import { closeModal, toggleTheme } from '../lib/ui.js';
+import { navigateToModule } from '../lib/nav.js';
+import { navigateToControlRoom, navigateToProject } from './kanban.js';
+import { openGlobalBDPersonas } from './bd.js';
+import { openConfigPanel, openEmpresaPerfil } from './config.js';
+import { openGlobalCFO } from './gastos.js';
+import { exportSave, openSnapshotsModal } from './persistencia-local.js';
+import { _applyAdminUI, requestAdminPassword, _puedeModoAdmin } from './admin.js';
+
 /* ════════════════════════════════════════════════════════════════════
    V7.11 · BUSCADOR GLOBAL (barra superior)
    Busca proyectos, destinos de Configuración, módulos del proyecto abierto
