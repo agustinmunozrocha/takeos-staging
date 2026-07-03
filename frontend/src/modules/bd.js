@@ -21,6 +21,7 @@ import { _dalContactoSaveSoon, _dalEmpresaSaveSoon, _dalLocacionSaveSoon, dalBoo
 import { goMovs } from './gastos.js';
 import { autosaveNow, markDirty } from './persistencia-local.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 /* ════════════════════════════════════════════════════════════════════
    V8.5 · TIPO DE CUENTA (desplegable estandarizado)
    ════════════════════════════════════════════════════════════════════ */
@@ -53,16 +54,16 @@ function renderBDPersonas() {
   // ahora operan sobre las 3 pestañas en simultáneo.
   content.innerHTML = `
     <div style="display:flex;gap:8px;margin-bottom:var(--space-4);">
-      <button onclick="STATE.ui.bdTab='personas'; renderBDPersonas();" style="${tabStyle(tab==='personas')}">
+      <button data-accion="bd.tab" data-args="[&quot;personas&quot;]" style="${tabStyle(tab==='personas')}">
         Personas <span style="opacity:0.7;font-weight:400;">${Object.keys(BD_PERSONAS).length}</span>
       </button>
-      <button onclick="STATE.ui.bdTab='empresas'; renderBDPersonas();" style="${tabStyle(tab==='empresas')}">
+      <button data-accion="bd.tab" data-args="[&quot;empresas&quot;]" style="${tabStyle(tab==='empresas')}">
         Empresas <span style="opacity:0.7;font-weight:400;">${Object.keys(BD_EMPRESAS).length}</span>
       </button>
-      <button onclick="STATE.ui.bdTab='talentos'; renderBDPersonas();" style="${tabStyle(tab==='talentos')}">
+      <button data-accion="bd.tab" data-args="[&quot;talentos&quot;]" style="${tabStyle(tab==='talentos')}">
         Talentos <span style="opacity:0.7;font-weight:400;">${Object.keys(BD_TALENTOS).length}</span>
       </button>
-      <button onclick="STATE.ui.bdTab='locaciones'; renderBDPersonas();" style="${tabStyle(tab==='locaciones')}">
+      <button data-accion="bd.tab" data-args="[&quot;locaciones&quot;]" style="${tabStyle(tab==='locaciones')}">
         Locaciones <span style="opacity:0.7;font-weight:400;">${BD_LOC.length}</span>
       </button>
     </div>
@@ -74,27 +75,27 @@ function renderBDPersonas() {
         id="bdSearchInput"
         placeholder="Buscar…"
         value="${escapeHtml(STATE.ui.bdSearch || '')}"
-        oninput="STATE.ui.bdSearch = this.value; renderBDListByTab();"
+        data-accion="bd.buscar" data-on="input"
       >
-      <button class="btn btn-secondary" onclick="exportBDExcelV71()" title="Exporta toda la BD a un archivo .xlsx con dos pestañas: CONTACTOS y EMPRESAS (modelo unificado).">
+      <button class="btn btn-secondary" data-accion="bd.exportar" title="Exporta toda la BD a un archivo .xlsx con dos pestañas: CONTACTOS y EMPRESAS (modelo unificado).">
         Exportar BD (.xlsx)
       </button>
-      <button class="btn btn-secondary" onclick="downloadBDPlantilla()" title="Descarga una planilla .xlsx vacía (pestañas CONTACTOS y EMPRESAS) con los encabezados correctos y una fila de ejemplo. Llénala con tus contactos y luego usa «Importar BD».">
+      <button class="btn btn-secondary" data-accion="bd.plantilla" title="Descarga una planilla .xlsx vacía (pestañas CONTACTOS y EMPRESAS) con los encabezados correctos y una fila de ejemplo. Llénala con tus contactos y luego usa «Importar BD».">
         Descargar planilla
       </button>
-      <button class="btn btn-secondary" onclick="triggerBDExcelImport()" title="Importa una BD .xlsx (CONTACTOS + EMPRESAS, o el formato viejo de 3 pestañas). Fusiona por ID/RUT — actualiza lo existente y agrega lo nuevo. No borra lo que no esté en el Excel. Se crea snapshot antes.">
+      <button class="btn btn-secondary" data-accion="bd.importar" title="Importa una BD .xlsx (CONTACTOS + EMPRESAS, o el formato viejo de 3 pestañas). Fusiona por ID/RUT — actualiza lo existente y agrega lo nuevo. No borra lo que no esté en el Excel. Se crea snapshot antes.">
         Importar BD (.xlsx)
       </button>
-      ${STATE.adminMode && authNivel('eliminar_proyecto') === 'E' ? `<button class="btn btn-secondary" onclick="openArchivadosBD()" title="Personas, empresas y locaciones archivadas (soft-delete). Restaurar. Solo Administrador.">🗄 Archivados</button>` : ''}
+      ${STATE.adminMode && authNivel('eliminar_proyecto') === 'E' ? `<button class="btn btn-secondary" data-accion="bd.archivados" title="Personas, empresas y locaciones archivadas (soft-delete). Restaurar. Solo Administrador.">🗄 Archivados</button>` : ''}
       <div style="flex:1 1 240px;min-width:220px;display:flex;align-items:center;gap:8px;">
         <label style="font-size:12px;color:var(--ink-secondary);white-space:nowrap;">Link del formulario</label>
-        <button class="btn btn-primary btn-sm" onclick="_invAbrirDatos()" title="Genera el link para que la persona cree su cuenta (si no la tiene), llene sus datos UNA vez y autorice compartirlos con tu productora (Ley 21.719). No la incorpora a ningún proyecto ni cargo.">Link de invitación</button>
+        <button class="btn btn-primary btn-sm" data-accion="bd.linkInv" title="Genera el link para que la persona cree su cuenta (si no la tiene), llene sus datos UNA vez y autorice compartirlos con tu productora (Ley 21.719). No la incorpora a ningún proyecto ni cargo.">Link de invitación</button>
       </div>
-      <input type="file" id="bdExcelImportInputV71" accept=".xlsx,.xls" style="display:none" onchange="importBDExcelV71(this)">
-      ${tab === 'personas' ? `<button class="btn btn-primary" onclick="openAddPersonaQuick()">+ Nueva persona</button>` : ''}
-      ${tab === 'empresas' ? `<button class="btn btn-primary" onclick="openAddEmpresaQuick()">+ Nueva empresa</button>` : ''}
-      ${tab === 'talentos' ? `<button class="btn btn-primary" onclick="openAddTalentoQuick()">+ Nuevo talento</button>` : ''}
-      ${tab === 'locaciones' ? `<button class="btn btn-primary" onclick="openBDLocAdd()">+ Nueva locación</button>` : ''}
+      <input type="file" id="bdExcelImportInputV71" accept=".xlsx,.xls" style="display:none" data-accion="bd.importFile" data-on="change">
+      ${tab === 'personas' ? `<button class="btn btn-primary" data-accion="bd.nuevaPersona">+ Nueva persona</button>` : ''}
+      ${tab === 'empresas' ? `<button class="btn btn-primary" data-accion="bd.nuevaEmpresa">+ Nueva empresa</button>` : ''}
+      ${tab === 'talentos' ? `<button class="btn btn-primary" data-accion="bd.nuevoTalento">+ Nuevo talento</button>` : ''}
+      ${tab === 'locaciones' ? `<button class="btn btn-primary" data-accion="bd.nuevaLoc">+ Nueva locación</button>` : ''}
     </div>
 
     ${tab === 'personas' ? `
@@ -178,7 +179,7 @@ function renderBDLocacionesList() {
         <div style="font-size:12px;color:var(--ink-secondary);margin-top:2px;">${e(dir)}</div>
         <div style="font-size:11px;color:var(--ink-faint);margin-top:4px;">${nc} contacto${nc === 1 ? '' : 's'}${pc ? ' (' + e(pc.nombre || '') + ')' : ''} · ${nf} foto${nf === 1 ? '' : 's'}</div>
       </div>
-      <button class="btn btn-secondary btn-sm" style="white-space:nowrap;" onclick="openLocDetail('${e(l.locId)}')">Ver / editar</button>
+      <button class="btn btn-secondary btn-sm" style="white-space:nowrap;" ${accionHTML('bd.verLoc', l.locId)}>Ver / editar</button>
     </div>`;
   }).join('');
 }
@@ -187,8 +188,8 @@ function renderBDLocacionesList() {
    ningún proyecto). El detalle posterior permite vincularla a proyectos. */
 function openBDLocAdd() {
   const regSel = (typeof regionSelectHTML === 'function') ? regionSelectHTML('', { id: 'bla_region' }) : `<input class="input" id="bla_region" placeholder="Región">`;
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:560px;">
-    <div class="modal-header"><div class="modal-title">Nueva locación</div><button class="go-x" onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">×</button></div>
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:560px;">
+    <div class="modal-header"><div class="modal-title">Nueva locación</div><button class="go-x" data-accion="ui.cerrar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">×</button></div>
     <div class="modal-body">
       <div class="form-row"><label class="form-label">Nombre</label><input class="input" id="bla_nombre" placeholder="Casa Ñuñoa, Bodega Quilicura…" autofocus></div>
       <div class="form-row"><label class="form-label">Dirección</label><input class="input" id="bla_dir" placeholder="Calle y número"></div>
@@ -200,7 +201,7 @@ function openBDLocAdd() {
       <div class="form-row"><label class="form-label">Región</label>${regSel}</div>
       <p class="config-hint" style="margin:4px 0 0;">Se crea en la Base de Datos. Para usarla en un proyecto, agrégala desde el módulo Locaciones de ese proyecto.</p>
     </div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveBDLocAdd()">Crear locación</button></div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="bd.crearLoc">Crear locación</button></div>
   </div></div>`;
 }
 function saveBDLocAdd() {
@@ -264,8 +265,8 @@ function renderBDEmpresasList() {
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
         ${tipoBadges}
         <div style="display:flex;gap:6px;">
-          <button class="btn btn-secondary btn-sm" onclick="openEmpresaProfile('${e._id}')">Ver ficha</button>
-          <button class="btn btn-secondary btn-sm" onclick="openEmpresaEdit('${e._id}')">Editar</button>
+          <button class="btn btn-secondary btn-sm" ${accionHTML('bd.verEmp', e._id)}>Ver ficha</button>
+          <button class="btn btn-secondary btn-sm" ${accionHTML('bd.editEmp', e._id)}>Editar</button>
         </div>
       </div>
     </div>`;
@@ -310,7 +311,7 @@ function renderBDTalentosList() {
     const t = BD_TALENTOS[k];
     const _edadT = _edadDesde(t.fechaNacimiento) || t.edad || '';
     const meta = [_edadT ? _edadT + ' años' : '', t.altura ? t.altura + 'm' : '', t.genero || '', t.apariencia || ''].filter(Boolean).join(' · ');
-    return `<div style="background:var(--bg-surface);border:1px solid var(--border-soft);border-radius:8px;padding:12px 16px;margin-bottom:8px;cursor:pointer;" title="Editar ficha" onclick="bdTalentoEditar('${escapeHtml(k).replace(/'/g, '&#39;')}')">
+    return `<div style="background:var(--bg-surface);border:1px solid var(--border-soft);border-radius:8px;padding:12px 16px;margin-bottom:8px;cursor:pointer;" title="Editar ficha" ${accionHTML('bd.editTalento', k)}>
       <div style="display:flex;align-items:flex-start;gap:16px;">
         <div style="flex:1;min-width:0;">
           <div style="font-weight:600;color:var(--ink-primary);font-size:14px;">${escapeHtml(t.nombre || k)}</div>
@@ -422,21 +423,21 @@ function openEmpresaEdit(empId) {
     <div style="border:1px solid var(--rule);border-radius:8px;padding:9px 10px;margin-bottom:8px;">
       <div style="display:flex;gap:8px;align-items:center;">
         <span style="flex:1;font-weight:600;">${esc(c.nombre)}</span>
-        <button class="btn btn-secondary btn-sm" style="color:#d08;border-color:rgba(210,0,80,.4);" onclick="empresaUnlinkContacto('${empId}','${c.id}')" title="Desvincular (no se borra de la BD)">Desvincular</button>
+        <button class="btn btn-secondary btn-sm" style="color:#d08;border-color:rgba(210,0,80,.4);" ${accionHTML('bd.empUnlink', empId, c.id)} title="Desvincular (no se borra de la BD)">Desvincular</button>
       </div>
       <div style="font-size:11.5px;color:var(--ink-faint);margin-top:4px;">${[c.rolHabitual, c.email, c.telefono].filter(Boolean).map(esc).join(' · ') || 'Sin más datos en la BD aún'}</div>
-      <div style="margin-top:7px;"><label style="font-size:11px;color:var(--ink-mut);">Cargo / relación</label><input class="input" value="${esc(c.relacionEmpresa || '')}" placeholder="Contacto · Gerente · Encargado…" onchange="empresaSetContactoRel('${c.id}', this.value)"></div>
+      <div style="margin-top:7px;"><label style="font-size:11px;color:var(--ink-mut);">Cargo / relación</label><input class="input" value="${esc(c.relacionEmpresa || '')}" placeholder="Contacto · Gerente · Encargado…" ${accionHTML('bd.empRel', c.id, { on: 'change' })}></div>
     </div>`).join('') : '<div style="font-size:12px;color:var(--ink-faint);margin-bottom:8px;">Sin contactos vinculados todavía.</div>';
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:720px;width:94vw;max-height:88vh;overflow:auto;">
-    <div class="modal-header"><div class="modal-title">${esc(e.nombreFantasia || 'Empresa')}</div><button class="go-x" onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">×</button></div>
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" style="max-width:720px;width:94vw;max-height:88vh;overflow:auto;">
+    <div class="modal-header"><div class="modal-title">${esc(e.nombreFantasia || 'Empresa')}</div><button class="go-x" data-accion="ui.cerrar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">×</button></div>
     <div class="modal-body">
       <div class="form-grid cols-2" style="gap:12px;">
-        <div class="field"><label class="field-label">Nombre de fantasía</label><input class="input" value="${esc(e.nombreFantasia || '')}" onchange="empresaSet('${empId}','nombreFantasia',this.value)"></div>
-        <div class="field"><label class="field-label">Razón social</label><input class="input" value="${esc(e.razonSocial || '')}" onchange="empresaSet('${empId}','razonSocial',this.value)"></div>
-        <div class="field"><label class="field-label">RUT</label><input class="input" value="${esc(e.rutEmpresa || '')}" onchange="empresaSet('${empId}','rutEmpresa',this.value)"></div>
-        <div class="field"><label class="field-label">Tipo</label><select class="input" onchange="empresaSet('${empId}','tipo',this.value)">${tipoSel}</select></div>
-        <div class="field"><label class="field-label">Giro informal</label><input class="input" value="${esc(e.giroInformal || '')}" placeholder="Qué hacen, en simple" onchange="empresaSet('${empId}','giroInformal',this.value)"></div>
-        <div class="field"><label class="field-label">Giro SII</label><input class="input" value="${esc(e.giroSII || '')}" onchange="empresaSet('${empId}','giroSII',this.value)"></div>
+        <div class="field"><label class="field-label">Nombre de fantasía</label><input class="input" value="${esc(e.nombreFantasia || '')}" ${accionHTML('bd.empSet', empId, 'nombreFantasia', { on: 'change' })}></div>
+        <div class="field"><label class="field-label">Razón social</label><input class="input" value="${esc(e.razonSocial || '')}" ${accionHTML('bd.empSet', empId, 'razonSocial', { on: 'change' })}></div>
+        <div class="field"><label class="field-label">RUT</label><input class="input" value="${esc(e.rutEmpresa || '')}" ${accionHTML('bd.empSet', empId, 'rutEmpresa', { on: 'change' })}></div>
+        <div class="field"><label class="field-label">Tipo</label><select class="input" ${accionHTML('bd.empSet', empId, 'tipo', { on: 'change' })}>${tipoSel}</select></div>
+        <div class="field"><label class="field-label">Giro informal</label><input class="input" value="${esc(e.giroInformal || '')}" placeholder="Qué hacen, en simple" ${accionHTML('bd.empSet', empId, 'giroInformal', { on: 'change' })}></div>
+        <div class="field"><label class="field-label">Giro SII</label><input class="input" value="${esc(e.giroSII || '')}" ${accionHTML('bd.empSet', empId, 'giroSII', { on: 'change' })}></div>
       </div>
       <div class="loc-block" style="margin-top:8px;"><div class="loc-block-h">Dueños / socios</div>
         ${e.duenos.length ? e.duenos.map((du, di) => `
@@ -444,41 +445,41 @@ function openEmpresaEdit(empId) {
             <div class="form-grid cols-3" style="gap:8px;">
               <div class="field"><label class="field-label">Nombre</label>
                 <span class="combobox-wrap person-combobox cbx-anchored" style="display:block;">
-                  <input class="input combobox-input" value="${esc(du.nombre || '')}" placeholder="Buscar en la BD…" autocomplete="off" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="empresaSetDuenoField('${empId}',${di},'nombre',this.value)">
+                  <input class="input combobox-input" value="${esc(du.nombre || '')}" placeholder="Buscar en la BD…" autocomplete="off" ${accionHTML('bd.duenoCombo', empId, di, { on: 'focus input blur change' })}>
                   <div class="combobox-dropdown" hidden></div>
                 </span>
               </div>
-              <div class="field"><label class="field-label">Teléfono</label><input class="input" value="${esc(du.telefono || '')}" onchange="empresaSetDuenoField('${empId}',${di},'telefono',this.value)"></div>
-              <div class="field"><label class="field-label">Mail</label><input class="input" value="${esc(du.email || '')}" onchange="empresaSetDuenoField('${empId}',${di},'email',this.value)"></div>
+              <div class="field"><label class="field-label">Teléfono</label><input class="input" value="${esc(du.telefono || '')}" ${accionHTML('bd.dueno', empId, di, 'telefono', { on: 'change' })}></div>
+              <div class="field"><label class="field-label">Mail</label><input class="input" value="${esc(du.email || '')}" ${accionHTML('bd.dueno', empId, di, 'email', { on: 'change' })}></div>
             </div>
-            <div style="text-align:right;margin-top:4px;"><button class="btn btn-secondary btn-sm" style="color:#d08;border-color:rgba(210,0,80,.4);" onclick="empresaRemoveDueno('${empId}',${di})">Quitar</button></div>
+            <div style="text-align:right;margin-top:4px;"><button class="btn btn-secondary btn-sm" style="color:#d08;border-color:rgba(210,0,80,.4);" ${accionHTML('bd.duenoQuitar', empId, di)}>Quitar</button></div>
           </div>`).join('') : '<div style="font-size:12px;color:var(--ink-faint);margin-bottom:8px;">Sin dueños/socios todavía.</div>'}
-        <button class="btn btn-secondary btn-sm" onclick="empresaAddDueno('${empId}')">+ Agregar dueño / socio</button>
+        <button class="btn btn-secondary btn-sm" ${accionHTML('bd.duenoAdd', empId)}>+ Agregar dueño / socio</button>
       </div>
       <div class="loc-block"><div class="loc-block-h">Representante</div>
         <div class="form-grid cols-2" style="gap:10px;">
           <div class="field"><label class="field-label">Nombre</label>
             <span class="combobox-wrap person-combobox cbx-anchored" style="display:block;">
-              <input class="input combobox-input" value="${esc(e.representante.nombre || '')}" placeholder="Buscar en la BD…" autocomplete="off" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="empresaSetSub('${empId}','representante','nombre',this.value)">
+              <input class="input combobox-input" value="${esc(e.representante.nombre || '')}" placeholder="Buscar en la BD…" autocomplete="off" ${accionHTML('bd.repCombo', empId, { on: 'focus input blur change' })}>
               <div class="combobox-dropdown" hidden></div>
             </span>
           </div>
-          <div class="field"><label class="field-label">Cargo</label><input class="input" value="${esc(e.representante.cargo || '')}" onchange="empresaSetSub('${empId}','representante','cargo',this.value)"></div>
-          <div class="field"><label class="field-label">Teléfono</label><input class="input" value="${esc(e.representante.telefono || '')}" onchange="empresaSetSub('${empId}','representante','telefono',this.value)"></div>
-          <div class="field"><label class="field-label">Mail</label><input class="input" value="${esc(e.representante.email || '')}" onchange="empresaSetSub('${empId}','representante','email',this.value)"></div>
+          <div class="field"><label class="field-label">Cargo</label><input class="input" value="${esc(e.representante.cargo || '')}" ${accionHTML('bd.rep', empId, 'cargo', { on: 'change' })}></div>
+          <div class="field"><label class="field-label">Teléfono</label><input class="input" value="${esc(e.representante.telefono || '')}" ${accionHTML('bd.rep', empId, 'telefono', { on: 'change' })}></div>
+          <div class="field"><label class="field-label">Mail</label><input class="input" value="${esc(e.representante.email || '')}" ${accionHTML('bd.rep', empId, 'email', { on: 'change' })}></div>
         </div>
       </div>
       <div class="loc-block"><div class="loc-block-h">Contactos de la empresa <span class="loc-block-tag bd">desde la Base de Datos</span></div>
         ${contactosHTML}
         <label style="font-size:11px;color:var(--ink-mut);">Agregar contacto</label>
         <span class="combobox-wrap person-combobox cbx-anchored" style="display:block;margin-top:3px;">
-          <input class="input combobox-input" placeholder="Buscar en la Base de Datos…" autocomplete="off" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="empresaAddContacto('${empId}', this.value)">
+          <input class="input combobox-input" placeholder="Buscar en la Base de Datos…" autocomplete="off" ${accionHTML('bd.empAddContacto', empId, { on: 'focus input blur change' })}>
           <div class="combobox-dropdown" hidden></div>
         </span>
       </div>
-      <div class="field" style="margin-top:8px;"><label class="field-label">Observaciones</label><textarea class="input" rows="3" onchange="empresaSet('${empId}','observaciones',this.value)">${esc(e.observaciones || e.notas || '')}</textarea></div>
+      <div class="field" style="margin-top:8px;"><label class="field-label">Observaciones</label><textarea class="input" rows="3" ${accionHTML('bd.empSet', empId, 'observaciones', { on: 'change' })}>${esc(e.observaciones || e.notas || '')}</textarea></div>
     </div>
-    <div class="modal-footer">${_bdPuedeArchivar() ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);margin-right:auto;" onclick="archivarEmpresaModal('${empId}')">Archivar</button>` : ''}<button class="btn btn-primary" onclick="closeModal(); renderBDPersonas();">Listo</button></div>
+    <div class="modal-footer">${_bdPuedeArchivar() ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);margin-right:auto;" ${accionHTML('bd.archivarEmp', empId)}>Archivar</button>` : ''}<button class="btn btn-primary" data-accion="bd.listo">Listo</button></div>
   </div></div>`;
 }
 /* ════════ V8.4.2 · FICHA CONTROL ROOM POR EMPRESA (punto 8) ════════
@@ -553,8 +554,8 @@ function openEmpresaProfile(empId) {
   </div>` : '';
   const contactosHTML = contactos.length ? `<div class="loc-block"><div class="loc-block-h">Contactos de la empresa</div>${contactos.map(c => `<div style="padding:4px 0;">${esc(c.nombre)}${c.relacionEmpresa ? ` <span style="color:var(--ink-faint);font-size:11px;">· ${esc(c.relacionEmpresa)}</span>` : ''}</div>`).join('')}</div>` : '';
   const vacio = linked.length === 0 ? `<div style="font-size:12.5px;color:var(--ink-secondary);background:var(--bg-surface);border:1px solid var(--rule);border-radius:8px;padding:12px;">Esta empresa no tiene proyectos vinculados todavía. Vincúlalos desde cada proyecto en <b>Info Proyecto → Empresa cliente (BD)</b>.</div>` : '';
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:760px;width:94vw;max-height:88vh;overflow:auto;">
-    <div class="modal-header"><div class="modal-title">${esc(e.nombreFantasia || 'Empresa')}${infoLine ? ` <span style="font-weight:400;font-size:12px;color:var(--ink-faint);">· ${infoLine}</span>` : ''}</div><button class="go-x" onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">×</button></div>
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:760px;width:94vw;max-height:88vh;overflow:auto;">
+    <div class="modal-header"><div class="modal-title">${esc(e.nombreFantasia || 'Empresa')}${infoLine ? ` <span style="font-weight:400;font-size:12px;color:var(--ink-faint);">· ${infoLine}</span>` : ''}</div><button class="go-x" data-accion="ui.cerrar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">×</button></div>
     <div class="modal-body">
       ${mostrarCliente ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:6px;">${tiles}</div>
       ${vacio}
@@ -564,7 +565,7 @@ function openEmpresaProfile(empId) {
       ${contactosHTML}
       ${mostrarCliente ? `<div style="font-size:11px;color:var(--ink-faint);margin-top:8px;line-height:1.5;">El "total pagado" y el "margen histórico" se calculan solo sobre proyectos <b>cerrados</b>, desde sus finanzas reales. Los proyectos en curso se muestran como proforma y no suman. El promedio de días de pago requiere registrar la fecha de pago del cliente (aún no existe en el modelo).</div>` : ''}
     </div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="openEmpresaEdit('${empId}')">Editar empresa</button><button class="btn btn-primary" onclick="closeModal()">Listo</button></div>
+    <div class="modal-footer"><button class="btn btn-secondary" ${accionHTML('bd.editEmp', empId)}>Editar empresa</button><button class="btn btn-primary" data-accion="ui.cerrar">Listo</button></div>
   </div></div>`;
 }
 function openAddTalentoQuick() {
@@ -643,7 +644,7 @@ function renderPersonRow(nombre) {
   const dteShort = DTE_LABEL_SHORT[p.dteHabitual] || '—';
 
   return `
-    <div class="person-row" onclick="togglePersonExpand('${escapeHtml(nombre)}')" style="cursor: pointer;">
+    <div class="person-row" ${accionHTML('bd.expandir', nombre)} style="cursor: pointer;">
       <div class="person-avatar">${initials(nombre)}</div>
       <div>
         <div class="person-name">${escapeHtml(nombre)}</div>
@@ -669,7 +670,7 @@ function renderPersonRow(nombre) {
           <div class="field"><div class="field-label">N° de cuenta</div><div class="field-value">${escapeHtml(p.numeroCuenta || p.nCuenta || '—')}</div></div>` : ''}
         </div>
         <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
-          <button class="btn btn-secondary btn-sm" onclick="requestEditPersona('${escapeHtml(p._id || '')}')">✎ Editar ficha</button>
+          <button class="btn btn-secondary btn-sm" ${accionHTML('bd.editPersona', p._id || '')}>✎ Editar ficha</button>
         </div>
       </div>
     ` : ''}
@@ -771,7 +772,7 @@ async function openArchivadosBD() {
   const fila = function (titulo, sub, fn, arg) {
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--rule);">' +
       '<div style="min-width:0;"><div style="font-weight:600;">' + escapeHtml(titulo) + '</div>' + (sub ? '<div style="font-size:11px;color:var(--ink-muted);">' + escapeHtml(sub) + '</div>' : '') + '</div>' +
-      '<button class="btn btn-secondary btn-sm" onclick="' + fn + '(\'' + String(arg).replace(/'/g, "\\'") + '\')">Restaurar</button></div>';
+      '<button class="btn btn-secondary btn-sm" ' + accionHTML('bd.restaurarArch', fn, String(arg)) + '>Restaurar</button></div>';
   };
   const seccion = function (label, filas) { return filas.length ? '<div style="margin-bottom:14px;"><h4 style="margin:0 0 6px;font-size:12px;color:var(--ink-secondary);text-transform:uppercase;letter-spacing:.04em;">' + label + ' (' + filas.length + ')</h4>' + filas.join('') + '</div>' : ''; };
   const body =
@@ -779,10 +780,10 @@ async function openArchivadosBD() {
     seccion('Empresas', a.empresas.map(function (e) { return fila(e.nombre_fantasia || e.id, e.rut || '', 'restaurarEmpresaBD', e.id); })) +
     seccion('Locaciones', a.locaciones.map(function (l) { return fila(l.nombre || l.loc_id, l.comuna || '', 'restaurarLocacionBD', l.loc_id); }));
   document.getElementById('modalRoot').innerHTML =
-    '<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:600px;">' +
+    '<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:600px;">' +
     '<div class="modal-header"><div class="modal-title">Archivados</div><div style="font-size:12px;color:var(--ink-muted);margin-top:4px;">Personas, empresas y locaciones archivadas. Se conservan hasta que las restaures.</div></div>' +
     '<div class="modal-body" style="max-height:60vh;overflow:auto;">' + body + '</div>' +
-    '<div class="modal-footer"><button class="btn" onclick="closeModal()">Cerrar</button></div></div></div>';
+    '<div class="modal-footer"><button class="btn" data-accion="ui.cerrar">Cerrar</button></div></div></div>';
 }
 
 async function restaurarContactoBD(id) {
@@ -817,7 +818,7 @@ export function openGlobalBDPersonas() {
   const mm = document.getElementById('moduleMain'); if (mm) mm.innerHTML = '';
 
   document.getElementById('breadcrumb').innerHTML = `
-    <span class="breadcrumb-link" onclick="navigateToControlRoom()">Control Room</span>
+    <span class="breadcrumb-link" data-accion="kanban.controlRoom">Control Room</span>
     <span class="breadcrumb-sep">›</span>
     <span class="breadcrumb-current">Base de Datos de Personas</span>
   `;
@@ -887,7 +888,7 @@ function openPersonaForm(mode, contactId) {
 
   const rolesHTML = PF_ROLES.map(r => `
     <label style="display: inline-flex; align-items: center; gap: 5px; margin-right: 16px; font-size: 13px; white-space: nowrap;">
-      <input type="checkbox" class="pf-role" value="${escapeHtml(r)}" ${roles.indexOf(r) !== -1 ? 'checked' : ''} ${r === 'Talento' ? 'onchange="togglePfTalento()"' : (r === 'Crew' ? 'onchange="togglePfCrew()"' : '')}> ${escapeHtml(r)}
+      <input type="checkbox" class="pf-role" value="${escapeHtml(r)}" ${roles.indexOf(r) !== -1 ? 'checked' : ''} ${r === 'Talento' ? 'data-accion="bd.pfTalento" data-on="change"' : (r === 'Crew' ? 'data-accion="bd.pfCrew" data-on="change"' : '')}> ${escapeHtml(r)}
     </label>`).join('');
 
   const dteHTML = `<select class="select" id="pf_dte">
@@ -900,8 +901,8 @@ function openPersonaForm(mode, contactId) {
 
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width: 640px;">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width: 640px;">
         <div class="modal-header">
           <div class="modal-title">${isEdit ? 'Editar persona' : 'Nueva persona'}</div>
           <div style="font-size: 12px; color: var(--ink-muted); margin-top: 4px;">${isEdit ? 'Editas el registro de la Base de Datos. Los cambios se reflejan en todos los proyectos que lo usan.' : 'Ficha completa. Solo el nombre es obligatorio; el resto puedes completarlo cuando lo tengas.'}</div>
@@ -911,7 +912,7 @@ function openPersonaForm(mode, contactId) {
             ${_pfHeader('Identidad')}
             <div style="grid-column:1/-1;border:1px solid var(--accent);border-radius:10px;padding:12px 14px;background:var(--bg-card);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
               <div style="font-size:12.5px;color:var(--ink-secondary);line-height:1.5;"><strong>¿Prefieres que la persona ingrese sus propios datos?</strong><br>Invítala con un link: crea su cuenta, llena su perfil una sola vez y autoriza compartirlo contigo (Ley 21.719).</div>
-              <button class="btn btn-primary btn-sm" onclick="closeModal(); _invAbrirDatos();">Invitar con link</button>
+              <button class="btn btn-primary btn-sm" data-accion="bd.invitarLink">Invitar con link</button>
             </div>
             ${_pfField('Nombre completo *', 'pf_nombre', src.nombre, { placeholder: 'Nombre y apellido', span: 2 })}
             ${_pfField('RUT', 'pf_rut', src.rut, { placeholder: '12.345.678-9' })}
@@ -937,7 +938,7 @@ function openPersonaForm(mode, contactId) {
             <div class="field">
               <label class="field-label">Empresa asociada</label>
               <span class="combobox-wrap cbx-anchored" style="display:block;">
-                <input class="input combobox-input" id="pf_empresa" value="${escapeHtml(empNameInit)}" placeholder="Buscar empresa en la BD…" autocomplete="off" onfocus="comboboxFilterEmpresas(this)" oninput="comboboxFilterEmpresas(this)" onblur="comboboxCloseDelayed(this)">
+                <input class="input combobox-input" id="pf_empresa" value="${escapeHtml(empNameInit)}" placeholder="Buscar empresa en la BD…" autocomplete="off" data-accion="bd.pfEmpresa" data-on="focus input blur">
                 <div class="combobox-dropdown" hidden></div>
               </span>
             </div>
@@ -967,7 +968,7 @@ function openPersonaForm(mode, contactId) {
             ${_pfHeader('Datos de pago')}
             <div class="field" style="grid-column: 1 / -1;">
               <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
-                <input type="checkbox" id="pf_cuentaExtranjera" ${pago.cuentaExtranjera ? 'checked' : ''} onchange="togglePfExtranjera()"> Cuenta extranjera / otro medio (texto libre)
+                <input type="checkbox" id="pf_cuentaExtranjera" ${pago.cuentaExtranjera ? 'checked' : ''} data-accion="bd.pfExtranjera" data-on="change"> Cuenta extranjera / otro medio (texto libre)
               </label>
             </div>
             <div id="pf_pago_chile" style="${pago.cuentaExtranjera ? 'display: none;' : ''} grid-column: 1 / -1;">
@@ -1012,9 +1013,9 @@ function openPersonaForm(mode, contactId) {
           </div>
         </div>
         <div class="modal-footer">
-          ${isEdit && _bdPuedeArchivar() ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);margin-right:auto;" onclick="archivarContactoModal('${escapeHtml(contactId)}')">Archivar</button>` : ''}
-          <button class="btn" onclick="closeModal()">Cancelar</button>
-          <button class="btn btn-primary" onclick="submitPersonaForm('${mode}', ${isEdit ? `'${escapeHtml(contactId)}'` : 'null'})">${isEdit ? 'Guardar cambios' : 'Crear persona'}</button>
+          ${isEdit && _bdPuedeArchivar() ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);margin-right:auto;" ${accionHTML('bd.archivarContacto', contactId)}>Archivar</button>` : ''}
+          <button class="btn" data-accion="ui.cerrar">Cancelar</button>
+          <button class="btn btn-primary" ${accionHTML('bd.guardarPersona', mode, isEdit ? contactId : null)}>${isEdit ? 'Guardar cambios' : 'Crear persona'}</button>
         </div>
       </div>
     </div>
@@ -1155,3 +1156,61 @@ window.togglePfTalento        = togglePfTalento;
 window.submitPersonaForm      = submitPersonaForm;
 window.tipoCuentaSelectHTML   = tipoCuentaSelectHTML;
 window.openPersonaByName      = openPersonaByName;   // locaciones.js la llama como window.openPersonaByName
+
+// D2 · acciones delegadas
+registrarAcciones('bd', {
+  tab: function (a) { STATE.ui.bdTab = a[0]; renderBDPersonas(); },
+  buscar: function (a, el) { STATE.ui.bdSearch = el.value; renderBDListByTab(); },
+  exportar: function () { exportBDExcelV71(); },
+  plantilla: function () { downloadBDPlantilla(); },
+  importar: function () { triggerBDExcelImport(); },
+  archivados: function () { openArchivadosBD(); },
+  linkInv: function () { _invAbrirDatos(); },
+  importFile: function (a, el) { importBDExcelV71(el); },
+  nuevaPersona: function () { openAddPersonaQuick(); },
+  nuevaEmpresa: function () { openAddEmpresaQuick(); },
+  nuevoTalento: function () { openAddTalentoQuick(); },
+  nuevaLoc: function () { openBDLocAdd(); },
+  verLoc: function (a) { openLocDetail(a[0]); },
+  crearLoc: function () { saveBDLocAdd(); },
+  verEmp: function (a) { openEmpresaProfile(a[0]); },
+  editEmp: function (a) { openEmpresaEdit(a[0]); },
+  editTalento: function (a) { bdTalentoEditar(a[0]); },
+  empUnlink: function (a) { empresaUnlinkContacto(a[0], a[1]); },
+  empRel: function (a, el) { empresaSetContactoRel(a[0], el.value); },
+  empSet: function (a, el) { empresaSet(a[0], a[1], el.value); },
+  duenoCombo: function (a, el, ev) {
+    if (ev.type === 'focus') comboboxOpen(el);
+    else if (ev.type === 'input') comboboxFilter(el);
+    else if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else empresaSetDuenoField(a[0], a[1], 'nombre', el.value);
+  },
+  dueno: function (a, el) { empresaSetDuenoField(a[0], a[1], a[2], el.value); },
+  duenoQuitar: function (a) { empresaRemoveDueno(a[0], a[1]); },
+  duenoAdd: function (a) { empresaAddDueno(a[0]); },
+  repCombo: function (a, el, ev) {
+    if (ev.type === 'focus') comboboxOpen(el);
+    else if (ev.type === 'input') comboboxFilter(el);
+    else if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else empresaSetSub(a[0], 'representante', 'nombre', el.value);
+  },
+  rep: function (a, el) { empresaSetSub(a[0], 'representante', a[1], el.value); },
+  empAddContacto: function (a, el, ev) {
+    if (ev.type === 'focus') comboboxOpen(el);
+    else if (ev.type === 'input') comboboxFilter(el);
+    else if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else empresaAddContacto(a[0], el.value);
+  },
+  archivarEmp: function (a) { archivarEmpresaModal(a[0]); },
+  listo: function () { closeModal(); renderBDPersonas(); },
+  expandir: function (a) { togglePersonExpand(a[0]); },
+  editPersona: function (a) { requestEditPersona(a[0]); },
+  restaurarArch: function (a) { var f = window[a[0]]; if (f) f(a[1]); },
+  pfTalento: function () { togglePfTalento(); },
+  pfCrew: function () { togglePfCrew(); },
+  invitarLink: function () { closeModal(); _invAbrirDatos(); },
+  pfEmpresa: function (a, el, ev) { if (ev.type === 'blur') comboboxCloseDelayed(el); else comboboxFilterEmpresas(el); },
+  pfExtranjera: function () { togglePfExtranjera(); },
+  archivarContacto: function (a) { archivarContactoModal(a[0]); },
+  guardarPersona: function (a) { submitPersonaForm(a[0], a[1]); },
+});

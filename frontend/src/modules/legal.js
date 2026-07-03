@@ -24,6 +24,7 @@ import { _normKey } from './bd-excel.js';
 import { _dalLegalDocSaveSoon, _dalLegalTplSaveSoon, dalEliminarLegalDoc, dalEliminarLegalTpl } from './dal.js';
 import { markDirty, autosaveNow } from './persistencia-local.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 /* ════════════════════════════════════════════════════════════════════
    V8.3 · MÓDULO LEGAL
    Genera, versiona y archiva documentos legales (cesión de derechos,
@@ -217,8 +218,8 @@ function renderLegal() {
   const content = document.getElementById('moduleContent');
   const banner = `<div class="lgl-warn" style="margin-bottom:14px;">⚠ <div><b>Documentos preliminares — no usar en producción real.</b> Por ahora las plantillas de TakeOS sirven para probar el flujo (UX) y <b>no están validadas legalmente</b>, salvo la estructura de la Cesión (basada en un contrato real de referencia). Cuando se carguen las versiones oficiales, se respetarán literalmente, sin resumir ni reinterpretar.</div></div>`;
   const subtabs = `<div class="lgl-subtabs">
-    <button class="lgl-subtab ${st.sub === 'docs' ? 'on' : ''}" onclick="legalSetSub('docs')">Documentos</button>
-    <button class="lgl-subtab ${st.sub === 'tpl' ? 'on' : ''}" onclick="legalSetSub('tpl')">Plantillas</button>
+    <button class="lgl-subtab ${st.sub === 'docs' ? 'on' : ''}" data-accion="lgl.sub" data-args="[&quot;docs&quot;]">Documentos</button>
+    <button class="lgl-subtab ${st.sub === 'tpl' ? 'on' : ''}" data-accion="lgl.sub" data-args="[&quot;tpl&quot;]">Plantillas</button>
   </div>`;
   content.innerHTML = LEGAL_CSS + banner + subtabs + (st.sub === 'tpl' ? legalTplView() : legalDocsView(project));
 }
@@ -242,12 +243,12 @@ function legalDocsView(project) {
   </div>`;
   const filtros = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
     <div class="lgl-filtros">
-      <input placeholder="Buscar nombre o RUT…" value="${e(st.q)}" oninput="clearTimeout(window._lglQT);window._lglQT=setTimeout(()=>legalSetFiltro('q',this.value),250)">
-      <select onchange="legalSetFiltro('filtroTipo',this.value)"><option value="">Todos los tipos</option>${legalAllTplEntries().map(en => `<option value="${en.id}" ${st.filtroTipo === en.id ? 'selected' : ''}>${e(en.tpl.nombre)}</option>`).join('')}</select>
-      <select onchange="legalSetFiltro('filtroEstado',this.value)"><option value="">Todos los estados</option>${LEGAL_FLOW.map(s => `<option value="${s}" ${st.filtroEstado === s ? 'selected' : ''}>${LEGAL_EST[s]}</option>`).join('')}</select>
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink-faint);">Generado entre <input type="date" value="${e(st.fDesde)}" onchange="legalSetFiltro('fDesde',this.value)"> y <input type="date" value="${e(st.fHasta)}" onchange="legalSetFiltro('fHasta',this.value)"></span>
+      <input placeholder="Buscar nombre o RUT…" value="${e(st.q)}" data-accion="lgl.q" data-on="input">
+      <select ${accionHTML('lgl.filtro', 'filtroTipo', { on: 'change' })}><option value="">Todos los tipos</option>${legalAllTplEntries().map(en => `<option value="${en.id}" ${st.filtroTipo === en.id ? 'selected' : ''}>${e(en.tpl.nombre)}</option>`).join('')}</select>
+      <select ${accionHTML('lgl.filtro', 'filtroEstado', { on: 'change' })}><option value="">Todos los estados</option>${LEGAL_FLOW.map(s => `<option value="${s}" ${st.filtroEstado === s ? 'selected' : ''}>${LEGAL_EST[s]}</option>`).join('')}</select>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink-faint);">Generado entre <input type="date" value="${e(st.fDesde)}" ${accionHTML('lgl.filtro', 'fDesde', { on: 'change' })}> y <input type="date" value="${e(st.fHasta)}" ${accionHTML('lgl.filtro', 'fHasta', { on: 'change' })}></span>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="openLegalGen()">+ Generar documento</button>
+    <button class="btn btn-primary btn-sm" data-accion="lgl.gen">+ Generar documento</button>
   </div>`;
   let tabla;
   if (!docs.length) {
@@ -260,11 +261,11 @@ function legalDocsView(project) {
       <td style="color:var(--ink-faint);">v${d.version}</td>
       <td style="color:var(--ink-faint);white-space:nowrap;">${e(d.fechaGeneracion || '')}</td>
       <td style="text-align:right;white-space:nowrap;">
-        <button class="btn btn-secondary btn-sm" onclick="openLegalGenDoc('${d.docId}')">Ver</button>
-        ${d.estado === 'generado' ? `<button class="btn btn-secondary btn-sm" onclick="legalAdvance('${d.docId}')">Marcar enviado</button>` : ''}
-        ${d.estado === 'enviado' ? `<label class="btn btn-secondary btn-sm" style="cursor:pointer;" title="Para marcar como firmado, sube el PDF firmado">📎 Marcar firmado (subir PDF)<input type="file" accept="application/pdf,.pdf" style="display:none" onchange="legalMarcarFirmado('${d.docId}', this)"></label>` : ''}
-        ${d.estado === 'firmado' && d.pdfUrl ? `<button class="btn btn-secondary btn-sm" onclick="_abrirLegalPDF('${e(d.pdfUrl)}')">Ver PDF firmado ↗</button>` : ''}
-        <button class="btn btn-secondary btn-sm" style="color:#d08;border-color:rgba(210,0,80,.4);" onclick="legalDeleteDoc('${d.docId}')" title="Eliminar documento">Eliminar</button>
+        <button class="btn btn-secondary btn-sm" ${accionHTML('lgl.verDoc', d.docId)}>Ver</button>
+        ${d.estado === 'generado' ? `<button class="btn btn-secondary btn-sm" ${accionHTML('lgl.avanzar', d.docId)}>Marcar enviado</button>` : ''}
+        ${d.estado === 'enviado' ? `<label class="btn btn-secondary btn-sm" style="cursor:pointer;" title="Para marcar como firmado, sube el PDF firmado">📎 Marcar firmado (subir PDF)<input type="file" accept="application/pdf,.pdf" style="display:none" ${accionHTML('lgl.firmado', d.docId, { on: 'change' })}></label>` : ''}
+        ${d.estado === 'firmado' && d.pdfUrl ? `<button class="btn btn-secondary btn-sm" ${accionHTML('lgl.pdf', d.pdfUrl)}>Ver PDF firmado ↗</button>` : ''}
+        <button class="btn btn-secondary btn-sm" style="color:#d08;border-color:rgba(210,0,80,.4);" ${accionHTML('lgl.borrarDoc', d.docId)} title="Eliminar documento">Eliminar</button>
       </td></tr>`).join('')}</tbody></table></div>
     <div class="config-hint" style="margin-top:8px;">Cada documento queda archivado en la BD de Legal (transversal) y es trazable por persona: ves quién firmó qué y en qué versión. Ciclo: Borrador → Generado → Enviado → Firmado.</div>`;
   }
@@ -279,8 +280,8 @@ function legalTplView() {
     return `<div class="lgl-tplcard">
       <div><div class="nm">${e(t.nombre)} <span style="font-size:10px;color:var(--accent);border:1px solid var(--accent-soft, #cfcfc4);border-radius:4px;padding:1px 6px;margin-left:4px;text-transform:uppercase;letter-spacing:.04em;">personalizada</span></div><div class="ds">${e(t.desc || '')}</div></div>
       <div style="display:flex;gap:8px;align-items:center;white-space:nowrap;">
-        <button class="btn btn-secondary btn-sm" onclick="openLegalGenTpl('${en.id}')">Ver / usar</button>
-        ${admin ? `<button class="btn btn-secondary btn-sm" onclick="openLegalTplEditor('${en.id}')">Editar</button><button class="btn btn-secondary btn-sm" style="color:#d08;border-color:rgba(210,0,80,.4);" onclick="legalTplDelete('${en.id}')">Eliminar</button>` : ''}
+        <button class="btn btn-secondary btn-sm" ${accionHTML('lgl.usarTpl', en.id)}>Ver / usar</button>
+        ${admin ? `<button class="btn btn-secondary btn-sm" ${accionHTML('lgl.editTpl', en.id)}>Editar</button><button class="btn btn-secondary btn-sm" style="color:#d08;border-color:rgba(210,0,80,.4);" ${accionHTML('lgl.borrarTpl', en.id)}>Eliminar</button>` : ''}
       </div></div>`;
   }).join('');
   const top = admin
@@ -289,7 +290,7 @@ function legalTplView() {
   return `${top}
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin:16px 0 8px;">Plantillas</div>
     ${entries.length ? customCards : '<div class="config-hint" style="margin-bottom:8px;">A\u00fan no hay plantillas. Crea la primera con el bot\u00f3n de abajo.</div>'}
-    ${admin ? `<button class="btn btn-primary btn-sm" style="margin-top:6px;" onclick="openLegalTplEditor()">+ Nueva plantilla</button>` : ''}`;
+    ${admin ? `<button class="btn btn-primary btn-sm" style="margin-top:6px;" data-accion="lgl.nuevaTpl">+ Nueva plantilla</button>` : ''}`;
 }
 function _numeroALetras(num) {
   num = Math.floor(Math.abs(Number(num) || 0));
@@ -373,13 +374,13 @@ function openLegalTplEditor(id) {
     ['Locación', ['nombre_locacion', 'direccion_locacion', 'nombre_dueno_locacion', 'rut_dueno_locacion']],
     ['Productora (fijas)', ['nombre_productora', 'razon_social_productora', 'rut_productora', 'representante_productora', 'rut_representante_productora', 'domicilio_productora', 'fecha_hoy']]
   ];
-  const chips = VARS.map(grp => `<div style="margin-bottom:8px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin-bottom:3px;">${grp[0]}</div><div style="display:flex;gap:5px;flex-wrap:wrap;">${grp[1].map(k => `<button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:11px;" onmousedown="event.preventDefault()" onclick="legalTplInsertVar('{{${k}}}')">${k}</button>`).join('')}</div></div>`).join('');
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:900px;width:96vw;max-height:90vh;overflow:auto;">
-    <div class="modal-header"><div class="modal-title">${id ? 'Editar plantilla' : 'Nueva plantilla'}</div><button class="go-x" onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">\u00d7</button></div>
+  const chips = VARS.map(grp => `<div style="margin-bottom:8px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin-bottom:3px;">${grp[0]}</div><div style="display:flex;gap:5px;flex-wrap:wrap;">${grp[1].map(k => `<button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:11px;" ${accionHTML('lgl.tplVar', k, { on: 'mousedown click' })}>${k}</button>`).join('')}</div></div>`).join('');
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" style="max-width:900px;width:96vw;max-height:90vh;overflow:auto;">
+    <div class="modal-header"><div class="modal-title">${id ? 'Editar plantilla' : 'Nueva plantilla'}</div><button class="go-x" data-accion="ui.cerrar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">\u00d7</button></div>
     <div class="modal-body">
       <div class="lgl-warn">\u26a0 <div>El contenido legal es tu responsabilidad. Val\u00eddalo con un abogado antes de usarlo en producci\u00f3n.</div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="form-row"><label class="form-label">Nombre</label><input class="input" id="ltpl_nombre" value="${e(nombre)}" placeholder="Cesión de Derechos de Imagen…" oninput="legalTplUpdatePreview()"><div class="config-hint" style="margin-top:3px;">Se usa como <b>título del documento exportado</b>.</div></div>
+        <div class="form-row"><label class="form-label">Nombre</label><input class="input" id="ltpl_nombre" value="${e(nombre)}" placeholder="Cesión de Derechos de Imagen…" data-accion="lgl.tplPrev" data-on="input"><div class="config-hint" style="margin-top:3px;">Se usa como <b>título del documento exportado</b>.</div></div>
         <div class="form-row"><label class="form-label">Descripción</label><input class="input" id="ltpl_desc" value="${e(desc)}" placeholder="Para qué sirve (uso interno)"><div class="config-hint" style="margin-top:3px;">Información interna. <b>No aparece</b> en el documento final.</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -394,8 +395,8 @@ function openLegalTplEditor(id) {
       <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:10px;">
         <div class="form-row">
           <label class="form-label">Cuerpo del documento</label>
-          <div style="margin-bottom:6px;display:flex;align-items:center;gap:8px;"><button type="button" class="btn btn-secondary btn-sm" style="font-weight:800;padding:2px 11px;" onmousedown="event.preventDefault()" onclick="legalTplWrapBold()">B</button><span class="config-hint">Selecciona texto y pulsa <b>B</b> (o <b>Cmd/Ctrl + B</b>) para negrita.</span></div>
-          <div class="input lgl-rte" id="ltpl_cuerpo" contenteditable="true" data-placeholder="Escribe el texto del documento. Inserta variables con los botones de arriba, por ejemplo {{nombre_contraparte}}. Deja una línea en blanco entre párrafos." oninput="legalTplUpdatePreview()">${_legalTextToHtml(cuerpo)}</div>
+          <div style="margin-bottom:6px;display:flex;align-items:center;gap:8px;"><button type="button" class="btn btn-secondary btn-sm" style="font-weight:800;padding:2px 11px;" data-accion="lgl.tplBold" data-on="mousedown click">B</button><span class="config-hint">Selecciona texto y pulsa <b>B</b> (o <b>Cmd/Ctrl + B</b>) para negrita.</span></div>
+          <div class="input lgl-rte" id="ltpl_cuerpo" contenteditable="true" data-placeholder="Escribe el texto del documento. Inserta variables con los botones de arriba, por ejemplo {{nombre_contraparte}}. Deja una línea en blanco entre párrafos." data-accion="lgl.tplPrev" data-on="input">${_legalTextToHtml(cuerpo)}</div>
         </div>
         <div class="form-row">
           <label class="form-label">Vista previa en vivo</label>
@@ -403,7 +404,7 @@ function openLegalTplEditor(id) {
         </div>
       </div>
     </div>
-    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="legalTplSave(${id ? `'${id}'` : 'null'})">${id ? 'Guardar cambios' : 'Crear plantilla'}</button></div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" ${accionHTML('lgl.tplSave', id || null)}>${id ? 'Guardar cambios' : 'Crear plantilla'}</button></div>
   </div></div>`;
   setTimeout(function () { legalTplUpdatePreview(); }, 0);
 }
@@ -485,16 +486,16 @@ function legalGenSetOv(key, value) { const g = _legalState().gen; if (!g.ov) g.o
 
 function drawLegalGen() {
   const g = _legalState().gen; const t = legalTplGet(g.tpl) || {}; const e = escapeHtml;
-  const tplPick = `<div class="lgl-tplpick">${legalAllTplEntries().map(en => `<button class="lgl-tplbtn ${g.tpl === en.id ? 'on' : ''}" onclick="legalGenPickTpl('${en.id}')"><div class="tn">${e(en.tpl.nombre)}</div><div class="td">${e(en.tpl.desc || '')}</div>${en.oficial ? (en.tpl.draft ? '<div class="draft">preset · revisar</div>' : '<div class="vald">preset</div>') : '<div class="draft">personalizada</div>'}</button>`).join('')}</div>`;
+  const tplPick = `<div class="lgl-tplpick">${legalAllTplEntries().map(en => `<button class="lgl-tplbtn ${g.tpl === en.id ? 'on' : ''}" ${accionHTML('lgl.pickTpl', en.id)}><div class="tn">${e(en.tpl.nombre)}</div><div class="td">${e(en.tpl.desc || '')}</div>${en.oficial ? (en.tpl.draft ? '<div class="draft">preset · revisar</div>' : '<div class="vald">preset</div>') : '<div class="draft">personalizada</div>'}</button>`).join('')}</div>`;
   let contraparte;
   if (t.target === 'locacion') {
     const opts = BD_LOC.length ? BD_LOC.map(l => `<option value="${e(l.locId)}" ${g.locId === l.locId ? 'selected' : ''}>${e(l.nombre || l.locId)}</option>`).join('') : '<option value="">(no hay locaciones en la BD)</option>';
-    contraparte = `<div class="lgl-field"><label>Locación (contraparte = dueño) <span class="src bd">BD Locaciones</span></label><select class="input" onchange="legalGenSetLoc(this.value)">${opts}</select></div>`;
+    contraparte = `<div class="lgl-field"><label>Locación (contraparte = dueño) <span class="src bd">BD Locaciones</span></label><select class="input" data-accion="lgl.setLoc" data-on="change">${opts}</select></div>`;
   } else {
-    contraparte = `<div class="lgl-field"><label>Contraparte <span class="src bd">BD Personas</span></label><span class="combobox-wrap cbx-anchored" style="display:block;"><input class="input combobox-input" value="${e(g.persName || '')}" placeholder="Escribe para buscar en la Base de Datos…" autocomplete="off" onfocus="legalComboboxFilter(this)" oninput="legalComboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="legalGenSetPers(this.value)"><div class="combobox-dropdown" hidden></div></span></div>`;
+    contraparte = `<div class="lgl-field"><label>Contraparte <span class="src bd">BD Personas</span></label><span class="combobox-wrap cbx-anchored" style="display:block;"><input class="input combobox-input" value="${e(g.persName || '')}" placeholder="Escribe para buscar en la Base de Datos…" autocomplete="off" data-accion="lgl.persCombo" data-on="focus input blur change"><div class="combobox-dropdown" hidden></div></span></div>`;
   }
-  const body = `<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:960px;width:96vw;max-height:90vh;overflow:auto;">
-    <div class="modal-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;"><div><div class="modal-title">${g.docId ? 'Ver / editar documento' : 'Generar documento'}</div><div style="font-size:12px;color:var(--ink-mut);margin-top:3px;">Variables autollenadas desde el sistema · exporta a PDF con marca</div></div><button class="go-x" onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);line-height:1;">×</button></div>
+  const body = `<div class="modal-backdrop"><div class="modal" style="max-width:960px;width:96vw;max-height:90vh;overflow:auto;">
+    <div class="modal-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;"><div><div class="modal-title">${g.docId ? 'Ver / editar documento' : 'Generar documento'}</div><div style="font-size:12px;color:var(--ink-mut);margin-top:3px;">Variables autollenadas desde el sistema · exporta a PDF con marca</div></div><button class="go-x" data-accion="ui.cerrar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);line-height:1;">×</button></div>
     <div class="modal-body">
       ${t.draft ? `<div class="lgl-warn">⚠ <div>Esta plantilla es un <b>borrador redactado por TakeOS</b>. Antes de usarla en producción, valídala con un abogado. El contenido legal es responsabilidad del usuario.</div></div>` : ''}
       <div class="lgl-gen-grid">
@@ -508,8 +509,8 @@ function drawLegalGen() {
           ${(() => { const modo = legalCompletarModo(g); return `<div style="margin-top:12px;border-top:1px solid var(--rule);padding-top:11px;">
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin-bottom:7px;">¿Cómo se completa este documento?</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-sm ${modo === 'sistema' ? 'btn-primary' : 'btn-secondary'}" onclick="legalSetCompletar('sistema')">Desde el sistema</button>
-              <button class="btn btn-sm ${modo === 'posterior' ? 'btn-primary' : 'btn-secondary'}" onclick="legalSetCompletar('posterior')">En set / posteriormente</button>
+              <button class="btn btn-sm ${modo === 'sistema' ? 'btn-primary' : 'btn-secondary'}" data-accion="lgl.completar" data-args="[&quot;sistema&quot;]">Desde el sistema</button>
+              <button class="btn btn-sm ${modo === 'posterior' ? 'btn-primary' : 'btn-secondary'}" data-accion="lgl.completar" data-args="[&quot;posterior&quot;]">En set / posteriormente</button>
             </div>
             <div class="config-hint" style="margin-top:6px;">${modo === 'sistema' ? 'Se exigen los datos obligatorios antes de exportar el PDF.' : 'Se exporta con campos en blanco para llenar a mano (ej. cesión para firmar en set o formulario para la contraparte).'}</div>
           </div>`; })()}
@@ -521,9 +522,9 @@ function drawLegalGen() {
       </div>
     </div>
     <div class="modal-footer"><span class="config-hint" style="margin-right:auto;">Exporta a PDF con identidad de marca · se versiona al generar.</span>
-      <button class="btn" onclick="closeModal()">Cerrar</button>
-      <button class="btn btn-secondary" onclick="legalExportPDF()">Exportar PDF</button>
-      <button class="btn btn-primary" onclick="legalDoGenerate()">${g.docId ? 'Guardar nueva versión' : 'Generar'}</button>
+      <button class="btn" data-accion="ui.cerrar">Cerrar</button>
+      <button class="btn btn-secondary" data-accion="lgl.exportar">Exportar PDF</button>
+      <button class="btn btn-primary" data-accion="lgl.generar">${g.docId ? 'Guardar nueva versión' : 'Generar'}</button>
     </div>
   </div></div>`;
   document.getElementById('modalRoot').innerHTML = body;
@@ -561,12 +562,12 @@ function legalMissingRequired(g) {
    El backdrop/botón vuelve al generador (drawLegalGen) con g intacto. */
 function legalShowMissing(miss) {
   const e = escapeHtml;
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" onclick="drawLegalGen()"><div class="modal" onclick="event.stopPropagation()" style="max-width:470px;"><div class="modal-header"><div class="modal-title">Faltan datos obligatorios</div></div><div class="modal-body"><p style="margin:0 0 10px;">Este documento se completa <b>desde el sistema</b>, así que no se puede generar ni exportar con campos en blanco. Faltan:</p><ul style="margin:0 0 6px 18px;padding:0;">${miss.map(x => `<li>${e(x)}</li>`).join('')}</ul><p class="config-hint" style="margin:10px 0 0;">Complétalos arriba; o si es un documento para llenar a mano (en set o por la contraparte), cámbialo a <b>"En set / posteriormente"</b>.</p></div><div class="modal-footer"><button class="btn btn-primary" onclick="drawLegalGen()">Volver a completar</button></div></div></div>`;
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-accion="lgl.volverBg"><div class="modal" style="max-width:470px;"><div class="modal-header"><div class="modal-title">Faltan datos obligatorios</div></div><div class="modal-body"><p style="margin:0 0 10px;">Este documento se completa <b>desde el sistema</b>, así que no se puede generar ni exportar con campos en blanco. Faltan:</p><ul style="margin:0 0 6px 18px;padding:0;">${miss.map(x => `<li>${e(x)}</li>`).join('')}</ul><p class="config-hint" style="margin:10px 0 0;">Complétalos arriba; o si es un documento para llenar a mano (en set o por la contraparte), cámbialo a <b>"En set / posteriormente"</b>.</p></div><div class="modal-footer"><button class="btn btn-primary" data-accion="lgl.volver">Volver a completar</button></div></div></div>`;
 }
 
 function legalGenFields(g) {
   const e = escapeHtml; const t = legalTplGet(g.tpl) || {}; const vr = legalVars(g);
-  const fld = (key, label, src, val) => `<div class="lgl-field"><label>${label} <span class="src ${src}">${src === 'bd' ? 'BD' : src === 'pres' ? 'Presupuesto' : src === 'info' ? 'Info Proyecto' : 'Derechos'}</span></label><input class="input" value="${e(val == null ? '' : String(val))}" onchange="legalGenSetOv('${key}', this.value)"></div>`;
+  const fld = (key, label, src, val) => `<div class="lgl-field"><label>${label} <span class="src ${src}">${src === 'bd' ? 'BD' : src === 'pres' ? 'Presupuesto' : src === 'info' ? 'Info Proyecto' : 'Derechos'}</span></label><input class="input" value="${e(val == null ? '' : String(val))}" ${accionHTML('lgl.ov', key, { on: 'change' })}></div>`;
   if (t.custom) {
     const map = legalVarMap(g);
     const skip = ['marca', 'razon', 'rutEmp', 'rep', 'rutRep', 'domEmp', 'hoy', 'nombre_productora', 'razon_social_productora', 'rut_productora', 'representante_productora', 'rut_representante_productora', 'domicilio_productora', 'monto_texto', 'fecha_hoy'];
@@ -575,12 +576,12 @@ function legalGenFields(g) {
     return vars.map(k => {
       const _lbl = `<label>${e(LEGAL_VAR_LABEL[k] || k)} <span class="src bd">${e(k)}</span></label>`;
       if (/monto/i.test(k) || k === 'hora_extra') {
-        return `<div class="lgl-field">${_lbl}<input class="input" inputmode="numeric" value="${e(legalMoneyFmt(map[k]))}" oninput="legalMoneyInput(this, '${k}')"></div>`;
+        return `<div class="lgl-field">${_lbl}<input class="input" inputmode="numeric" value="${e(legalMoneyFmt(map[k]))}" ${accionHTML('lgl.money', k, { on: 'input' })}></div>`;
       }
       if (/fecha/i.test(k) && k !== 'fechas_rodaje') {
-        return `<div class="lgl-field">${_lbl}<input class="input" type="date" value="${e(_toISODate((g.ov && g.ov[k]) || ''))}" onchange="legalGenSetOv('${k}', this.value)"></div>`;
+        return `<div class="lgl-field">${_lbl}<input class="input" type="date" value="${e(_toISODate((g.ov && g.ov[k]) || ''))}" ${accionHTML('lgl.ov', k, { on: 'change' })}></div>`;
       }
-      return `<div class="lgl-field">${_lbl}<input class="input" value="${e(map[k] == null ? '' : String(map[k]))}" onchange="legalGenSetOv('${k}', this.value)"></div>`;
+      return `<div class="lgl-field">${_lbl}<input class="input" value="${e(map[k] == null ? '' : String(map[k]))}" ${accionHTML('lgl.ov', k, { on: 'change' })}></div>`;
     }).join('');
   }
   if (t.target === 'locacion') {
@@ -865,9 +866,9 @@ function legalComboboxFilter(inputEl) {
   const all = legalAllContactNames();
   const matched = q ? all.filter(n => _normKey(n).includes(q)) : all;
   if (matched.length === 0) {
-    dropdown.innerHTML = `<div class="combobox-empty"><button type="button" class="combobox-addbd" onmousedown="event.preventDefault()" onclick="comboboxAddToBD(this)">+ Agregar a la BD</button></div>`;
+    dropdown.innerHTML = `<div class="combobox-empty"><button type="button" class="combobox-addbd" data-accion="ui.cbAddBD" data-on="mousedown click">+ Agregar a la BD</button></div>`;
   } else {
-    dropdown.innerHTML = matched.slice(0, 20).map(n => { const d = legalPersonData(n); return `<div class="combobox-option" onmousedown="comboboxSelect(this, '${escapeHtml(n)}')"><div class="combobox-option-main">${escapeHtml(n)}</div>${d.rol ? `<div class="combobox-option-meta">${escapeHtml(d.rol)}</div>` : ''}</div>`; }).join('') + (matched.length > 20 ? `<div class="combobox-more">+ ${matched.length - 20} más — sigue tipeando para filtrar</div>` : '');
+    dropdown.innerHTML = matched.slice(0, 20).map(n => { const d = legalPersonData(n); return `<div class="combobox-option" ${accionHTML('ui.cbSel', n, { on: 'mousedown' })}><div class="combobox-option-main">${escapeHtml(n)}</div>${d.rol ? `<div class="combobox-option-meta">${escapeHtml(d.rol)}</div>` : ''}</div>`; }).join('') + (matched.length > 20 ? `<div class="combobox-more">+ ${matched.length - 20} más — sigue tipeando para filtrar</div>` : '');
   }
   dropdown.hidden = false;
   dropdown.onmousedown = function (ev) { if (!ev.target.closest('.combobox-option')) ev.preventDefault(); };
@@ -909,5 +910,39 @@ window.legalTplGet = legalTplGet;
 window.legalVarMap = legalVarMap;
 
 // ── Bridges auditoría pre-B (onclick/oninput en HTML generado por el propio módulo) ──
-window.legalTplUpdatePreview = legalTplUpdatePreview;
 window.openLegalGenTpl       = openLegalGenTpl;
+
+// D2 · acciones delegadas
+registrarAcciones('lgl', {
+  sub: function (a) { legalSetSub(a[0]); },
+  q: function (a, el) { clearTimeout(window._lglQT); window._lglQT = setTimeout(function () { legalSetFiltro('q', el.value); }, 250); },
+  filtro: function (a, el) { legalSetFiltro(a[0], el.value); },
+  gen: function () { openLegalGen(); },
+  verDoc: function (a) { openLegalGenDoc(a[0]); },
+  avanzar: function (a) { legalAdvance(a[0]); },
+  firmado: function (a, el) { legalMarcarFirmado(a[0], el); },
+  pdf: function (a) { _abrirLegalPDF(a[0]); },
+  borrarDoc: function (a) { legalDeleteDoc(a[0]); },
+  usarTpl: function (a) { openLegalGenTpl(a[0]); },
+  editTpl: function (a) { openLegalTplEditor(a[0]); },
+  borrarTpl: function (a) { legalTplDelete(a[0]); },
+  nuevaTpl: function () { openLegalTplEditor(); },
+  tplVar: function (a, el, ev) { if (ev.type === 'mousedown') ev.preventDefault(); else legalTplInsertVar('{{' + a[0] + '}}'); },
+  tplPrev: function () { legalTplUpdatePreview(); },
+  tplBold: function (a, el, ev) { if (ev.type === 'mousedown') ev.preventDefault(); else legalTplWrapBold(); },
+  tplSave: function (a) { legalTplSave(a[0]); },
+  pickTpl: function (a) { legalGenPickTpl(a[0]); },
+  setLoc: function (a, el) { legalGenSetLoc(el.value); },
+  persCombo: function (a, el, ev) {
+    if (ev.type === 'focus' || ev.type === 'input') legalComboboxFilter(el);
+    else if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else legalGenSetPers(el.value);
+  },
+  completar: function (a) { legalSetCompletar(a[0]); },
+  exportar: function () { legalExportPDF(); },
+  generar: function () { legalDoGenerate(); },
+  volverBg: function (a, el, ev) { if (ev.target === el) drawLegalGen(); },
+  volver: function () { drawLegalGen(); },
+  ov: function (a, el) { legalGenSetOv(a[0], el.value); },
+  money: function (a, el) { legalMoneyInput(el, a[0]); },
+});
