@@ -106,7 +106,7 @@ window.confirmLogout = function () {
 /* ORG_ID -> a src/lib/state.js (Etapa 1); en window */
 const _ORG_LS_KEY = 'takeos_org_activa';
 const _ORG_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function _setOrgActiva(orgId){
+export function _setOrgActiva(orgId){
   try{
     var s = String(orgId == null ? '' : orgId).trim();
     if (!_ORG_UUID_RE.test(s)) return false;     // valor inválido: no tocamos la org actual
@@ -169,7 +169,7 @@ function _setOrgActiva(orgId){
    real. Además, una tapa de carga cubre el Control Room base (que vive siempre
    en el DOM) durante toda transición, para que nunca asome vacío.
    ════════════════════════════════════════════════════════════════════ */
-function _bootCoverShow(msg){
+export function _bootCoverShow(msg){
   try{
     var c = document.getElementById('takeosBootCover');
     if (!c){
@@ -188,7 +188,7 @@ function _bootCoverShow(msg){
     window._bootCoverTO = setTimeout(_bootCoverHide, 10000);   /* red de seguridad: nunca dejar al usuario pegado */
   }catch(e){}
 }
-function _bootCoverHide(){ try{ clearTimeout(window._bootCoverTO); }catch(e){} try{ var c = document.getElementById('takeosBootCover'); if (c) c.remove(); }catch(e){} }
+export function _bootCoverHide(){ try{ clearTimeout(window._bootCoverTO); }catch(e){} try{ var c = document.getElementById('takeosBootCover'); if (c) c.remove(); }catch(e){} }
 /* Render seguro cuando NO hay empresa confirmada: el Panel Personal cubre el
    Control Room. Jamás cae al Control Room. */
 function _renderEspacioSeguro(email){
@@ -549,7 +549,7 @@ async function cloudGate(onUnlock) {
    · Perfil personal del usuario (datos personales editables).
    ════════════════════════════════════════════════════════════════════ */
 // PERFIL_NOMBRES → movido a src/modules/espacio.js (Etapa C4)
-function arrancarTakeOS() {
+export function arrancarTakeOS() {
   /* V11.13.0 · invariante: sin empresa confirmada y sin un proyecto destino,
      jamás se entra al Control Room (se re-deriva la vista correcta). */
   var _pend = false; try { _pend = !!sessionStorage.getItem('takeos_ir_proyecto'); } catch (e) {}

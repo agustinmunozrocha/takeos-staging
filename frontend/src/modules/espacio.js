@@ -1,6 +1,19 @@
 // Espacio de usuario (multi-org): switcher topbar, inyecciones, construcción y render — extraído de index.html (Etapa C4)
-// arrancarTakeOS y resolverEspacioYArrancar QUEDAN en index.html (bootstrap, material C6);
-// llaman a las funciones de este módulo vía window en runtime post-login.
+// arrancarTakeOS y resolverEspacioYArrancar viven en lib/boot.js (C6); boot llama
+// a las funciones de este módulo vía window en runtime post-login (ciclo espacio⇄boot:
+// esta mitad ya es import; la mitad de boot se convierte en la tranche de boot).
+
+// D1a · imports reales. NO convertir _TIENE_EMPRESA (este módulo lo ESCRIBE y
+// un import es read-only → TypeError; coherente solo vía window — línea roja #1).
+// El import de boot.js hoistea su eval de última (36) a ~34 — auditado seguro:
+// su top-level solo necesita state (pos 4) y DOM estático.
+import { escapeHtml, showToast } from '../lib/helpers.js';
+import { sb } from '../lib/supabase.js';
+import { STATES } from './kanban.js';
+import { irAlPanelPersonal, _pdCookiesBootCheck } from './config.js';
+import { abrirPerfilUsuario } from './perfil-onboarding.js';
+import { TAKEOS_MARCA, _ctaProdEvento, _ctaProdDescartado } from './plan-limites.js';
+import { _setOrgActiva, _bootCoverShow, _bootCoverHide, arrancarTakeOS } from '../lib/boot.js';
 
 /* ── FRENTE C · C3 · Selector "Cambiar de espacio" (topbar) ──────────────────
    Cambia el contexto de organización activa desde la barra superior. Lista:

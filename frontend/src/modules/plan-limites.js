@@ -7,13 +7,13 @@
    pestaña nueva (NO a crear cuenta ni a precios). Anti-cortisol: discreto,
    descartable por sesión, sin pop-up. Medición vía analytics_events.
    ════════════════════════════════════════════════════════════════════ */
-const TAKEOS_MARCA = 'TakeOS';                          // placeholder configurable (marca en standby)
+export const TAKEOS_MARCA = 'TakeOS';                          // placeholder configurable (marca en standby)
 const TAKEOS_LANDING_URL = 'https://agustinmunozrocha.github.io/takeos-landing/';   // landing real (Agustín, jun 2026)
 const _CTA_PROD_DISMISS_KEY = 'takeos_cta_prod_dismissed';   // por sesión
-async function _ctaProdEvento(nombre, props) {
+export async function _ctaProdEvento(nombre, props) {
   try { if (sb) await sb.from('analytics_events').insert(Object.assign({ event_name: nombre }, props ? { props: props } : {})); } catch (e) {}
 }
-function _ctaProdDescartado() {
+export function _ctaProdDescartado() {
   try { return sessionStorage.getItem(_CTA_PROD_DISMISS_KEY) === '1'; } catch (e) { return false; }
 }
 function ctaProdCerrar() {
