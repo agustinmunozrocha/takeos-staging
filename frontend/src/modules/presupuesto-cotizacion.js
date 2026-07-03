@@ -5,6 +5,15 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { STATE } from '../lib/state.js';
 import { escapeHtml, showToast, safeUrl } from '../lib/helpers.js';
+// D1e · imports reales (fusionado con los preexistentes de la era C — lección #12).
+// DIFERIDOS anti-ciclo (quedan vía window): boot (applyModuleReadonly/orgNombre),
+// dal, bd-excel, gastos (ciclo DURO: renderGastos/_syncGastosCostoReal/goLinea* —
+// mueren en D2), info-proyecto (_markRowDirty), legal, plan-rodaje, calculadoras, config.
+import { BD_PERSONAS, EMPRESA_PERFIL, STATES_WITH_LOCKED_BUDGET, STATES_WITH_REAL_COST } from '../lib/state.js';
+import { COTIZACION_CONDICIONES_DEFAULTS, DTE_LABEL, DTE_OPTIONS, UNIDAD_OPTIONS } from '../lib/data.js';
+import { calcCostoEmpresa, deltaClassCosto, deltaClassGanancia, displayMoneyInputValue, fmtDelta, fmtDeltaWithSymbol, fmtMoney, fmtPct, getCostoReal, parseMoneyCLP, readNum } from '../lib/calc.js';
+import { closeModal, showModal } from '../lib/ui.js';
+import { markDirty } from './persistencia-local.js';
 
 // UNIDAD_OPTIONS: ahora en lib/data.js (window) — dedup B3
 

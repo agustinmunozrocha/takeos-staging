@@ -45,7 +45,7 @@ export function calcCostoEmpresa(valor, cantidad, dte, sectionKey) {
    El aviso de "falta DTE" sigue vivo en recalcAlerts(), pero ya no
    rompe el cálculo. El parámetro sectionKey se mantiene por
    compatibilidad de firma con los 6 callsites. */
-function getCostoReal(item, sectionKey) {
+export function getCostoReal(item, sectionKey) {
   if (item.costoReal === null || item.costoReal === undefined) {
     return { value: 0, error: null };
   }
@@ -124,13 +124,13 @@ export function fmtDelta(n) {
 
 /* V5.2.1: variante con Δ adelante. Usada en el delta inline de cada fila
    del Presupuesto, donde no hay header de columna que aclare el contexto. */
-function fmtDeltaWithSymbol(n) {
+export function fmtDeltaWithSymbol(n) {
   const s = fmtDelta(n);
   if (s === '—') return s;
   return 'Δ ' + s;
 }
 
-function fmtPct(n) {
+export function fmtPct(n) {
   if (n === null || n === undefined || !isFinite(n)) return '—';
   return (n * 100).toFixed(1) + '%';
 }
@@ -152,7 +152,7 @@ export function deltaClassCosto(n) {
 /* V5.1.1: deltaClassGanancia INVERSO. Para filas "Ganancia parcial", "Ganancia final".
    Si real > cot → bueno (gané más) → positive (verde)
    Si real < cot → malo (gané menos) → negative (rojo) */
-function deltaClassGanancia(n) {
+export function deltaClassGanancia(n) {
   const r = Math.round(n || 0);
   if (r === 0) return 'neutral';
   return r > 0 ? 'positive' : 'negative';
@@ -179,7 +179,7 @@ export function initials(name) {
 /* renderUnidadCell → movido a src/modules/presupuesto-cotizacion.js (Etapa 2) */
 
 /* Lee un valor desde un input numérico, devolviendo null si vacío */
-function readNum(input) {
+export function readNum(input) {
   const v = parseFloat(input.value);
   return isFinite(v) ? v : null;
 }

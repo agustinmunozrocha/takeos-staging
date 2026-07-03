@@ -101,7 +101,7 @@ const DEFAULT_TALENTOS = [
   { item: 'Talento secundario', valor: 150000, unidad: 'Tarifa Plana' }
 ];
 
-const COTIZACION_CONDICIONES_DEFAULTS = {
+export const COTIZACION_CONDICIONES_DEFAULTS = {
   validezDiasHabiles: 5,
   abonoPct: 50,
   abonoPlazoDiasHabiles: 5,      // tras aprobación
@@ -148,7 +148,7 @@ export function factorRetencionDte(dte) {
 }
 export function montoNetoDesde(costoReal, dte) { const c = Number(costoReal) || 0; if (!c) return 0; return dteTieneRetencion(dte) ? Math.round(c * factorRetencionDte(dte)) : Math.round(c); }
 export function montoBrutoDesde(liquido, dte) { const l = Number(liquido) || 0; if (!l) return 0; return dteTieneRetencion(dte) ? Math.round(l / factorRetencionDte(dte)) : Math.round(l); }
-const UNIDAD_OPTIONS = ['Tarifa Plana', 'Jornadas', 'Horas', 'Personas', 'Locaciones', 'Fotografías'];
+export const UNIDAD_OPTIONS = ['Tarifa Plana', 'Jornadas', 'Horas', 'Personas', 'Locaciones', 'Fotografías'];
 
 // Fórmulas tributarias puras (viajaron con su data DTE; consumidas por el
 // clásico calcCostoEmpresa y por notificaciones/gastos/legal):
