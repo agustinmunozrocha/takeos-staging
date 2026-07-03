@@ -14,7 +14,17 @@
 // IVA (rates.js), sb, PROJECTS, PROJECTS_SOURCE, EMPRESA_PERFIL, BD_PERSONAS,
 // DTE_CON_RETENCION, DTE_LABEL_SHORT, authNivel.
 
-import { STATE } from '../lib/state.js';
+import { STATE, PROJECTS, BD_PERSONAS, EMPRESA_PERFIL } from '../lib/state.js';
+// D1c · imports reales. VETADOS: IVA (tasa viva), PROJECTS_SOURCE, _notifCfg
+// (el módulo lo escribe). Bridge DTE_CON_RETENCION se conserva (calc lo lee
+// vía window). Hoist: persistencia-local 28→17 (top-level sin imports, inerte).
+import { sb } from '../lib/supabase.js';
+import { fmtMoney } from '../lib/calc.js';
+import { factorRetencionDte, DTE_CON_RETENCION } from '../lib/data.js';
+import { closeModal } from '../lib/ui.js';
+import { navigateToModule } from '../lib/nav.js';
+import { navigateToProject } from './kanban.js';
+import { markDirty } from './persistencia-local.js';
 import { escapeHtml, showToast } from '../lib/helpers.js';
 
 // ── Sistema A · variables internas del panel ──────────────────────────────────

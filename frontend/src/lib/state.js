@@ -163,7 +163,7 @@ export const PROJECTS = []; window.PROJECTS = PROJECTS; // puente para src/modul
    Desde la papelera se puede restaurar. */
 export const TRASH = []; window.TRASH = TRASH; // puente para src/modules/kanban.js
 /* V7.9: perfil de la empresa/productora emisora (datos para documentos). Global, persiste en save y nube. NO vive en Notificaciones. */
-let EMPRESA_PERFIL = {
+export let EMPRESA_PERFIL = {
   /* V11.0.0 · multi-tenant: el perfil nace VACÍO. Los datos de la organización
      activa se cargan desde Supabase (organization_profile.profile) y el nombre
      de fantasía cae al nombre canónico de organizations.nombre si falta.

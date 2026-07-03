@@ -125,7 +125,7 @@ export const DTE_OPTIONS = [
 ];
 const DTE_LABEL = Object.fromEntries(DTE_OPTIONS.map(o => [o.value, o.label])); window.DTE_LABEL = DTE_LABEL;
 const DTE_LABEL_SHORT = { boleta: 'Boleta', factura: 'Factura', factura_exenta: 'F. Exenta', boleta_terceros: 'B. Terceros' }; window.DTE_LABEL_SHORT = DTE_LABEL_SHORT;
-const DTE_CON_RETENCION = ['boleta', 'boleta_terceros']; window.DTE_CON_RETENCION = DTE_CON_RETENCION;
+export const DTE_CON_RETENCION = ['boleta', 'boleta_terceros']; window.DTE_CON_RETENCION = DTE_CON_RETENCION;
 
 /* ════════════════════════════════════════════════════════════════════
    V8.3.1 · LÓGICA TRIBUTARIA CENTRAL (única fuente de verdad)
