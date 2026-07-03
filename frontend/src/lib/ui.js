@@ -7,6 +7,7 @@ import { _genId, syncLegacyFromContactos } from './modelo.js';
 import { BANCOS_CHILE, REGIONES_CHILE } from './data.js';
 import { _puedeEditarResponsables } from './auth.js';
 
+import { registrarAcciones, accionHTML } from './delegacion.js';
 /* ─── PERSON SELECT (sustituye datalist+input bugeado) ──────────────
    Bug original: el datalist+input no permitía cambiar ni borrar a una
    persona ya seleccionada. UX rota.
@@ -23,18 +24,18 @@ export function showModal({ title, body, confirmLabel = 'Confirmar', cancelLabel
   const root = document.getElementById('modalRoot');
   // V7.2: si cancelLabel viene null/vacío, no renderizamos el botón (antes mostraba "null" o un botón vacío)
   const cancelBtn = (cancelLabel != null && String(cancelLabel).trim() !== '')
-    ? `<button class="btn" onclick="_modalCancel()">${cancelLabel}</button>`
+    ? `<button class="btn" data-accion="ui.modalCancel">${cancelLabel}</button>`
     : '';
   root.innerHTML = `
     <div class="modal-backdrop">
-      <div class="modal ${danger ? 'modal-danger' : ''}" onclick="event.stopPropagation()">
+      <div class="modal ${danger ? 'modal-danger' : ''}" >
         <div class="modal-header">
           <div class="modal-title">${title}</div>
         </div>
         <div class="modal-body">${body}</div>
         <div class="modal-footer">
           ${cancelBtn}
-          <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" onclick="_modalConfirm()" style="${danger ? 'background: var(--negative); color: #fff; border-color: var(--negative);' : ''}">${confirmLabel}</button>
+          <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-accion="ui.modalConfirm" style="${danger ? 'background: var(--negative); color: #fff; border-color: var(--negative);' : ''}">${confirmLabel}</button>
         </div>
       </div>
     </div>
@@ -236,12 +237,12 @@ function comboboxFilter(inputEl) {
     : personas;
 
   if (matched.length === 0) {
-    dropdown.innerHTML = `<div class="combobox-empty"><button type="button" class="combobox-addbd" onmousedown="event.preventDefault()" onclick="comboboxAddToBD(this)">+ Agregar a la BD</button></div>`;
+    dropdown.innerHTML = `<div class="combobox-empty"><button type="button" class="combobox-addbd" data-accion="ui.cbAddBD" data-on="mousedown click">+ Agregar a la BD</button></div>`;
   } else {
     dropdown.innerHTML = matched.slice(0, 20).map(n => {
       const p = BD_PERSONAS[n];
       return `
-        <div class="combobox-option" onmousedown="comboboxSelect(this, '${escapeHtml(n)}')">
+        <div class="combobox-option" ${accionHTML('ui.cbSel', n, { on: 'mousedown' })}>
           <div class="combobox-option-main">${escapeHtml(n)}</div>
           ${p.rolHabitual ? `<div class="combobox-option-meta">${escapeHtml(p.rolHabitual)}</div>` : ''}
         </div>
@@ -429,14 +430,14 @@ function comboboxFilterEmpresas(inputEl) {
       const lbl = rol === 'cliente' ? '+ Agregar empresa cliente a la BD'
                 : rol === 'agencia' ? '+ Agregar agencia a la BD'
                 : '+ Agregar empresa proveedora a la BD';
-      dropdown.innerHTML = `<div class="combobox-empty"><button type="button" class="combobox-addbd" onmousedown="event.preventDefault()" onclick="comboboxAddEmpresaToBD(this)">${lbl}</button></div>`;
+      dropdown.innerHTML = `<div class="combobox-empty"><button type="button" class="combobox-addbd" data-accion="ui.cbAddEmpresa" data-on="mousedown click">${lbl}</button></div>`;
     } else {
       dropdown.innerHTML = '<div class="combobox-empty">Sin coincidencias en empresas.</div>';
     }
   } else {
     dropdown.innerHTML = matched.slice(0, 20).map(n => {
       const e = BD_EMPRESAS[n];
-      return '<div class="combobox-option" onmousedown="comboboxSelect(this, \'' + escapeHtml(n) + '\')"><div class="combobox-option-main">' + escapeHtml(n) + '</div>' + (e.rutEmpresa ? '<div class="combobox-option-meta">' + escapeHtml(e.rutEmpresa) + '</div>' : '') + '</div>';
+      return '<div class="combobox-option" ' + accionHTML('ui.cbSel', n, { on: 'mousedown' }) + '><div class="combobox-option-main">' + escapeHtml(n) + '</div>' + (e.rutEmpresa ? '<div class="combobox-option-meta">' + escapeHtml(e.rutEmpresa) + '</div>' : '') + '</div>';
     }).join('') + (matched.length > 20 ? '<div class="combobox-more">+ ' + (matched.length - 20) + ' m\u00e1s \u2014 sigue tipeando</div>' : '');
   }
   dropdown.hidden = false;
@@ -501,7 +502,7 @@ function sectionResponsableInner(key) {
     const correo = p ? (p.email || p.mail || '') : '';
     const tel = p ? (p.telefono || '') : '';
     const meta = [cargo, correo, tel].filter(Boolean).map(e).join(' · ');
-    info = '<button type="button" class="resp-card" onclick="openPersonaByName(\'' + e(name) + '\')" data-tip="Ver ficha en la Base de Datos">' + e(name) + (meta ? '<span class="resp-meta">' + meta + '</span>' : '') + '</button>';
+    info = '<button type="button" class="resp-card" ' + accionHTML('ui.verPersona', name) + ' data-tip="Ver ficha en la Base de Datos">' + e(name) + (meta ? '<span class="resp-meta">' + meta + '</span>' : '') + '</button>';
   }
   // V10.5.2: editar responsables es exclusivo de Administrador y Ejecutivo.
   // El resto ve quién es el responsable, pero no el combobox para cambiarlo.
@@ -509,13 +510,13 @@ function sectionResponsableInner(key) {
     return info || '<span style="font-size:13px;color:var(--ink-faint);">Sin responsable asignado</span>';
   }
   return '<span class="resp-combo combobox-wrap cbx-anchored">' +
-    '<input class="input combobox-input" value="' + e(name) + '" placeholder="' + e(roleLabel || 'Buscar en la Base de Datos…') + '" autocomplete="off" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this)" onblur="comboboxCloseDelayed(this)" onchange="setSectionResponsable(\'' + key + '\', this.value)">' +
+    '<input class="input combobox-input" value="' + e(name) + '" placeholder="' + e(roleLabel || 'Buscar en la Base de Datos…') + '" autocomplete="off" ' + accionHTML('ui.respCombo', key, { on: 'focus input blur change' }) + '>' +
     '<div class="combobox-dropdown" hidden></div></span>' + info;
 }
 function sectionTareasBtnHTML(key) {
   if (!STATE.currentProject) return '';
   const n = sectionTaskCount(STATE.currentProject, key);
-  return '<button type="button" class="module-tareas-btn" onclick="openTareasModal(\'' + key + '\')" data-tip="Tareas de esta sección — asigna trabajo a tu equipo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Tareas' + (n ? '<span class="module-tareas-badge">' + n + '</span>' : '') + '</button>';
+  return '<button type="button" class="module-tareas-btn" ' + accionHTML('ui.tareas', key) + ' data-tip="Tareas de esta sección — asigna trabajo a tu equipo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Tareas' + (n ? '<span class="module-tareas-badge">' + n + '</span>' : '') + '</button>';
 }
 export function sectionResponsableHTML(key) {
   const m = MODULES[key];
@@ -797,3 +798,25 @@ window.comboboxFilterEmpresas = comboboxFilterEmpresas;
 window.setSectionResponsable = setSectionResponsable;
 window.togglePfCrew = togglePfCrew;
 window.togglePfExtranjera = togglePfExtranjera;
+
+// D2 · namespace 'ui': acciones universales (cerrar/backdrop, movidas desde
+// delegacion.js para no cerrar el ciclo delegacion⇄ui) + las propias.
+// PENDIENTE D2c+: regionSelectHTML/bancoSelectHTML aún emiten opts.onchange
+// inline — se convierten con sus llamadores (bd/config/perfil).
+registrarAcciones('ui', {
+  cerrar: function () { closeModal(); },
+  backdrop: function (a, el, ev) { if (ev.target === el) closeModal(); },
+  modalCancel: function () { _modalCancel(); },
+  modalConfirm: function () { _modalConfirm(); },
+  cbAddBD: function (a, el, ev) { if (ev.type === 'mousedown') ev.preventDefault(); else comboboxAddToBD(el); },
+  cbAddEmpresa: function (a, el, ev) { if (ev.type === 'mousedown') ev.preventDefault(); else comboboxAddEmpresaToBD(el); },
+  cbSel: function (a, el) { comboboxSelect(el, a[0]); },
+  verPersona: function (a) { openPersonaByName(a[0]); },
+  respCombo: function (a, el, ev) {
+    if (ev.type === 'focus') comboboxOpen(el);
+    else if (ev.type === 'input') comboboxFilter(el);
+    else if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else setSectionResponsable(a[0], el.value);
+  },
+  tareas: function (a) { openTareasModal(a[0]); },
+});
