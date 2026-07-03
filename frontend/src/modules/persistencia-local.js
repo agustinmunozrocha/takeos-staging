@@ -86,7 +86,7 @@ function buildSaveObject() {
 /* Reinyecta en BD_LOC (en memoria) las fotos guardadas en localStorage, que NO
    viajan por la nube. Solo rellena registros que llegan SIN fotos, así no pisa
    fotos entrantes de un cliente antiguo que todavía las envíe. */
-function restoreLocalLocPhotos() {
+export function restoreLocalLocPhotos() {
   try {
     const raw = window.localStorage.getItem(LS_KEY);
     if (!raw) return;

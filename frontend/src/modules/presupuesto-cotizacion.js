@@ -1339,7 +1339,7 @@ function _clientUuid() {
   });
 }
 
-function addRow(sectionKey, dept) {
+export function addRow(sectionKey, dept) {
   const project = STATE.currentProject;
   // V5.2.2: si el proyecto ya está aprobado, las nuevas filas son
   // "extras" — editables, no afectan la cotización original.
@@ -4314,7 +4314,7 @@ function onUnidadReset(btnEl, sectionKey, dept, idx) {
 }
 
 // ── E: _budgetFindRow (disperso, línea 19359)
-function _budgetFindRow(project, clientUuid) {
+export function _budgetFindRow(project, clientUuid) {
   const d = (project && project.data) || {}; let found = null;
   function scan(arr) { (arr || []).forEach(function (r) { if (r && r.clientUuid === clientUuid) found = r; }); }
   for (const dep in (d.servicios || {})) scan(d.servicios[dep]);

@@ -7,6 +7,24 @@
 // aquí se escriben via window.X. El resto del estado DAL (sets de IDs conocidos,
 // timers de debounce, mapas label↔code) es interno del módulo.
 
+// D1e · imports reales. CICLO DURO boot⇄dal resuelto por dirección: boot→dal
+// es import (down-call); dal→boot QUEDA VÍA WINDOW (up-edge: _bootCoverHide,
+// _setOrgActiva, aplicarMarcaOrg, applyPermisosUI, renderTopbarUser,
+// setCurrentUser, orgNombre — mueren en D2/D3). También diferidos anti-ciclo:
+// kanban (5), bd (2), cargos (3), gastos (goSavePresup), legal (renderLegal),
+// locaciones (2).
+import { escapeHtml, showToast } from '../lib/helpers.js';
+import { BD_CONTACTOS, BD_EMPRESAS_BYID, BD_LEGAL, BD_LEGAL_TPL, BD_LOC, EMPRESA_PERFIL, PROJECTS, STATE } from '../lib/state.js';
+import { _clearStore, _clientUuid, buildDefaultProjectData, syncLegacyFromContactos } from '../lib/modelo.js';
+import { BANCOS_CHILE, DTE_LABEL } from '../lib/data.js';
+import { _authBlockWriteToast, authPuedeGuardarOperaciones, authPuedeGuardarProyecto } from '../lib/auth.js';
+import { fmtMoney } from '../lib/calc.js';
+import { bancoCodigo, showModal } from '../lib/ui.js';
+import { navigateToModule, renderModule } from '../lib/nav.js';
+import { restoreLocalLocPhotos } from './persistencia-local.js';
+import { _budgetFindRow, addRow } from './presupuesto-cotizacion.js';
+import { manejarErrorPlan } from './plan-limites.js';
+
 export async function dalCargarCargos(project) {
   if (!project || project.data._cargosOK) return;
   if (!sb || PROJECTS_SOURCE !== 'supabase') { project.data._cargosOK = true; return; }

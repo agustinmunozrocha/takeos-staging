@@ -61,11 +61,11 @@ export function _puedeEditarTareas() { return authNivel('tareas') === 'E'; }
 /* Guardas de los RPCs de escritura: el proyecto-core (guardar_proyecto) toca
    varios módulos, así que se permite si hay 'E' en alguno de ellos; las
    operaciones usan 'operacion_creatividad'. */
-function authPuedeGuardarProyecto() {
+export function authPuedeGuardarProyecto() {
   if (!TAKEOS_ACCESO) return true;
   return ['presupuesto', 'cotizacion', 'info_proyecto', 'reporte_cierre'].some(function (m) { return authNivel(m) === 'E'; });
 }
-function authPuedeGuardarOperaciones() {
+export function authPuedeGuardarOperaciones() {
   if (!TAKEOS_ACCESO) return true;
   return authNivel('operacion_creatividad') === 'E';
 }
