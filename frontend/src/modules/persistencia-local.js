@@ -9,6 +9,7 @@ let UNDO_STACK = [];
 let UNDO_BASELINE = null;
 const UNDO_MAX = 30;
 let REDO_STACK = [];   // V7.8: pila de rehacer (Cmd+Shift+Z)
+window._persisResetOrg = function () { UNDO_STACK = []; REDO_STACK = []; };   // D0 · el historial de deshacer no cruza organizaciones
 
 /* ════════════════════════════════════════════════════════════════════
    V5.5 — SISTEMA DE GUARDADO / CARGA (save file .json + autoguardado)

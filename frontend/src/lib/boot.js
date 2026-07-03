@@ -127,7 +127,8 @@ function _setOrgActiva(orgId){
         window.PROJECTS_SOURCE = 'pending';
         window.TAKEOS_ACCESO = null;                      // fail-closed hasta dalLoadPermisos de la nueva org
         if (window.STATE) window.STATE.currentProject = null;
-        if (window.dalResetOrg) window.dalResetOrg();     // sets de IDs conocidos + timers pendientes del DAL
+        if (window.dalResetOrg) window.dalResetOrg();     // sets de IDs conocidos + timers pendientes del DAL + época (aborta cadenas de boot en vuelo)
+        if (window._persisResetOrg) window._persisResetOrg();   // pilas de deshacer de la org anterior
       } catch (e) { console.error('[org] reset al cambiar de organización', e); }
     }
     ORG_ID = s;

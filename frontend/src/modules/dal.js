@@ -209,7 +209,9 @@ function dalApplyTanda1(data) {
    los contactos/empresas ya cargados y refresca la pantalla.
    Si falla, NO toca nada: la app sigue con el estado actual. */
 async function dalBootContactos() {
+  const _ep = _dalEpoca();
   const data = await dalLoadTanda1();
+  if (_ep !== _dalEpoca()) return false;   // cadena obsoleta: la org cambió durante la carga
   if (!data) { console.warn('[dal] sin datos de Supabase; la BD mantiene su estado actual'); return false; }
   dalApplyTanda1(data);
   const nC = Object.keys(data.contactos).length, nE = Object.keys(data.empresas).length;
@@ -229,10 +231,12 @@ async function dalBootContactos() {
    que el proyecto las muestre. Gateada estrictamente a tipo 'externo': no toca a
    los internos (que sí leen contacts por RLS). Apoya el Frente F. */
 async function dalBootPersonasExternos() {
+  const _ep = _dalEpoca();
   try {
     if (!sb) return;
     if (typeof TAKEOS_PERFIL === 'undefined' || !TAKEOS_PERFIL || TAKEOS_PERFIL.tipo !== 'externo') return;
     var r = await sb.rpc('personas_de_mis_proyectos');
+    if (_ep !== _dalEpoca()) return;   // cadena obsoleta
     if (r.error) throw r.error;
     var filas = Array.isArray(r.data) ? r.data : [];
     if (!filas.length) return;
@@ -302,7 +306,9 @@ function dalApplyLocaciones(locs) {
 }
 async function dalBootLocaciones(opts) {
   const silent = opts && opts.silent;
+  const _ep = _dalEpoca();
   const locs = await dalLoadLocaciones();
+  if (_ep !== _dalEpoca()) return false;   // cadena obsoleta
   if (!locs) { if (!silent) console.warn('[dal] sin locaciones de Supabase; BD_LOC mantiene su estado actual'); return false; }
   dalApplyLocaciones(locs);
   try { restoreLocalLocPhotos(); } catch (e) {}   // reinyecta fotos de localStorage
@@ -360,7 +366,9 @@ function dalApplyLegal(data) {
 }
 async function dalBootLegal(opts) {
   const silent = opts && opts.silent;
+  const _ep = _dalEpoca();
   const data = await dalLoadLegal();
+  if (_ep !== _dalEpoca()) return false;   // cadena obsoleta
   if (!data) { if (!silent) console.warn('[dal] sin legal de Supabase; mantiene su estado actual'); return false; }
   dalApplyLegal(data);
   if (!silent) {
@@ -423,7 +431,9 @@ function dalApplyPerfil(profile, nombreCanonico) {
 }
 async function dalBootPerfil(opts) {
   const silent = opts && opts.silent;
+  const _ep = _dalEpoca();
   const res = await dalLoadPerfil();
+  if (_ep !== _dalEpoca()) return false;   // cadena obsoleta
   if (!res) { if (!silent) console.warn('[dal] sin perfil de Supabase; mantiene su estado actual'); return false; }
   dalApplyPerfil(res.profile, res.nombreCanonico);
   return true;
@@ -507,6 +517,7 @@ async function dalResolveIdentidad() {
    de permisos. Corre tras dalBootContactos -> dalResolveIdentidad. */
 async function dalLoadPermisos() {
   if (!sb || !DAL_SESSION_UID) return;
+  const _ep = _dalEpoca();
   try {
     const { data: mem, error: e1 } = await sb
       .from('memberships')
@@ -514,6 +525,7 @@ async function dalLoadPermisos() {
       .eq('user_id', DAL_SESSION_UID)
       .eq('organization_id', ORG_ID)
       .maybeSingle();
+    if (_ep !== _dalEpoca()) return;   // cadena obsoleta
     if (e1) throw e1;
     if (!mem) { console.warn('[auth] sin membresía para el usuario (fail-open)'); return; }
     const pp = mem.permission_profiles || {};
@@ -529,6 +541,7 @@ async function dalLoadPermisos() {
       .select('modulo, nivel')
       .eq('profile_id', mem.profile_id);
     if (e2) throw e2;
+    if (_ep !== _dalEpoca()) return;   // cadena obsoleta
     const acc = {};
     (perms || []).forEach(function (p) { acc[p.modulo] = p.nivel; });
     TAKEOS_ACCESO = Object.keys(acc).length ? acc : null;
@@ -1275,9 +1288,11 @@ async function dalReloadProyecto(id) {
 }
 
 async function dalBootProyectos() {
+  const _ep = _dalEpoca();
   const rows = await dalLoadProyectos();
-  if (!rows) { _bootCoverHide(); return; }            // error o sin red -> estado actual intacto
-  if (!rows.length) { _bootCoverHide(); return; }     // sin proyectos migrados -> estado actual intacto (NO destructivo)
+  if (_ep !== _dalEpoca()) return;                    // cadena obsoleta: no aplica ni toca el veil (la cadena vigente lo cierra)
+  if (!rows) { try { renderMetrics(); renderKanban(); } catch (e) {} _bootCoverHide(); return; }   // error o sin red -> se pinta el estado actual (post-reset: tablero vacío honesto, no fantasmas de la org anterior)
+  if (!rows.length) { window.PROJECTS_SOURCE = 'supabase'; try { renderMetrics(); renderKanban(); } catch (e) {} _bootCoverHide(); return; }   // org sin proyectos: la nube respondió -> escritura habilitada y tablero vacío real (sin esto el flag quedaba 'pending' y nada sincronizaba)
   let aplicados = 0;
   rows.forEach(function(p){
     const partes = _dalProyectoPartes(p);
@@ -1803,8 +1818,13 @@ let _dalProyFlushTimer = null;
    Sin esto, los sets de IDs conocidos y los timers de guardado pendientes
    sobreviven al cambio de org → fusiones contra IDs ajenos y writes tardíos
    contra la org equivocada. Lo invoca _setOrgActiva (boot.js) vía window. */
+function _dalEpoca() { return window._ORG_EPOCA || 0; }
+/* Las cadenas de boot capturan la época al entrar y abortan tras cada await si
+   cambió: una cadena obsoleta no puede re-poblar los stores recién reseteados
+   con datos de la org anterior (hallazgo de la auditoría adversarial de D0). */
 function dalResetOrg() {
   try {
+    window._ORG_EPOCA = _dalEpoca() + 1;   // invalida toda cadena de boot en vuelo
     [DAL_KNOWN_LOC_IDS, DAL_KNOWN_LEGAL_DOC_IDS, DAL_KNOWN_LEGAL_TPL_IDS,
      DAL_KNOWN_CONTACT_IDS, DAL_KNOWN_COMPANY_IDS, DAL_KNOWN_PROJECT_IDS,
      _dalDirtyProjects].forEach(function (s) { s.clear(); });
