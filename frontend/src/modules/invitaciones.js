@@ -198,9 +198,6 @@ async function invRechazar(token) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window.PERFIL_CODIGO_POR_NOMBRE = PERFIL_CODIGO_POR_NOMBRE;
-window.PERFIL_NOMBRE_POR_CODIGO = PERFIL_NOMBRE_POR_CODIGO;
-window._invMostrarResultado = _invMostrarResultado;
 window.abrirInvitacionRecibida = abrirInvitacionRecibida;
 window.dalInvitar = dalInvitar;
 window.invAceptar = invAceptar;

@@ -1118,7 +1118,6 @@ function submitPersonaForm(mode, contactId) {
 // ── Window bridges BD ──────────────────────────────────────────────
 window.renderBDPersonas       = renderBDPersonas;
 window.renderBDListByTab      = renderBDListByTab;
-window.renderBDLocacionesList = renderBDLocacionesList;
 window.openBDLocAdd           = openBDLocAdd;
 window.saveBDLocAdd           = saveBDLocAdd;
 window.renderBDEmpresasList   = renderBDEmpresasList;

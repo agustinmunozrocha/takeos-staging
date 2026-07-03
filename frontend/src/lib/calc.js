@@ -265,7 +265,6 @@ window.deltaClassCosto = deltaClassCosto;
 window.deltaClassGanancia = deltaClassGanancia;
 window.displayMoneyInputValue = displayMoneyInputValue;
 window.fmtDelta = fmtDelta;
-window.fmtDeltaWithSymbol = fmtDeltaWithSymbol;
 window.fmtMoney = fmtMoney;
 window.fmtPct = fmtPct;
 window.formatCLP = formatCLP;

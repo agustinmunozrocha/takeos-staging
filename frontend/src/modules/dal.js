@@ -1889,34 +1889,14 @@ export async function dalFlushProyectos() {
 
 // ── Window bridges DAL (3 barridos: consumo externo, auto-consumo, nombre-string) ──
 window._conflictoBannerHide = _conflictoBannerHide;
-window._dalBancoNombre = _dalBancoNombre;
-window._dalContactoSaveSoon = _dalContactoSaveSoon;
 window._dalEmpresaSaveSoon = _dalEmpresaSaveSoon;
-window._dalFusionarProyecto = _dalFusionarProyecto;
-window._dalLegalDocSaveSoon = _dalLegalDocSaveSoon;
-window._dalLegalTplSaveSoon = _dalLegalTplSaveSoon;
-window._dalLocacionSaveSoon = _dalLocacionSaveSoon;
 window._dalPerfilSaveSoon = _dalPerfilSaveSoon;
-window._dalProyectoPartes = _dalProyectoPartes;
-window.dalBootContactos = dalBootContactos;
-window.dalBootLegal = dalBootLegal;
-window.dalBootLocaciones = dalBootLocaciones;
-window.dalBootPerfil = dalBootPerfil;
-window.dalBootPersonasExternos = dalBootPersonasExternos;
 window.dalBootProyectos = dalBootProyectos;
-window.dalCargarCargos = dalCargarCargos;
 window.dalCargarTopeColaboradores = dalCargarTopeColaboradores;
-window.dalEliminarLegalDoc = dalEliminarLegalDoc;
-window.dalEliminarLegalTpl = dalEliminarLegalTpl;
-window.dalFinishBulkImport = dalFinishBulkImport;
-window.dalGuardarCargos = dalGuardarCargos;
 window.dalGuardarContacto = dalGuardarContacto;
 window.dalGuardarEmpresa = dalGuardarEmpresa;
 window.dalGuardarLegalDoc = dalGuardarLegalDoc;
-window.dalGuardarLocacion = dalGuardarLocacion;
 window.dalLoadPermisos = dalLoadPermisos;
-window.dalLoadProyectos = dalLoadProyectos;
 window.dalResolveIdentidad = dalResolveIdentidad;
 window.dalTouchProyecto = dalTouchProyecto;
 window.dalFlushProyectos = dalFlushProyectos;   // D0 · rescate pre-reset en el cambio de org (boot.js/_setOrgActiva)
-window._DAL_TIPOCUENTA_LABEL = _DAL_TIPOCUENTA_LABEL; // el perfil personal (clásico) la lee a pelo — regresión latente B1 detectada en pre-análisis B2

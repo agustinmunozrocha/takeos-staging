@@ -96,7 +96,6 @@ export function manejarErrorPlan(err) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window._planModalVenta = _planModalVenta;
 window._planVerPlanes = _planVerPlanes;
 window.manejarErrorPlan = manejarErrorPlan;
 

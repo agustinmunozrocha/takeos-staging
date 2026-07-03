@@ -340,10 +340,8 @@ export function updateThemeButton(theme) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window._empTieneRol = _empTieneRol;
 window._modalCancel = _modalCancel;
 window._modalConfirm = _modalConfirm;
-window.applyStoredTheme = applyStoredTheme;
 window.closeModal = closeModal;
 window.comboboxAddEmpresaToBD = comboboxAddEmpresaToBD;
 window.comboboxAddToBD = comboboxAddToBD;
@@ -352,9 +350,6 @@ window.comboboxFilter = comboboxFilter;
 window.comboboxOpen = comboboxOpen;
 window.comboboxSelect = comboboxSelect;
 window.getStoredTheme = getStoredTheme;
-window.hideTooltip = hideTooltip;
-window.positionComboboxDropdown = positionComboboxDropdown;
-window.setupTooltipListeners = setupTooltipListeners;
 window.showModal = showModal;
 window.toggleTheme = toggleTheme;
 window.updateThemeButton = updateThemeButton;
@@ -798,17 +793,7 @@ document.querySelectorAll('.view-toggle button').forEach(btn => {
 
 // ── Bridges C6 (barrido final) ──
 window.THEME_KEY = THEME_KEY;
-window._edadDesde = _edadDesde;
-window._locThumbAsync = _locThumbAsync;
-window._toISODate = _toISODate;
-window.bancoCodigo = bancoCodigo;
-window.bancoSelectHTML = bancoSelectHTML;
 window.comboboxFilterEmpresas = comboboxFilterEmpresas;
-window.fireConfetti = fireConfetti;
-window.pfBancoChange = pfBancoChange;
-window.regionSelectHTML = regionSelectHTML;
-window.sectionResponsableHTML = sectionResponsableHTML;
 window.setSectionResponsable = setSectionResponsable;
-window.slugify = slugify;
 window.togglePfCrew = togglePfCrew;
 window.togglePfExtranjera = togglePfExtranjera;

@@ -688,11 +688,9 @@ try {
 
 // ── Bridges C6 (barrido final) ──
 window._bootCoverHide = _bootCoverHide;
-window._bootCoverShow = _bootCoverShow;
 window._firstVisibleModule = _firstVisibleModule;
 window._setOrgActiva = _setOrgActiva;
 window.aplicarMarcaOrg = aplicarMarcaOrg;
-window.aplicarUsuario = aplicarUsuario;
 window.applyModuleReadonly = applyModuleReadonly;
 window.applyPermisosUI = applyPermisosUI;
 window.arrancarTakeOS = arrancarTakeOS;

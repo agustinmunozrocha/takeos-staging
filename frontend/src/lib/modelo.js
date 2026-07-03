@@ -419,13 +419,8 @@ export function buildProjectData(overrides) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window._buildPerfilPago = _buildPerfilPago;
-window._buildPerfilTalento = _buildPerfilTalento;
 window._clientUuid = _clientUuid;
-window.buildDefaultProjectData = buildDefaultProjectData;
 window.buildProjectData = buildProjectData;
-window.hydrateContactStore = hydrateContactStore;
-window.ingestLegacyIntoContactos = ingestLegacyIntoContactos;
 window.syncLegacyFromContactos = syncLegacyFromContactos;
 
 // ═══ Helpers de stores + modelo de locaciones de proyecto (Etapa C6) ═══
@@ -534,9 +529,5 @@ export function _dedupKeys(rut, email, nombre) {
    Los proyectos demo se cargan a demanda con "Cargar datos de ejemplo". */
 
 // ── Bridges C6 (barrido final) ──
-window._clearStore = _clearStore;
-window._dedupKeys = _dedupKeys;
-window._genId = _genId;
 window._norm = _norm;
 window.ensureProjectLoc = ensureProjectLoc;
-window.normLocName = normLocName;

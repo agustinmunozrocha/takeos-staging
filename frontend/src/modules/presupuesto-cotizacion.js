@@ -4365,7 +4365,6 @@ window.snapshotFullBudget          = snapshotFullBudget;
 window.presupCotVersionBarHTML     = presupCotVersionBarHTML;
 window.presupSetCotVersion         = presupSetCotVersion;
 window.exportPresupuestoExcel      = exportPresupuestoExcel;
-window.debeExportarseFilaPresupuesto = debeExportarseFilaPresupuesto;
 window.budgetSortBy                = budgetSortBy;
 window.budgetSortClear             = budgetSortClear;
 window.budgetColResizeDown         = budgetColResizeDown;
@@ -4485,14 +4484,8 @@ window.cotPrevSaveSettings         = cotPrevSaveSettings;
 window.CotPreview                  = CotPreview;
 
 // ── Bridges agregados por auditoría 2-jul (consumidos por index.html u otros módulos sin bridge) ──
-window._budgetCaptureScroll = _budgetCaptureScroll;
-window._budgetColGrip = _budgetColGrip;
-window._budgetColTh = _budgetColTh;
-window._budgetColWGet = _budgetColWGet;
-window._budgetRestoreScroll = _budgetRestoreScroll;
 window._cotPrevFamiliaGF = _cotPrevFamiliaGF;
 window._cotPrevHexValido = _cotPrevHexValido;
-window._rowNoteItem = _rowNoteItem;
 window.cotPrevColores = cotPrevColores;
 window.cotPrevFontLink = cotPrevFontLink;
 window.cotPrevFonts = cotPrevFonts;
