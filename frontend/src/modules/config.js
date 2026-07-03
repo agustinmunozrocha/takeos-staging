@@ -22,6 +22,7 @@ import { _applyAdminUI, _puedeModoAdmin, requestAdminPassword } from './admin.js
 import { manejarErrorPlan } from './plan-limites.js';
 import { _bootCoverHide, _bootCoverShow, _setOrgActiva, arrancarTakeOS, cloudGate, orgNombre, resolverEspacioYArrancar } from '../lib/boot.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 const CHIPAX_LOGO = 'data:image/png;base64,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';
 function cfgSetUsaChipax(on) {
   try { EMPRESA_PERFIL.usaChipax = !!on; markDirty(); _dalPerfilSaveSoon(); } catch (e) {}
@@ -42,26 +43,26 @@ export function irAlPanelPersonal() {
 export function openConfigPanel() {
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal config-panel" onclick="event.stopPropagation()">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal config-panel">
         <div class="modal-header"><div class="modal-title">Configuración</div></div>
         <div class="modal-body">
           <div class="config-section">
             <p class="config-section-title">Datos del OS</p>
             <div class="config-grid">
-              <button class="topbar-save-btn" id="saveBtn" onclick="closeConfigPanel(); exportSave();" title="Guardar TODO el OS (proyectos + BD) en un archivo .json. Es tu respaldo durable.">
+              <button class="topbar-save-btn" id="saveBtn" data-accion="cfg.guardarOS" title="Guardar TODO el OS (proyectos + BD) en un archivo .json. Es tu respaldo durable.">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 Guardar OS
               </button>
-              <button class="topbar-save-btn" onclick="closeConfigPanel(); document.getElementById('loadFileInput').click();" title="⚠️ Cargar un respaldo COMPLETO del OS. Reemplaza TODO. Se crea un snapshot automático antes.">
+              <button class="topbar-save-btn" data-accion="cfg.cargarOS" title="⚠️ Cargar un respaldo COMPLETO del OS. Reemplaza TODO. Se crea un snapshot automático antes.">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><polyline points="9 15 12 12 15 15"/></svg>
                 Cargar OS
               </button>
-              <button class="topbar-save-btn" id="snapshotsBtn" onclick="openSnapshotsModal();" title="Historial de snapshots automáticos. Antes de cualquier carga destructiva, TakeOS guarda uno — puedes revertir.">
+              <button class="topbar-save-btn" id="snapshotsBtn" data-accion="cfg.fn" data-args="[&quot;openSnapshotsModal&quot;]" title="Historial de snapshots automáticos. Antes de cualquier carga destructiva, TakeOS guarda uno — puedes revertir.">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 Snapshots
               </button>
-              <button class="topbar-save-btn" onclick="closeConfigPanel(); openGlobalBDPersonas();" title="Base de Datos de Contactos (global).">
+              <button class="topbar-save-btn" data-accion="cfg.bd" title="Base de Datos de Contactos (global).">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 Base de Datos
               </button>
@@ -71,7 +72,7 @@ export function openConfigPanel() {
           <div class="config-section">
             <p class="config-section-title">Diagnóstico</p>
             <div class="config-grid">
-              <button class="topbar-save-btn" onclick="exportSupabaseBackup();" title="Descarga un respaldo manual de Supabase en un solo archivo .json (todas las tablas conocidas). Solo lectura. El respaldo autoritativo es el backup automático de Supabase Pro.">
+              <button class="topbar-save-btn" data-accion="cfg.fn" data-args="[&quot;exportSupabaseBackup&quot;]" title="Descarga un respaldo manual de Supabase en un solo archivo .json (todas las tablas conocidas). Solo lectura. El respaldo autoritativo es el backup automático de Supabase Pro.">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
                 Respaldar Supabase (.json)
               </button>
@@ -81,11 +82,11 @@ export function openConfigPanel() {
           <div class="config-section">
             <p class="config-section-title">Mi perfil</p>
             <div class="config-grid">
-              <button class="topbar-save-btn" onclick="closeConfigPanel(); abrirPerfilUsuario(false);" title="Tus datos personales (nombre, correo, celular, dirección, cuenta bancaria). Son tuyos y te acompañan en cada productora donde colabores.">
+              <button class="topbar-save-btn" data-accion="cfg.miPerfil" title="Tus datos personales (nombre, correo, celular, dirección, cuenta bancaria). Son tuyos y te acompañan en cada productora donde colabores.">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
                 Mis datos personales
               </button>
-              <button class="topbar-save-btn" onclick="irAlPanelPersonal()" title="Tu espacio: las productoras donde eres interno y los proyectos donde colaboras como externo, más tus invitaciones pendientes.">
+              <button class="topbar-save-btn" data-accion="cfg.fn" data-args="[&quot;irAlPanelPersonal&quot;]" title="Tu espacio: las productoras donde eres interno y los proyectos donde colaboras como externo, más tus invitaciones pendientes.">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
                 Panel personal
               </button>
@@ -94,7 +95,7 @@ export function openConfigPanel() {
           <div class="config-section">
             <p class="config-section-title">Perfil de la empresa</p>
             <div class="config-grid">
-              <button class="topbar-save-btn" onclick="openEmpresaPerfil()" title="Datos de tu empresa/productora (razón social, RUT, giro, representante). Se usan en documentos: hojas de llamado, plan de rodaje, cotizaciones y contratos.">
+              <button class="topbar-save-btn" data-accion="cfg.fn" data-args="[&quot;openEmpresaPerfil&quot;]" title="Datos de tu empresa/productora (razón social, RUT, giro, representante). Se usan en documentos: hojas de llamado, plan de rodaje, cotizaciones y contratos.">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01"/></svg>
                 Empresa / Productora
               </button>
@@ -103,8 +104,8 @@ export function openConfigPanel() {
           <div class="config-section">
             <p class="config-section-title">Preferencias</p>
             <div class="config-grid">
-              <button class="topbar-save-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Cambiar entre modo claro y oscuro. Tu preferencia queda guardada en este navegador.">Tema</button>
-              <button class="topbar-admin-toggle ${(STATE && STATE.adminMode) ? 'is-on' : ''}" id="adminToggleBtn" onclick="toggleAdminMode()" title="Modo administrador: habilita acciones restringidas (ej. devolver un proyecto a Venta).">
+              <button class="topbar-save-btn" id="themeToggleBtn" data-accion="cfg.fn" data-args="[&quot;toggleTheme&quot;]" title="Cambiar entre modo claro y oscuro. Tu preferencia queda guardada en este navegador.">Tema</button>
+              <button class="topbar-admin-toggle ${(STATE && STATE.adminMode) ? 'is-on' : ''}" id="adminToggleBtn" data-accion="cfg.fn" data-args="[&quot;toggleAdminMode&quot;]" title="Modo administrador: habilita acciones restringidas (ej. devolver un proyecto a Venta).">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <span id="adminToggleLabel">${(STATE && STATE.adminMode) ? 'Modo Admin · ON' : 'Modo admin: OFF'}</span>
               </button>
@@ -112,7 +113,7 @@ export function openConfigPanel() {
           </div>
           <p class="config-hint">Deshacer queda en la barra superior por ser de uso frecuente. Atajo del panel: ⌘ , (Mac) o Ctrl , (Windows).</p>
         </div>
-        <div class="modal-footer"><button class="btn btn-primary" onclick="closeConfigPanel()">Cerrar</button></div>
+        <div class="modal-footer"><button class="btn btn-primary" data-accion="cfg.fn" data-args="[&quot;closeConfigPanel&quot;]">Cerrar</button></div>
       </div>
     </div>`;
   if (typeof updateThemeButton === 'function') updateThemeButton(getStoredTheme());
@@ -137,14 +138,14 @@ export function openEmpresaPerfil(subInicial) {
   const E = EMPRESA_PERFIL;
   const field = (id, label, val, ph) => `<div class="emp-field"><label>${label}</label><input id="emp_${id}" class="cot-input" value="${escapeHtml(val || '')}" placeholder="${ph || ''}"></div>`;
   document.getElementById('modalRoot').innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width:640px;max-height:88vh;display:flex;flex-direction:column;">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width:640px;max-height:88vh;display:flex;flex-direction:column;">
         <div class="modal-header"><div class="modal-title">Perfil de la empresa / productora</div></div>
         <div class="modal-body" style="overflow-y:auto;flex:1 1 auto;">
           <div style="display:flex;gap:6px;margin:0 0 14px;border-bottom:1px solid var(--rule);padding-bottom:10px;">
-            ${esAdmin ? `<button class="btn btn-ghost btn-sm" id="empTabdatos" onclick="${datosOK ? "_empShowSub('datos')" : '_empDatosConClave()'}">Datos de la empresa${datosOK ? '' : ' 🔒'}</button>` : ''}
-            <button class="btn btn-ghost btn-sm" id="empTabequipo" onclick="_empShowSub('equipo')">Equipo</button>
-            <button class="btn btn-ghost btn-sm" id="empTabdiseno" onclick="_empShowSub('diseno')">Diseño</button>
+            ${esAdmin ? `<button class="btn btn-ghost btn-sm" id="empTabdatos" ${datosOK ? accionHTML('cfg.fn', '_empShowSub', 'datos') : accionHTML('cfg.fn', '_empDatosConClave')}>Datos de la empresa${datosOK ? '' : ' 🔒'}</button>` : ''}
+            <button class="btn btn-ghost btn-sm" id="empTabequipo" data-accion="cfg.fn" data-args="[&quot;_empShowSub&quot;,&quot;equipo&quot;]">Equipo</button>
+            <button class="btn btn-ghost btn-sm" id="empTabdiseno" data-accion="cfg.fn" data-args="[&quot;_empShowSub&quot;,&quot;diseno&quot;]">Diseño</button>
           </div>
           ${datosOK ? `<div id="empSubDatos">
           <p style="margin:0 0 14px;color:var(--ink-secondary);font-size:13px;line-height:1.5;">Estos datos se usan como <strong>empresa emisora</strong> en los documentos (hojas de llamado, plan de rodaje, cotizaciones y, a futuro, contratos). Quedan guardados con el OS.</p>
@@ -185,7 +186,7 @@ export function openEmpresaPerfil(subInicial) {
               <img src="${CHIPAX_LOGO}" alt="Chipax" style="width:42px;height:42px;border-radius:8px;flex:0 0 42px;object-fit:contain;background:#fff;border:1px solid var(--rule);">
               <div style="flex:1;min-width:0;">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13.5px;color:var(--ink-primary);">
-                  <input type="checkbox" id="cfgUsaChipax" ${E.usaChipax ? 'checked' : ''} onchange="cfgSetUsaChipax(this.checked)"> Usamos Chipax
+                  <input type="checkbox" id="cfgUsaChipax" ${E.usaChipax ? 'checked' : ''} data-accion="cfg.chipax" data-on="change"> Usamos Chipax
                 </label>
                 <div style="font-size:11.5px;color:var(--ink-faint);margin-top:4px;line-height:1.5;">Chipax es un sistema de gestión financiera y conciliación bancaria. Al activarlo, TakeOS habilita la <strong>exportación masiva de gastos validados</strong> en el formato que Chipax importa, para registrar la contabilidad sin digitar gasto por gasto.</div>
               </div>
@@ -198,7 +199,7 @@ export function openEmpresaPerfil(subInicial) {
             <div id="empRebindsBox" style="display:none;"></div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px;flex-wrap:wrap;">
               <p style="margin:0;color:var(--ink-secondary);font-size:13px;line-height:1.5;">Las personas de tu planta. Ven los proyectos de la productora según su perfil de acceso.</p>
-              ${esAdmin ? `<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-sm" onclick="_empAbrirTransferir()">Transferir administración</button><button class="btn btn-primary btn-sm" onclick="_empAbrirInvitar()">+ Incorporar a alguien</button></div>` : ''}
+              ${esAdmin ? `<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-sm" data-accion="cfg.fn" data-args="[&quot;_empAbrirTransferir&quot;]">Transferir administración</button><button class="btn btn-primary btn-sm" data-accion="cfg.fn" data-args="[&quot;_empAbrirInvitar&quot;]">+ Incorporar a alguien</button></div>` : ''}
             </div>
             <div id="empEquipoTabla" style="border:1px solid var(--rule);border-radius:8px;padding:12px;font-size:13px;color:var(--ink-secondary);">Cargando equipo…</div>
             <div id="empInvitacionesLista" style="margin-top:14px;"></div>
@@ -208,30 +209,30 @@ export function openEmpresaPerfil(subInicial) {
             <p style="margin:0 0 14px;color:var(--ink-secondary);font-size:13px;line-height:1.5;">La identidad de la marca, a la vista de todo el equipo: descarga los logos, copia los colores y revisa las tipografías.${esAdmin ? '' : ' Editar la identidad es facultad del Administrador.'}</p>
             <div class="config-section-title" style="margin:0 0 8px;">Logos</div>
             <div id="empLogosGaleria" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;"></div>
-            <input type="file" id="empLogoInput" accept="image/png,image/jpeg,image/svg+xml" style="display:none;" onchange="_empLogoPick(this)">
+            <input type="file" id="empLogoInput" accept="image/png,image/jpeg,image/svg+xml" style="display:none;" data-accion="cfg.logoPick" data-on="change">
             ${esAdmin ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-sm" onclick="document.getElementById('empLogoInput').click()">+ Subir variación</button>
+              <button class="btn btn-sm" data-accion="cfg.subirLogo">+ Subir variación</button>
             </div>` : ''}
             <p style="margin:10px 0 0;font-size:12px;color:var(--ink-faint);line-height:1.5;">La variación marcada como <strong>principal</strong> es la que usan los documentos por defecto. Hasta 8 variaciones de ~350 KB cada una; todas descargables para el equipo.</p>
             <div class="config-section-title" style="margin:20px 0 8px;">Colores de la marca</div>
             <p style="margin:0 0 10px;color:var(--ink-secondary);font-size:12.5px;line-height:1.5;">La paleta oficial de la productora. Los previsualizadores de documentos la ofrecen como <strong>color de énfasis</strong>. Haz clic en un color para copiar su código hex.</p>
             <div id="empColoresGaleria" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;margin-bottom:10px;"></div>
             ${esAdmin ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <input type="color" id="empColorPick" value="#B03A2F" style="width:34px;height:34px;border:none;background:none;padding:0;cursor:pointer;" oninput="document.getElementById('empColorHex').value=this.value.toUpperCase();">
-              <input class="cot-input" id="empColorHex" placeholder="#B03A2F" style="width:130px;" onkeydown="if(event.key==='Enter')_empColorAgregar()">
-              <button class="btn btn-sm" onclick="_empColorAgregar()">+ Agregar color</button>
+              <input type="color" id="empColorPick" value="#B03A2F" style="width:34px;height:34px;border:none;background:none;padding:0;cursor:pointer;" data-accion="cfg.colorSync" data-on="input">
+              <input class="cot-input" id="empColorHex" placeholder="#B03A2F" style="width:130px;" data-accion="cfg.enter" data-args="[&quot;_empColorAgregar&quot;]" data-on="keydown">
+              <button class="btn btn-sm" data-accion="cfg.fn" data-args="[&quot;_empColorAgregar&quot;]">+ Agregar color</button>
             </div>` : ''}
             <div class="config-section-title" style="margin:20px 0 8px;">Tipografías</div>
             <p style="margin:0 0 10px;color:var(--ink-secondary);font-size:12.5px;line-height:1.5;">El repositorio tipográfico de la marca. Los previsualizadores de documentos las ofrecen junto a las dos del sistema (<strong>Poppins</strong> y <strong>Serif</strong>). Se cargan desde Google Fonts por el nombre exacto de la familia (p. ej. <strong>Oswald</strong>). La carga de archivos de fuente propios (p. ej. una Gotham licenciada) llega cuando se resuelva su almacenamiento.</p>
             <div id="empTiposLista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
             ${esAdmin ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <input class="cot-input" id="empTipoNombre" placeholder="Nombre visible (opcional)" style="width:190px;">
-              <input class="cot-input" id="empTipoFamilia" placeholder="Familia en Google Fonts" style="width:190px;" onkeydown="if(event.key==='Enter')_empTipoAgregar()">
-              <button class="btn btn-sm" onclick="_empTipoAgregar()">+ Agregar tipografía</button>
+              <input class="cot-input" id="empTipoFamilia" placeholder="Familia en Google Fonts" style="width:190px;" data-accion="cfg.enter" data-args="[&quot;_empTipoAgregar&quot;]" data-on="keydown">
+              <button class="btn btn-sm" data-accion="cfg.fn" data-args="[&quot;_empTipoAgregar&quot;]">+ Agregar tipografía</button>
             </div>` : ''}
           </div>
         </div>
-        <div class="modal-footer"><button class="btn" onclick="openConfigPanel()">Volver</button>${datosOK ? `<button class="btn btn-primary" onclick="saveEmpresaPerfil()">Guardar perfil</button>` : ''}</div>
+        <div class="modal-footer"><button class="btn" data-accion="cfg.volver">Volver</button>${datosOK ? `<button class="btn btn-primary" data-accion="cfg.fn" data-args="[&quot;saveEmpresaPerfil&quot;]">Guardar perfil</button>` : ''}</div>
       </div>
     </div>`;
   _empShowSub(subInicial || (datosOK ? 'datos' : 'equipo'));
@@ -360,13 +361,13 @@ async function _empEcharMiembro(memId, nombreEnc) {
    sin cargos = no ve nada; solo queda como contacto con datos consentidos).
    Distinta de la invitación por cargo (esa sí incorpora al proyecto). */
 function _invAbrirDatos(emailPrellenado) {
-  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:460px;">'
+  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop"><div class="modal" style="max-width:460px;">'
     + '<div class="modal-header"><div class="modal-title">Link de invitación (datos de la persona)</div></div>'
     + '<div class="modal-body">'
     + '<p style="margin:0 0 10px;font-size:12.5px;color:var(--ink-secondary);line-height:1.55;">La persona crea su cuenta (si no la tiene), llena sus datos una sola vez y autoriza compartirlos con tu productora. <strong>No</strong> la incorpora a ningún proyecto ni cargo: para eso está la invitación desde Cargos.</p>'
     + '<div class="emp-field"><label>Correo</label><input class="input" id="invDatosEmail" type="email" placeholder="persona@correo.cl" value="' + escapeHtml(emailPrellenado || '') + '"></div>'
     + '</div>'
-    + '<div class="modal-footer"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="_invEnviarDatos()">Crear invitación</button></div>'
+    + '<div class="modal-footer"><button class="btn" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="cfg.fn" data-args="[&quot;_invEnviarDatos&quot;]">Crear invitación</button></div>'
     + '</div></div>';
 }
 async function _invEnviarDatos() {
@@ -384,13 +385,13 @@ function _empAbrirInvitar() {
   _empPerfilesOrg().then(function (perfiles) {
     const opts = (perfiles.length ? perfiles : Object.keys(PERFIL_NOMBRE_POR_CODIGO).map(function (c) { return { codigo: +c, nombre: PERFIL_NOMBRE_POR_CODIGO[c] }; }))
       .map(function (p) { return '<option value="' + p.codigo + '"' + (p.codigo === 3 ? ' selected' : '') + '>' + escapeHtml(p.nombre) + '</option>'; }).join('');
-    document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:480px;">'
+    document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:480px;">'
       + '<div class="modal-header"><div class="modal-title">Incorporar a alguien al equipo</div></div>'
       + '<div class="modal-body">'
       +   '<div class="emp-field" style="margin-bottom:12px;"><label>Correo</label><input class="input" id="empInvEmail" type="email" placeholder="persona@correo.cl"><span class="hint" style="font-size:11.5px;color:var(--ink-faint);">Solo el correo: por privacidad no se busca entre los usuarios de TakeOS. Si ya tiene cuenta, la invitación le aparece adentro; si no, el link la lleva a crearla.</span></div>'
       +   '<div class="emp-field"><label>Perfil de acceso</label><select class="select" id="empInvPerfil">' + opts + '</select></div>'
       + '</div>'
-      + '<div class="modal-footer"><button class="btn" onclick="openConfigPanel()">Cancelar</button><button class="btn btn-primary" onclick="_empEnviarInvitacion()">Crear invitación</button></div>'
+      + '<div class="modal-footer"><button class="btn" data-accion="cfg.volver">Cancelar</button><button class="btn btn-primary" data-accion="cfg.fn" data-args="[&quot;_empEnviarInvitacion&quot;]">Crear invitación</button></div>'
       + '</div></div>';
   });
 }
@@ -459,7 +460,7 @@ async function _empCargarEquipo() {
       var perfilCod = perfilCodPorId[String(m.profile_id)];
       var esYo = (typeof DAL_SESSION_UID !== 'undefined' && m.user_id === DAL_SESSION_UID);
       if (soyAdmin && perfiles.length && !esUnicoAdmin) {
-        perfilCell = '<select class="select" style="font-size:12.5px;padding:4px 8px;" onchange="_empCambiarPerfil(\'' + m.id + '\', this.value, \'' + (m.tipo || '') + '\')">'
+        perfilCell = '<select class="select" style="font-size:12.5px;padding:4px 8px;" ' + accionHTML('cfg.perfilSel', m.id, m.tipo || '', { on: 'change' }) + '>'
           + perfiles.map(function (p) { return '<option value="' + p.id + '"' + (p.id === m.profile_id ? ' selected' : '') + '>' + escapeHtml(p.nombre) + '</option>'; }).join('')
           + '</select>';
       } else if (esUnicoAdmin) {
@@ -475,18 +476,18 @@ async function _empCargarEquipo() {
       var convBtn = '';
       if (soyAdmin && !esUnicoAdmin && !esYo) {
         if (contexto === 'externo') {
-          convBtn = '<button class="btn btn-ghost btn-sm" title="Pasar a interno: verá todos los proyectos de la productora." onclick="_empCambiarTipo(\'' + m.id + '\', \'interno\', ' + (perfilCod || 0) + ')">Hacer interno</button>';
+          convBtn = '<button class="btn btn-ghost btn-sm" title="Pasar a interno: verá todos los proyectos de la productora." ' + accionHTML('cfg.fn', '_empCambiarTipo', m.id, 'interno', perfilCod || 0) + '>Hacer interno</button>';
         } else if (perfilCod === 1 || perfilCod === 8) {
           convBtn = '<span style="font-size:10.5px;color:var(--ink-faint);" title="Administrador y Finanzas solo pueden ser internos. Cambia primero su perfil de acceso para poder pasarlo a externo.">Solo interno</span>';
         } else {
-          convBtn = '<button class="btn btn-ghost btn-sm" title="Pasar a externo: dejará de ver todos los proyectos y solo verá los que le asignes." onclick="_empCambiarTipo(\'' + m.id + '\', \'externo\', ' + (perfilCod || 0) + ')">Hacer externo</button>';
+          convBtn = '<button class="btn btn-ghost btn-sm" title="Pasar a externo: dejará de ver todos los proyectos y solo verá los que le asignes." ' + accionHTML('cfg.fn', '_empCambiarTipo', m.id, 'externo', perfilCod || 0) + '>Hacer externo</button>';
         }
       }
       var quitarCell = '';
       if (soyAdmin) {
         if (esUnicoAdmin) quitarCell = '<span style="font-size:10px;color:var(--ink-faint);" title="No puedes quitar a la única persona con perfil Administrador. Transfiere la administración primero.">🔒 único admin</span>';
         else if (esYo) quitarCell = '<span style="font-size:10px;color:var(--ink-faint);">tú</span>';
-        else quitarCell = '<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);" onclick="_empEcharMiembro(\'' + m.id + '\', \'' + encodeURIComponent(nom || '') + '\')">Quitar</button>';
+        else quitarCell = '<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);" ' + accionHTML('cfg.fn', '_empEcharMiembro', m.id, encodeURIComponent(nom || '')) + '>Quitar</button>';
       }
       var accCell = [convBtn, quitarCell].filter(Boolean).join(' <span style="color:var(--rule);">·</span> ');
       return '<tr>'
@@ -593,10 +594,10 @@ function _empNombreMiembro(m) {
 }
 async function _empAbrirTransferir() {
   var cuerpo = '<div class="pd-ph" style="color:var(--ink-faint);font-size:13px;">Cargando miembros…</div>';
-  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:480px;">'
+  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:480px;">'
     + '<div class="modal-header"><div class="modal-title">Transferir administración</div></div>'
     + '<div class="modal-body" id="empTransBody">' + cuerpo + '</div>'
-    + '<div class="modal-footer" id="empTransFooter"><button class="btn" onclick="openConfigPanel()">Cancelar</button></div>'
+    + '<div class="modal-footer" id="empTransFooter"><button class="btn" data-accion="cfg.volver">Cancelar</button></div>'
     + '</div></div>';
   try {
     var res = await sb.from('memberships')
@@ -613,7 +614,7 @@ async function _empAbrirTransferir() {
     body.innerHTML = '<p style="margin:0 0 12px;font-size:13px;color:var(--ink-secondary);line-height:1.55;">La persona que elijas pasará a ser <strong>Administrador</strong> de la productora. <strong>Tú dejarás de ser Administrador</strong> en cuanto confirmes; el cambio rige desde la próxima sesión.</p>'
       + '<div class="emp-field"><label>Nuevo Administrador</label><select class="select" id="empTransTarget">' + opts + '</select></div>';
     var footer = document.getElementById('empTransFooter');
-    if (footer) footer.innerHTML = '<button class="btn" onclick="openConfigPanel()">Cancelar</button><button class="btn btn-danger" onclick="_empConfirmarTransferir()">Transferir administración</button>';
+    if (footer) footer.innerHTML = '<button class="btn" data-accion="cfg.volver">Cancelar</button><button class="btn btn-danger" data-accion="cfg.fn" data-args="[&quot;_empConfirmarTransferir&quot;]">Transferir administración</button>';
   } catch (e) {
     var b = document.getElementById('empTransBody');
     if (b) b.innerHTML = '<p style="margin:0;font-size:13px;color:var(--accent-deep);">No se pudo cargar la lista de miembros. Reintenta.</p>';
@@ -654,8 +655,8 @@ async function _empCargarInvitaciones() {
           return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--rule);font-size:12.5px;">'
             + '<div>' + escapeHtml(i.email) + ' <span style="color:var(--ink-faint);">· ' + escapeHtml(meta) + '</span></div>'
             + '<div style="display:flex;gap:6px;">'
-            +   '<button class="btn btn-ghost btn-sm" onclick="_empCopiarInv(\'' + i.token + '\')">Copiar link</button>'
-            +   '<button class="btn btn-ghost btn-sm" onclick="_empCancelarInvitacion(\'' + i.token + '\')">Cancelar</button>'
+            +   '<button class="btn btn-ghost btn-sm" ' + accionHTML('cfg.fn', '_empCopiarInv', i.token) + '>Copiar link</button>'
+            +   '<button class="btn btn-ghost btn-sm" ' + accionHTML('cfg.fn', '_empCancelarInvitacion', i.token) + '>Cancelar</button>'
             + '</div></div>';
         }).join('');
   } catch (e) { box.innerHTML = ''; }
@@ -689,11 +690,11 @@ function _empLogoRefresh() {
   box.innerHTML = logos.map(function (l) {
     return '<div style="width:160px;border:1px solid ' + (l.principal ? 'var(--accent)' : 'var(--rule)') + ';border-radius:10px;padding:8px;background:var(--bg-card);">'
       + '<div style="height:90px;display:grid;place-items:center;overflow:hidden;margin-bottom:6px;"><img src="' + safeUrl(l.dataUrl) + '" alt="" style="max-width:100%;max-height:100%;object-fit:contain;"></div>'
-      + '<input class="input" style="font-size:11.5px;padding:4px 6px;margin-bottom:6px;" value="' + escapeHtml(l.nombre || '') + '" placeholder="Nombre (ej. Horizontal claro)"' + (adm ? ' onchange="_empLogoNombre(\'' + l.id + '\', this.value)"' : ' readonly') + '>'
+      + '<input class="input" style="font-size:11.5px;padding:4px 6px;margin-bottom:6px;" value="' + escapeHtml(l.nombre || '') + '" placeholder="Nombre (ej. Horizontal claro)"' + (adm ? ' ' + accionHTML('cfg.logoNombre', l.id, { on: 'change' }) : ' readonly') + '>'
       + '<div style="display:flex;gap:4px;flex-wrap:wrap;">'
-      + '<button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:2px 7px;" onclick="_empLogoDescargar(\'' + l.id + '\')">↓ Descargar</button>'
-      + (l.principal ? '<span style="font-size:10.5px;font-weight:700;color:var(--accent);align-self:center;">★ Principal</span>' : (adm ? '<button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:2px 7px;" onclick="_empLogoPrincipal(\'' + l.id + '\')">Hacer principal</button>' : ''))
-      + (adm ? '<button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:2px 7px;" onclick="_empLogoQuitar(\'' + l.id + '\')">Quitar</button>' : '')
+      + '<button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:2px 7px;" ' + accionHTML('cfg.fn', '_empLogoDescargar', l.id) + '>↓ Descargar</button>'
+      + (l.principal ? '<span style="font-size:10.5px;font-weight:700;color:var(--accent);align-self:center;">★ Principal</span>' : (adm ? '<button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:2px 7px;" ' + accionHTML('cfg.fn', '_empLogoPrincipal', l.id) + '>Hacer principal</button>' : ''))
+      + (adm ? '<button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:2px 7px;" ' + accionHTML('cfg.fn', '_empLogoQuitar', l.id) + '>Quitar</button>' : '')
       + '</div></div>';
   }).join('');
 }
@@ -788,9 +789,9 @@ function _empDisenoRefresh() {
     var cols = _empColores().filter(_cotPrevHexValido);
     cbox.innerHTML = cols.length ? cols.map(function (hex, i) {
       return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">'
-        + '<button title="Copiar ' + hex + '" onclick="_empColorCopiar(\'' + hex + '\')" style="width:46px;height:46px;border-radius:10px;background:' + hex + ';border:1px solid var(--rule);cursor:pointer;"></button>'
+        + '<button title="Copiar ' + hex + '" ' + accionHTML('cfg.fn', '_empColorCopiar', hex) + ' style="width:46px;height:46px;border-radius:10px;background:' + hex + ';border:1px solid var(--rule);cursor:pointer;"></button>'
         + '<span style="font-size:10px;color:var(--ink-muted);font-variant-numeric:tabular-nums;">' + hex + '</span>'
-        + (adm ? '<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 6px;" onclick="_empColorQuitar(' + i + ')">Quitar</button>' : '')
+        + (adm ? '<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 6px;" ' + accionHTML('cfg.fn', '_empColorQuitar', i) + '>Quitar</button>' : '')
         + '</div>';
     }).join('') : '<div style="font-size:12px;color:var(--ink-faint);">Sin paleta aún. Los previsualizadores ofrecen presets del sistema mientras tanto.</div>';
   }
@@ -805,7 +806,7 @@ function _empDisenoRefresh() {
         + '<div style="font-size:12.5px;font-weight:600;">' + escapeHtml(t.nombre || fam) + ' <span style="font-weight:400;color:var(--ink-faint);font-size:11px;">· ' + escapeHtml(fam) + '</span></div>'
         + '<div style="font-family:\'' + fam + '\',sans-serif;font-size:15px;color:var(--ink-secondary);margin-top:2px;">Cotización Audiovisual · 0123456789</div>'
         + '</div>'
-        + (adm ? '<button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:2px 8px;" onclick="_empTipoQuitar(\'' + (t.id || '') + '\')">Quitar</button>' : '')
+        + (adm ? '<button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:2px 8px;" ' + accionHTML('cfg.fn', '_empTipoQuitar', t.id || '') + '>Quitar</button>' : '')
         + '</div>';
     }).join('') : '<div style="font-size:12px;color:var(--ink-faint);">Sin tipografías de marca. Los documentos usan las del sistema (Poppins y Serif).</div>';
   }
@@ -1041,9 +1042,9 @@ function _cpRender() {
       '<h3 class="cp-h">' + paso.titulo + '</h3>'
     + '<p class="cp-ph">Este paso aún no tiene contenido — se construye en un paso siguiente.</p>'
     + '<div class="cp-acts">'
-    +   '<button class="btn" onclick="' + (primero ? '_cpCerrar()' : '_cpAtras()') + '">' + (primero ? 'Cancelar' : '← Atrás') + '</button>'
+    +   '<button class="btn" ' + accionHTML('cfg.fn', primero ? '_cpCerrar' : '_cpAtras') + '>' + (primero ? 'Cancelar' : '← Atrás') + '</button>'
     +   '<div style="flex:1"></div>'
-    +   '<button class="btn btn-primary" onclick="' + (ultimo ? '_cpCerrar()' : '_cpSiguiente()') + '">' + (ultimo ? 'Cerrar' : 'Siguiente →') + '</button>'
+    +   '<button class="btn btn-primary" ' + accionHTML('cfg.fn', ultimo ? '_cpCerrar' : '_cpSiguiente') + '>' + (ultimo ? 'Cerrar' : 'Siguiente →') + '</button>'
     + '</div>';
 }
 
@@ -1102,9 +1103,9 @@ function _cpDatosHTML() {
       + _cpField('cpDir', 'Dirección', '', 'Calle, número, comuna, ciudad', pe.direccion, 'Ingresa la dirección.');
   }
   html += '<div class="cp-acts">'
-    +   '<button class="btn" onclick="' + (primero ? '_cpCerrar()' : '_cpAtras()') + '">' + (primero ? 'Cancelar' : '← Atrás') + '</button>'
+    +   '<button class="btn" ' + accionHTML('cfg.fn', primero ? '_cpCerrar' : '_cpAtras') + '>' + (primero ? 'Cancelar' : '← Atrás') + '</button>'
     +   '<div style="flex:1"></div>'
-    +   '<button class="btn btn-primary" onclick="_cpGuardarDatos()">Continuar →</button>'
+    +   '<button class="btn btn-primary" data-accion="cfg.fn" data-args="[&quot;_cpGuardarDatos&quot;]">Continuar →</button>'
     + '</div>';
   return html;
 }
@@ -1183,13 +1184,13 @@ function _cpTerminosHTML() {
     + '<div class="cp-provisional">Texto provisional, solo para demostrar el flujo. El definitivo lo define el área legal cuando la sociedad desarrolladora esté constituida.</div>'
     + '<div class="cp-tyc">' + cuerpo + '</div>'
     + '<label class="cp-check">'
-    +   '<input type="checkbox" id="cpTycCk"' + (aceptado ? ' checked' : '') + ' onchange="_cpToggleTyc(this)">'
+    +   '<input type="checkbox" id="cpTycCk"' + (aceptado ? ' checked' : '') + ' data-accion="cfg.tyc" data-on="change">'
     +   '<span>He leído y acepto los términos y condiciones de servicio.</span>'
     + '</label>'
     + '<div class="cp-acts">'
-    +   '<button class="btn" onclick="_cpAtras()">← Atrás</button>'
+    +   '<button class="btn" data-accion="cfg.fn" data-args="[&quot;_cpAtras&quot;]">← Atrás</button>'
     +   '<div style="flex:1"></div>'
-    +   '<button class="btn btn-primary" id="cpBtnTyc"' + (aceptado ? '' : ' disabled') + ' onclick="_cpAceptarTerminos()">'
+    +   '<button class="btn btn-primary" id="cpBtnTyc"' + (aceptado ? '' : ' disabled') + ' data-accion="cfg.fn" data-args="[&quot;_cpAceptarTerminos&quot;]">'
     +     (dePago ? 'Continuar al pago' : 'Activar plan gratis')
     +   '</button>'
     + '</div>';
@@ -1246,9 +1247,9 @@ function _cpPagoHTML() {
     +   _cpPayLine('Total a pagar al activar', fmtMoney(m.total), 'total')
     + '</div>'
     + '<div class="cp-acts">'
-    +   '<button class="btn" onclick="_cpAtras()">← Atrás</button>'
+    +   '<button class="btn" data-accion="cfg.fn" data-args="[&quot;_cpAtras&quot;]">← Atrás</button>'
     +   '<div style="flex:1"></div>'
-    +   '<button class="btn btn-primary" id="cpBtnPago" onclick="_cpCrearProductora()">' + btnLabel + '</button>'
+    +   '<button class="btn btn-primary" id="cpBtnPago" data-accion="cfg.fn" data-args="[&quot;_cpCrearProductora&quot;]">' + btnLabel + '</button>'
     + '</div>';
 }
 
@@ -1347,7 +1348,7 @@ function _cpCreadaHTML() {
     + '</div>'
     + '<div class="cp-acts">'
     +   '<div style="flex:1"></div>'
-    +   '<button class="btn btn-primary" onclick="_cpEntrarProductora()">Entrar a mi productora →</button>'
+    +   '<button class="btn btn-primary" data-accion="cfg.fn" data-args="[&quot;_cpEntrarProductora&quot;]">Entrar a mi productora →</button>'
     + '</div>';
 }
 /* Cierra el flujo y entra al Control Room de la productora recién creada (mismo
@@ -1459,9 +1460,9 @@ function _cpTourRender() {
     +   '<h4>' + def.titulo + '</h4><p>' + def.texto + '</p>'
     +   '<div class="cp-tour-foot"><div class="cp-tdots">' + dots + '</div>'
     +     '<div class="cp-tour-btns">'
-    +       '<button class="btn btn-ghost btn-sm" onclick="_cpTourCerrar()">Saltar</button>'
-    +       (paso > 1 ? '<button class="btn btn-sm" onclick="_cpTourPrev()">Anterior</button>' : '')
-    +       '<button class="btn btn-primary btn-sm" onclick="' + (ultimo ? '_cpTourCerrar()' : '_cpTourNext()') + '">' + (ultimo ? 'Listo' : 'Siguiente') + '</button>'
+    +       '<button class="btn btn-ghost btn-sm" data-accion="cfg.fn" data-args="[&quot;_cpTourCerrar&quot;]">Saltar</button>'
+    +       (paso > 1 ? '<button class="btn btn-sm" data-accion="cfg.fn" data-args="[&quot;_cpTourPrev&quot;]">Anterior</button>' : '')
+    +       '<button class="btn btn-primary btn-sm" ' + accionHTML('cfg.fn', ultimo ? '_cpTourCerrar' : '_cpTourNext') + '>' + (ultimo ? 'Listo' : 'Siguiente') + '</button>'
     +     '</div>'
     +   '</div>'
     + '</div>';
@@ -1623,7 +1624,7 @@ function abrirPrivacidadDatos() {
   var prev = document.getElementById('privacidadDatos'); if (prev) prev.remove();
   var ov = document.createElement('div'); ov.id = 'privacidadDatos';
   ov.innerHTML = '<style>' + _PD_CSS + '</style>'
-    + '<div class="pd-top"><button class="pd-back" onclick="_pdCerrar()">← Volver</button><span class="pd-brand">TakeOS · Privacidad y datos</span></div>'
+    + '<div class="pd-top"><button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdCerrar&quot;]">← Volver</button><span class="pd-brand">TakeOS · Privacidad y datos</span></div>'
     + '<div class="pd-wrap" id="pdWrap"></div>';
   document.body.appendChild(ov);
   _pdRender();
@@ -1648,13 +1649,13 @@ function _pdRender() {
     eliminar:       ['Eliminar mi cuenta', 'B4']
   };
   var f = flows[_pdVista] || ['', ''];
-  w.innerHTML = '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+  w.innerHTML = '<button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]" style="margin-bottom:18px;">← Privacidad y datos</button>'
     + '<div class="pd-flow"><h3>' + f[0] + '</h3><p class="pd-ph">Esta sección se construye próximamente (' + f[1] + ').</p></div>';
 }
 function _pdHubHTML() {
   var u = _pdUserInfo();
   function card(extra, ico, titulo, desc, tag, tagcls, vista) {
-    return '<button class="pd-card' + extra + '" onclick="_pdIr(\'' + vista + '\')">'
+    return '<button class="pd-card' + extra + '" ' + accionHTML('cfg.fn', '_pdIr', vista) + '>'
       + '<div class="pd-ico">' + ico + '</div>'
       + '<div class="pd-rt">' + titulo + '</div>'
       + '<div class="pd-rd">' + desc + '</div>'
@@ -1685,15 +1686,15 @@ function _pdCerrar() { var o = document.getElementById('privacidadDatos'); if (o
    de integración marcado (_pdExportSolicitar). */
 function _pdExportHTML() {
   if (_pdExportEstado === 'descargada') {
-    return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+    return '<button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]" style="margin-bottom:18px;">← Privacidad y datos</button>'
       + '<div class="pd-flow">'
       +   '<h3>Tu copia se descargó</h3>'
       +   '<p class="pd-sub">Generamos tu archivo en el servidor y se descargó en tu dispositivo, en formato JSON. Revísalo en tu carpeta de descargas.</p>'
       +   '<p style="font-size:12px;color:var(--ink-muted);">El archivo trae una huella de integridad (md5) para verificar que no fue alterado. Cada solicitud queda registrada en el historial.</p>'
-      +   '<div class="pd-acts"><button class="btn" onclick="_pdExportReset()">Solicitar otra copia</button></div>'
+      +   '<div class="pd-acts"><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdExportReset&quot;]">Solicitar otra copia</button></div>'
       + '</div>';
   }
-  return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+  return '<button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]" style="margin-bottom:18px;">← Privacidad y datos</button>'
     + '<div class="pd-flow">'
     +   '<h3>Descargar mis datos</h3>'
     +   '<p class="pd-sub">Pide una copia completa de tus datos personales. Es tu derecho de acceso y portabilidad.</p>'
@@ -1706,7 +1707,7 @@ function _pdExportHTML() {
     +     '<li>Un resumen de tu actividad en el sistema</li>'
     +   '</ul>'
     +   '<p style="font-size:12px;color:var(--ink-muted);">Se entrega en un formato legible y portable (JSON y CSV).</p>'
-    +   '<div class="pd-acts"><button class="btn btn-primary" id="pdExportBtn" onclick="_pdExportSolicitar()">Solicitar mi copia</button></div>'
+    +   '<div class="pd-acts"><button class="btn btn-primary" id="pdExportBtn" data-accion="cfg.fn" data-args="[&quot;_pdExportSolicitar&quot;]">Solicitar mi copia</button></div>'
     + '</div>';
 }
 async function _pdExportSolicitar() {
@@ -1740,7 +1741,7 @@ function _pdExportReset() { _pdExportEstado = 'idle'; _pdRender(); }
    append-only; revocar marca revoked_at, NO borra. La UI dice la consecuencia. */
 function _pdFecha(ts) { if (!ts) return '—'; try { return new Date(ts).toLocaleDateString('es-CL'); } catch (e) { return '—'; } }
 function _pdConsentShell() {
-  return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+  return '<button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]" style="margin-bottom:18px;">← Privacidad y datos</button>'
     + '<div class="pd-flow">'
     +   '<h3>Productoras con acceso a tus datos</h3>'
     +   '<p class="pd-sub">Estas productoras tienen una copia de tus datos porque diste tu consentimiento al incorporarte. Puedes revocarlo cuando quieras.</p>'
@@ -1783,13 +1784,13 @@ function _pdConsentRow(c) {
   }
   return '<div class="pd-consent"><div class="pd-c-ico">🏢</div>'
     + '<div class="pd-c-meta"><b>' + escapeHtml(nom) + '</b><span>Tiene una copia de tus datos · desde el ' + _pdFecha(c.accepted_at) + '</span></div>'
-    + '<button class="btn" onclick="_pdRevocarConfirm(\'' + c.id + '\')">Revocar</button></div>';
+    + '<button class="btn" ' + accionHTML('cfg.fn', '_pdRevocarConfirm', c.id) + '>Revocar</button></div>';
 }
 function _pdRevocarConfirm(id) { _pdRevocarId = id; _pdIr('revocar'); }
 function _pdRevocarHTML() {
   var c = _pdConsents.filter(function (x) { return x.id === _pdRevocarId; })[0];
   var nom = (c && c.nombre) || 'esta productora';
-  return '<button class="pd-back" onclick="_pdIr(\'consentimientos\')" style="margin-bottom:18px;">← Volver</button>'
+  return '<button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;consentimientos&quot;]" style="margin-bottom:18px;">← Volver</button>'
     + '<div class="pd-flow">'
     +   '<h3>Revocar consentimiento en ' + escapeHtml(nom) + '</h3>'
     +   '<p class="pd-sub">Antes de continuar, ten en cuenta lo que pasa:</p>'
@@ -1798,7 +1799,7 @@ function _pdRevocarHTML() {
     +     '<li>Si participas en un proyecto activo con ellos, perderás ese acceso.</li>'
     +     '<li>Queda registrado como revocado, con la fecha. La copia que ya tienen se conserva de forma datada como evidencia legal hasta que la productora la suprima.</li>'
     +   '</ul>'
-    +   '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'consentimientos\')">Cancelar</button><button class="btn btn-danger" onclick="_pdRevocarConfirmar()">Revocar consentimiento</button></div>'
+    +   '<div class="pd-acts"><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;consentimientos&quot;]">Cancelar</button><button class="btn btn-danger" data-accion="cfg.fn" data-args="[&quot;_pdRevocarConfirmar&quot;]">Revocar consentimiento</button></div>'
     + '</div>';
 }
 async function _pdRevocarConfirmar() {
@@ -1821,12 +1822,12 @@ async function _pdRevocarConfirmar() {
   }
 }
 function _pdRevocadoHTML() {
-  return '<button class="pd-back" onclick="_pdIr(\'consentimientos\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+  return '<button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;consentimientos&quot;]" style="margin-bottom:18px;">← Privacidad y datos</button>'
     + '<div class="pd-flow">'
     +   '<h3>Consentimiento revocado</h3>'
     +   '<p class="pd-sub">Esa productora dejó de tener acceso a tus datos y tu membresía con ella quedó inactiva.</p>'
     +   '<div class="pd-legal">Tu registro de consentimiento se conserva datado como evidencia (Ley 21.719); no se borra. La copia que la productora ya tenía la suprime según sus propios plazos.</div>'
-    +   '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'consentimientos\')">Volver</button></div>'
+    +   '<div class="pd-acts"><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;consentimientos&quot;]">Volver</button></div>'
     + '</div>';
 }
 
@@ -1838,7 +1839,7 @@ function _pdRevocadoHTML() {
    productora nunca queda sin administrador → guard de único admin (UX; el servidor
    reimpone la regla). */
 function _pdElimShell() {
-  return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+  return '<button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]" style="margin-bottom:18px;">← Privacidad y datos</button>'
     + '<div id="pdElimBody"><div class="pd-flow"><p class="pd-ph">Revisando tu cuenta…</p></div></div>';
 }
 async function _pdElimCargar() {
@@ -1865,7 +1866,7 @@ function _pdElimBlockerHTML() {
     + '<h3>Antes de eliminar tu cuenta</h3>'
     + '<div class="pd-legal">Eres el único administrador de ' + (_pdElimSole.length === 1 ? 'una productora' : 'estas productoras') + '. Una productora no puede quedar sin administrador: primero transfiere la administración a otra persona (desde el Panel de Empresa de la productora) o elimina la productora.</div>'
     + '<ul class="pd-list">' + lista + '</ul>'
-    + '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Entendido</button></div>'
+    + '<div class="pd-acts"><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]">Entendido</button></div>'
     + '</div>';
 }
 function _pdElimFormHTML() {
@@ -1880,11 +1881,11 @@ function _pdElimFormHTML() {
     +     '<li>Por la Ley 21.719, los registros de consentimiento y auditoría se conservan datados y anonimizados como evidencia. No contienen tus datos en texto plano.</li>'
     +     '<li>Tu cuenta queda programada para eliminación y puedes recuperarla durante 30 días.</li>'
     +   '</ul>'
-    +   '<label class="pd-check"><input type="checkbox" id="pdElimChk" onchange="_pdElimEval()"> <span>Entiendo que esta acción es irreversible una vez pasados los 30 días.</span></label>'
+    +   '<label class="pd-check"><input type="checkbox" id="pdElimChk" data-accion="cfg.fn" data-args="[&quot;_pdElimEval&quot;]" data-on="change"> <span>Entiendo que esta acción es irreversible una vez pasados los 30 días.</span></label>'
     +   '<div style="margin-top:14px;"><label style="display:block;font-size:12px;color:var(--ink-secondary);margin-bottom:6px;">Para confirmar, escribe <b>ELIMINAR</b></label>'
-    +     '<input class="input" id="pdElimTxt" placeholder="ELIMINAR" oninput="_pdElimEval()"></div>'
+    +     '<input class="input" id="pdElimTxt" placeholder="ELIMINAR" data-accion="cfg.fn" data-args="[&quot;_pdElimEval&quot;]" data-on="input"></div>'
     + '</div>'
-    + '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Cancelar</button><button class="btn btn-danger" id="pdElimBtn" disabled onclick="_pdElimConfirmar()">Eliminar mi cuenta</button></div>'
+    + '<div class="pd-acts"><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]">Cancelar</button><button class="btn btn-danger" id="pdElimBtn" disabled data-accion="cfg.fn" data-args="[&quot;_pdElimConfirmar&quot;]">Eliminar mi cuenta</button></div>'
     + '</div>';
 }
 function _pdElimEval() {
@@ -1926,12 +1927,12 @@ function _pdElimFechaFmt(iso) {
 }
 function _pdElimProgramadaHTML() {
   var fecha = (_pdElimFecha && _pdElimFechaFmt(_pdElimFecha)) || _pdElimFechaGracia();
-  return '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>'
+  return '<button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]" style="margin-bottom:18px;">← Privacidad y datos</button>'
     + '<div class="pd-flow">'
     +   '<h3>Tu cuenta quedó programada para eliminación</h3>'
     +   '<p class="pd-sub">Se eliminará el ' + fecha + '. Hasta esa fecha tu cuenta sigue funcionando y puedes cancelar para recuperarla.</p>'
     +   '<div class="pd-legal">Al vencer el plazo, tus datos personales se anonimizan (no es un borrado físico): los registros de consentimiento y auditoría se conservan datados y anonimizados como evidencia (Ley 21.719).</div>'
-    +   '<div class="pd-acts"><button class="btn" onclick="_pdElimCancelar()">Cancelar eliminación</button></div>'
+    +   '<div class="pd-acts"><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdElimCancelar&quot;]">Cancelar eliminación</button></div>'
     + '</div>';
 }
 async function _pdElimCancelar() {
@@ -1950,10 +1951,10 @@ async function _pdElimCancelar() {
    banner de aviso. El consentimiento se registra VERSIONADO en el servidor
    (no en localStorage) → SEAM BD Expert. Esenciales siempre activas. */
 function _pdCookiesHTML() {
-  var back = '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>';
+  var back = '<button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]" style="margin-bottom:18px;">← Privacidad y datos</button>';
   var c = _pdCookies;
   function sw(id, on, locked) {
-    var oc = locked ? '' : ' onchange="_pdCkTouch()"';
+    var oc = locked ? '' : ' ' + accionHTML('cfg.fn', '_pdCkTouch', { on: 'change' });
     return '<label class="pd-switch' + (locked ? ' locked' : '') + '"><input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + (locked ? ' disabled' : '') + oc + '><span class="track"></span><span class="knob"></span></label>';
   }
   return back + '<div class="pd-flow">'
@@ -1963,9 +1964,9 @@ function _pdCookiesHTML() {
     + '<div class="pd-sw-row"><div class="pd-sw-info"><b>Analítica</b><span>Nos ayuda a entender cómo se usa el sistema para mejorarlo.</span></div>' + sw('pdCkAna', c.analitica, false) + '</div>'
     + '<div class="pd-sw-row" style="border-bottom:none;"><div class="pd-sw-info"><b>Marketing</b><span>Para mostrarte comunicaciones relevantes sobre el producto.</span></div>' + sw('pdCkMkt', c.marketing, false) + '</div>'
     + '<div class="pd-legal" style="margin-top:16px;">Tu preferencia se registra versionada en el servidor (no en el navegador), con la fecha. Si la política de cookies cambia, te volveremos a preguntar.</div>'
-    + '<div class="pd-acts"><button class="btn" onclick="_pdCookiesGuardar(\'rechazar\')">Rechazar opcionales</button><button class="btn" onclick="_pdCookiesGuardar(\'aceptar\')">Aceptar todas</button><button class="btn btn-primary" onclick="_pdCookiesGuardar(\'guardar\')">Guardar preferencias</button></div>'
+    + '<div class="pd-acts"><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdCookiesGuardar&quot;,&quot;rechazar&quot;]">Rechazar opcionales</button><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdCookiesGuardar&quot;,&quot;aceptar&quot;]">Aceptar todas</button><button class="btn btn-primary" data-accion="cfg.fn" data-args="[&quot;_pdCookiesGuardar&quot;,&quot;guardar&quot;]">Guardar preferencias</button></div>'
     + '<div class="pd-ok' + (_pdCkGuardado ? ' on' : '') + '" id="pdCkOk">✓ Preferencias guardadas</div>'
-    + '<div style="margin-top:14px;"><button class="btn" onclick="_pdCookieBannerShow()">Ver el aviso de cookies</button></div>'
+    + '<div style="margin-top:14px;"><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdCookieBannerShow&quot;]">Ver el aviso de cookies</button></div>'
     + '</div>';
 }
 function _pdCookiesGuardar(modo) {
@@ -1996,9 +1997,9 @@ function _pdCookieBannerShow() {
   b.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);width:min(680px,calc(100vw - 28px));z-index:100050;background:var(--bg-elevated);border:1px solid var(--rule-strong);border-radius:10px;box-shadow:var(--shadow-lg);padding:16px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-family:var(--font-sans),system-ui,sans-serif;color:var(--ink-primary);';
   b.innerHTML = '<div style="flex:1;min-width:220px;font-size:13px;color:var(--ink-secondary);"><b style="color:var(--ink-primary);">Usamos cookies.</b> Las esenciales hacen funcionar el sitio. Las de analítica y marketing son opcionales y dependen de tu consentimiento.</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-    +   '<button class="btn" onclick="_pdCookieBannerDecidir(\'solo\')">Solo esenciales</button>'
-    +   '<button class="btn" onclick="_pdCookieBannerConfig()">Configurar</button>'
-    +   '<button class="btn btn-primary" onclick="_pdCookieBannerDecidir(\'todas\')">Aceptar todas</button>'
+    +   '<button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdCookieBannerDecidir&quot;,&quot;solo&quot;]">Solo esenciales</button>'
+    +   '<button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdCookieBannerConfig&quot;]">Configurar</button>'
+    +   '<button class="btn btn-primary" data-accion="cfg.fn" data-args="[&quot;_pdCookieBannerDecidir&quot;,&quot;todas&quot;]">Aceptar todas</button>'
     + '</div>';
   document.body.appendChild(b);
 }
@@ -2069,16 +2070,16 @@ export async function _pdCookiesBootCheck() {
    eso es UI OPCIONAL, NO un gate: declarar la edad no bloquea usar el software.
    Si se decide que aplica, acá se persiste/convierte en gate (SEAM). */
 function _pdEdadHTML() {
-  var back = '<button class="pd-back" onclick="_pdIr(\'hub\')" style="margin-bottom:18px;">← Privacidad y datos</button>';
+  var back = '<button class="pd-back" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]" style="margin-bottom:18px;">← Privacidad y datos</button>';
   if (_pdEdadVerif) {
-    return back + '<div class="pd-flow"><div class="pd-exito-mini">✓</div><h3>Edad verificada</h3><p class="pd-sub">Confirmaste que eres mayor de 18 años.</p><div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Volver</button></div></div>';
+    return back + '<div class="pd-flow"><div class="pd-exito-mini">✓</div><h3>Edad verificada</h3><p class="pd-sub">Confirmaste que eres mayor de 18 años.</p><div class="pd-acts"><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]">Volver</button></div></div>';
   }
   return back + '<div class="pd-flow">'
     + '<h3>Verificación de edad</h3>'
     + '<div class="pd-legal"><b>Si aplica.</b> Los titulares de cuenta de TakeOS son profesionales adultos, así que este paso podría no aplicar o reducirse a una declaración. Es una decisión de producto y legal, todavía abierta — por ahora es opcional y no bloquea nada.</div>'
     + '<div class="pd-field"><label class="pd-flabel" for="pdEdadFecha">Fecha de nacimiento</label><input class="input" type="date" id="pdEdadFecha"><div class="pd-ferr" id="pdEdadErr">Ingresa tu fecha de nacimiento; debes ser mayor de 18 años.</div></div>'
     + '<label class="pd-check"><input type="checkbox" id="pdEdadChk"> <span>Declaro que soy mayor de 18 años.</span></label>'
-    + '<div class="pd-acts"><button class="btn" onclick="_pdIr(\'hub\')">Cancelar</button><button class="btn btn-primary" onclick="_pdEdadConfirmar()">Confirmar</button></div>'
+    + '<div class="pd-acts"><button class="btn" data-accion="cfg.fn" data-args="[&quot;_pdIr&quot;,&quot;hub&quot;]">Cancelar</button><button class="btn btn-primary" data-accion="cfg.fn" data-args="[&quot;_pdEdadConfirmar&quot;]">Confirmar</button></div>'
     + '</div>';
 }
 function _pdEdadConfirmar() {
@@ -2107,57 +2108,29 @@ function _pdEsMayorDe(fechaISO, n) {
 // Lista generada cruzando definiciones con consumidores (index, módulos,
 // handlers inline en HTML generado). Incluye helpers internos por seguridad.
 window._configPanelOpen = _configPanelOpen;
-window._cpAceptarTerminos = _cpAceptarTerminos;
 window._cpAtras = _cpAtras;
 window._cpCerrar = _cpCerrar;
-window._cpCrearProductora = _cpCrearProductora;
-window._cpEntrarProductora = _cpEntrarProductora;
-window._cpGuardarDatos = _cpGuardarDatos;
 window._cpSiguiente = _cpSiguiente;
-window._cpToggleTyc = _cpToggleTyc;
 window._cpTourCerrar = _cpTourCerrar;
 window._cpTourInicialQuizas = _cpTourInicialQuizas;
 window._cpTourNext = _cpTourNext;
-window._cpTourPrev = _cpTourPrev;
-window._empAbrirInvitar = _empAbrirInvitar;
-window._empAbrirTransferir = _empAbrirTransferir;
-window._empCambiarPerfil = _empCambiarPerfil;
 window._empCambiarTipo = _empCambiarTipo;
 window._empCancelarInvitacion = _empCancelarInvitacion;
-window._empColorAgregar = _empColorAgregar;
 window._empColorCopiar = _empColorCopiar;
 window._empColorQuitar = _empColorQuitar;
-window._empConfirmarTransferir = _empConfirmarTransferir;
 window._empCopiarInv = _empCopiarInv;
 window._empEcharMiembro = _empEcharMiembro;
-window._empEnviarInvitacion = _empEnviarInvitacion;
 window._empLogoDescargar = _empLogoDescargar;
-window._empLogoNombre = _empLogoNombre;
-window._empLogoPick = _empLogoPick;
 window._empLogoPrincipal = _empLogoPrincipal;
 window._empLogoQuitar = _empLogoQuitar;
 window._empShowSub = _empShowSub;
-window._empTipoAgregar = _empTipoAgregar;
 window._empTipoQuitar = _empTipoQuitar;
 window._invAbrirDatos = _invAbrirDatos;
-window._invEnviarDatos = _invEnviarDatos;
 window._orgLogos = _orgLogos;
-window._pdCerrar = _pdCerrar;
 window._pdCkTouch = _pdCkTouch;
-window._pdCookieBannerConfig = _pdCookieBannerConfig;
-window._pdCookieBannerDecidir = _pdCookieBannerDecidir;
-window._pdCookieBannerShow = _pdCookieBannerShow;
 window._pdCookiesBootCheck = _pdCookiesBootCheck;
-window._pdCookiesGuardar = _pdCookiesGuardar;
-window._pdEdadConfirmar = _pdEdadConfirmar;
-window._pdElimCancelar = _pdElimCancelar;
-window._pdElimConfirmar = _pdElimConfirmar;
-window._pdElimEval = _pdElimEval;
-window._pdExportReset = _pdExportReset;
-window._pdExportSolicitar = _pdExportSolicitar;
 window._pdIr = _pdIr;
 window._pdRevocarConfirm = _pdRevocarConfirm;
-window._pdRevocarConfirmar = _pdRevocarConfirmar;
 window.abrirFlujoCrearProductora = abrirFlujoCrearProductora;
 window.abrirPrivacidadDatos = abrirPrivacidadDatos;
 window.cfgSetUsaChipax = cfgSetUsaChipax;
@@ -2167,3 +2140,42 @@ window.openConfigPanel = openConfigPanel;
 window.openEmpresaPerfil = openEmpresaPerfil;
 window.orgLogo = orgLogo;
 window.saveEmpresaPerfil = saveEmpresaPerfil;
+
+// D2 · acciones delegadas — cfg.fn despacha por nombre a un mapa LOCAL.
+var _CFG_FN = {
+  closeConfigPanel: function () { closeConfigPanel(); }, irAlPanelPersonal: function () { irAlPanelPersonal(); },
+  openEmpresaPerfil: function () { openEmpresaPerfil(); }, toggleTheme: function () { toggleTheme(); },
+  toggleAdminMode: function () { window.toggleAdminMode(); }, exportSupabaseBackup: function () { window.exportSupabaseBackup(); },
+  openSnapshotsModal: function () { window.openSnapshotsModal(); },
+  _empShowSub: _empShowSub, _empDatosConClave: _empDatosConClave, _empAbrirTransferir: _empAbrirTransferir,
+  _empAbrirInvitar: _empAbrirInvitar, _empColorAgregar: _empColorAgregar, _empTipoAgregar: _empTipoAgregar,
+  _invEnviarDatos: _invEnviarDatos, _empEnviarInvitacion: _empEnviarInvitacion, _empConfirmarTransferir: _empConfirmarTransferir,
+  _empCambiarTipo: _empCambiarTipo, _empEcharMiembro: _empEcharMiembro, _empCopiarInv: _empCopiarInv,
+  _empCancelarInvitacion: _empCancelarInvitacion, _empLogoDescargar: _empLogoDescargar, _empLogoPrincipal: _empLogoPrincipal,
+  _empLogoQuitar: _empLogoQuitar, _empColorCopiar: _empColorCopiar, _empColorQuitar: _empColorQuitar,
+  _empTipoQuitar: _empTipoQuitar, saveEmpresaPerfil: saveEmpresaPerfil,
+  _cpCerrar: _cpCerrar, _cpAtras: _cpAtras, _cpSiguiente: _cpSiguiente, _cpGuardarDatos: _cpGuardarDatos,
+  _cpAceptarTerminos: _cpAceptarTerminos, _cpCrearProductora: _cpCrearProductora, _cpEntrarProductora: _cpEntrarProductora,
+  _cpTourCerrar: _cpTourCerrar, _cpTourPrev: _cpTourPrev, _cpTourNext: _cpTourNext,
+  _pdCerrar: _pdCerrar, _pdIr: _pdIr, _pdExportReset: _pdExportReset, _pdExportSolicitar: _pdExportSolicitar,
+  _pdRevocarConfirm: _pdRevocarConfirm, _pdRevocarConfirmar: _pdRevocarConfirmar, _pdElimEval: _pdElimEval,
+  _pdElimConfirmar: _pdElimConfirmar, _pdElimCancelar: _pdElimCancelar, _pdCkTouch: _pdCkTouch,
+  _pdCookiesGuardar: _pdCookiesGuardar, _pdCookieBannerShow: _pdCookieBannerShow, _pdCookieBannerConfig: _pdCookieBannerConfig,
+  _pdCookieBannerDecidir: _pdCookieBannerDecidir, _pdEdadConfirmar: _pdEdadConfirmar,
+};
+registrarAcciones('cfg', {
+  fn: function (a) { var f = _CFG_FN[a[0]]; if (f) f.apply(null, a.slice(1)); else console.error('[cfg] fn sin mapear:', a[0]); },
+  volver: function () { openConfigPanel(); },
+  guardarOS: function () { closeConfigPanel(); exportSave(); },
+  cargarOS: function () { closeConfigPanel(); document.getElementById('loadFileInput').click(); },
+  bd: function () { closeConfigPanel(); openGlobalBDPersonas(); },
+  miPerfil: function () { closeConfigPanel(); abrirPerfilUsuario(false); },
+  chipax: function (a, el) { window.cfgSetUsaChipax(el.checked); },
+  logoPick: function (a, el) { _empLogoPick(el); },
+  subirLogo: function () { document.getElementById('empLogoInput').click(); },
+  colorSync: function (a, el) { document.getElementById('empColorHex').value = el.value.toUpperCase(); },
+  enter: function (a, el, ev) { if (ev.key === 'Enter') { var f = _CFG_FN[a[0]]; if (f) f(); } },
+  perfilSel: function (a, el) { _empCambiarPerfil(a[0], el.value, a[1]); },
+  logoNombre: function (a, el) { _empLogoNombre(a[0], el.value); },
+  tyc: function (a, el) { _cpToggleTyc(el); },
+});

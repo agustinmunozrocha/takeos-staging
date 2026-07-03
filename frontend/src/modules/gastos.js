@@ -23,6 +23,7 @@ import { _dalPerfilSaveSoon, dalTouchProyecto } from './dal.js';
 import { markDirty } from './persistencia-local.js';
 import { manejarErrorPlan } from './plan-limites.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 /* ════════════════════════════════════════════════════════════════════
    MÓDULO GASTOS (proyecto) + MÓDULO CFO (global) + EXPORT CHIPAX  · V8.0.0
    ════════════════════════════════════════════════════════════════════
@@ -131,7 +132,7 @@ function goJefeProd(project) {
 }
 
 /* ---------- modal propio (usa #modalRoot + closeModal de TakeOS) ---------- */
-function goModal(html) { document.getElementById('modalRoot').innerHTML = '<div class="go-modal" onclick="if(event.target===this)closeModal()">' + html + '</div>'; }
+function goModal(html) { document.getElementById('modalRoot').innerHTML = '<div class="go-modal" data-accion="ui.backdrop">' + html + '</div>'; }
 
 /* ════════════════════════════════════════════════════════════════════
    ESPACIO: GASTOS DEL PROYECTO
@@ -194,11 +195,11 @@ function renderGastos() {
 
     <div class="go-card">
       <div class="go-card-h"><h3>Presupuestos <span class="go-faint">· asignaciones (sobres) creadas para este proyecto</span></h3>
-        <button class="btn btn-secondary btn-sm" onclick="goOpenPresup()">+ Crear presupuesto</button></div>
+        <button class="btn btn-secondary btn-sm" data-accion="go.crearPresup">+ Crear presupuesto</button></div>
       <div class="go-card-b">
         <div class="go-strip">
           ${presStrip}
-          <div class="go-pcard add" onclick="goOpenPresup()"><div style="font-size:24px;">+</div>Crear<br>presupuesto</div>
+          <div class="go-pcard add" data-accion="go.crearPresup"><div style="font-size:24px;">+</div>Crear<br>presupuesto</div>
         </div>
       </div>
     </div>
@@ -207,10 +208,10 @@ function renderGastos() {
       <div class="go-card go-grow">
         <div class="go-card-h"><h3>Registro de gastos <span class="go-faint">· ${gs.length} gastos</span></h3>
           <div class="go-actions">
-            <input class="go-inp" id="goRegSearch" placeholder="Buscar: concepto, monto, quién, medio…" value="${escapeHtml(GO_REG_FILTER)}" oninput="goRegFilter(this.value)" style="max-width:230px;">
-            ${_usaChipax() ? `<button class="btn btn-secondary btn-sm" onclick="goOpenExport('${project.id}')">⬇ Exportar a Chipax</button>` : ''}
-            <button class="btn btn-secondary btn-sm" onclick="goOpenQuick()">⚡ Captura rápida</button>
-            <button class="btn btn-primary btn-sm" onclick="goOpenGasto()">+ Agregar gasto</button>
+            <input class="go-inp" id="goRegSearch" placeholder="Buscar: concepto, monto, quién, medio…" value="${escapeHtml(GO_REG_FILTER)}" data-accion="go.regFiltro" data-on="input" style="max-width:230px;">
+            ${_usaChipax() ? `<button class="btn btn-secondary btn-sm" ${accionHTML('go.exportChipax', project.id)}>⬇ Exportar a Chipax</button>` : ''}
+            <button class="btn btn-secondary btn-sm" data-accion="go.quick">⚡ Captura rápida</button>
+            <button class="btn btn-primary btn-sm" data-accion="go.nuevoGasto">+ Agregar gasto</button>
           </div></div>
         <div class="go-card-b go-tablewrap" data-budget-scroll="gastosReg">
           <table class="go-tbl budget-table" data-bsec-table="gastosReg" style="width:${grW}px;">
@@ -222,14 +223,14 @@ function renderGastos() {
 
       <div class="go-side">
         <div class="go-card">
-          <div class="go-card-h"><h3 class="go-sm">Caja de producción</h3><button class="go-mini" onclick="goCajaHistorial()" title="Ver el registro de ingresos y egresos de la caja chica.">Historial</button></div>
+          <div class="go-card-h"><h3 class="go-sm">Caja de producción</h3><button class="go-mini" data-accion="go.cajaHist" title="Ver el registro de ingresos y egresos de la caja chica.">Historial</button></div>
           <div class="go-card-b">
             <div class="go-kpi-l">Saldo a devolver</div>
             <div class="go-kpi-v ${cajaSaldo < 0 ? 'acc' : ''}">${fmtMoney(cajaSaldo)}</div>
             <div class="go-kpi-s">Entregado ${fmtMoney(cajaEntregado)} · gastado ${fmtMoney(cajaUsed)}${cajaDev ? ' · devuelto ' + fmtMoney(cajaDev) : ''}</div>
             <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
-              <button class="btn btn-secondary btn-sm" onclick="goCajaIngreso()" title="Registrar dinero entregado a la caja chica de producción (sube lo entregado).">+ Registrar ingreso</button>
-              <button class="btn btn-secondary btn-sm" onclick="goCajaDevolucion()" title="Registrar dinero que producción devuelve (baja el saldo a devolver).">↩ Registrar devolución</button>
+              <button class="btn btn-secondary btn-sm" data-accion="go.cajaIngreso" title="Registrar dinero entregado a la caja chica de producción (sube lo entregado).">+ Registrar ingreso</button>
+              <button class="btn btn-secondary btn-sm" data-accion="go.cajaDevolucion" title="Registrar dinero que producción devuelve (baja el saldo a devolver).">↩ Registrar devolución</button>
             </div>
           </div>
         </div>
@@ -276,7 +277,7 @@ function goRegTh(colId, label, sortKey, cls) {
   if (sortKey) {
     const on = GO_REG_SORT && GO_REG_SORT.col === sortKey;
     ind = on ? '<span class="sort-ind on">' + (GO_REG_SORT.dir === 'asc' ? '▲' : '▼') + '</span>' : '<span class="sort-ind"></span>';
-    onclick = ' onclick="goRegSortBy(\'' + sortKey + '\')"';
+    onclick = ' ' + accionHTML('go.sort', sortKey);
     sortCls = ' sortable';
   }
   return '<th class="bcol-resizable' + sortCls + (cls ? ' ' + cls : '') + '" data-bsec="gastosReg" data-bcol="' + colId + '" style="width:' + w + 'px;"' + onclick + '>' + escapeHtml(label) + ind + _budgetColGrip('gastosReg', colId) + '</th>';
@@ -322,9 +323,9 @@ function goRegRows(project) {
 function goRegFilaHTML(project, x) {
   const comp = goCompCell(x, 'goVerComprobante', '—');
   const est = x.estado === 'pendiente'
-    ? `<span class="go-est pendiente" title="el productor sabe que falta info">Pendiente</span> <button class="go-mini" onclick="goMarcarListo('${x.id}')">marcar listo</button>`
+    ? `<span class="go-est pendiente" title="el productor sabe que falta info">Pendiente</span> <button class="go-mini" ${accionHTML('go.listo', x.id)}>marcar listo</button>`
     : (x.estado === 'por_revisar'
-      ? `<span class="go-est por_revisar">${GO_ESTADOS.por_revisar}</span> <button class="go-mini" onclick="goRevertirPendiente('${x.id}')">revertir a pendiente</button>`
+      ? `<span class="go-est por_revisar">${GO_ESTADOS.por_revisar}</span> <button class="go-mini" ${accionHTML('go.revertir', x.id)}>revertir a pendiente</button>`
       : `<span class="go-est ${x.estado}">${GO_ESTADOS[x.estado] || escapeHtml(x.estado)}</span>`);
   return `<tr>
     <td class="go-sub">${escapeHtml((x.fecha || '').slice(5))}</td>
@@ -335,7 +336,7 @@ function goRegFilaHTML(project, x) {
     <td class="go-sub">${escapeHtml(x.tipo)}</td>
     <td>${comp}</td>
     <td>${est}</td>
-    <td>${(x.estado === 'en_observacion' || goHiloDe(project, x.id).length) ? `<button class="go-mini" onclick="goResponderHilo('${x.id}')">💬 responder</button> ` : ''}<button class="go-mini" onclick="goOpenGasto('${x.id}')">editar</button></td></tr>`;
+    <td>${(x.estado === 'en_observacion' || goHiloDe(project, x.id).length) ? `<button class="go-mini" ${accionHTML('go.hilo', x.id)}>💬 responder</button> ` : ''}<button class="go-mini" ${accionHTML('go.editar', x.id)}>editar</button></td></tr>`;
 }
 /* ── Pasada 4 · Caja de producción: ingreso / devolución ──────────────────────
    "Registrar ingreso" sube lo ENTREGADO (d.cajaProd) y "Registrar devolución"
@@ -344,7 +345,7 @@ function goRegFilaHTML(project, x) {
    PR8 · migración 20260628120000). Antes la devolución vivía solo en memoria. */
 function goCajaIngreso() {
   if (!STATE.currentProject) return;
-  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Registrar ingreso a Caja de producción</h3><button class="go-x" onclick="closeModal()">×</button></div>
+  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Registrar ingreso a Caja de producción</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
     <div class="go-mb">
       <div class="go-help" style="margin-bottom:10px;line-height:1.55;">Dinero <b>entregado</b> a la caja chica con la que opera producción. Aumenta lo entregado y, por lo tanto, el saldo a devolver.</div>
       <div class="go-frow">
@@ -353,7 +354,7 @@ function goCajaIngreso() {
       </div>
       <div class="go-field"><label>Nota (opcional)</label><input class="go-inp" id="ci_nota" placeholder="ej. adelanto al productor"></div>
     </div>
-    <div class="go-mf"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="goCajaIngresoSave()">Registrar ingreso</button></div></div>`);
+    <div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.cajaIngresoOk">Registrar ingreso</button></div></div>`);
 }
 function goCajaIngresoSave() {
   const project = STATE.currentProject; const d = goData(project);
@@ -369,7 +370,7 @@ function goCajaIngresoSave() {
 }
 function goCajaDevolucion() {
   if (!STATE.currentProject) return;
-  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Registrar devolución de Caja de producción</h3><button class="go-x" onclick="closeModal()">×</button></div>
+  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Registrar devolución de Caja de producción</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
     <div class="go-mb">
       <div class="go-help" style="margin-bottom:10px;line-height:1.55;">Efectivo que producción <b>devuelve</b> de la caja chica. Baja el saldo a devolver. <i>Nota: la devolución aún no persiste al recargar; eso se cierra con la parte de base de datos del handoff.</i></div>
       <div class="go-frow">
@@ -378,7 +379,7 @@ function goCajaDevolucion() {
       </div>
       <div class="go-field"><label>Nota (opcional)</label><input class="go-inp" id="cd_nota" placeholder="ej. vuelto de caja al cierre"></div>
     </div>
-    <div class="go-mf"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="goCajaDevolucionSave()">Registrar devolución</button></div></div>`);
+    <div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.cajaDevolucionOk">Registrar devolución</button></div></div>`);
 }
 function goCajaDevolucionSave() {
   const project = STATE.currentProject; const d = goData(project);
@@ -416,13 +417,13 @@ function goCajaHistorial() {
       + rows.map(r => '<tr><td class="go-sub">' + escapeHtml((r.fecha || '').slice(5) || '—') + '</td><td>' + escapeHtml(r.tipo) + '</td><td>' + escapeHtml(r.detalle) + '</td><td class="go-num" style="color:' + (r.monto >= 0 ? 'var(--positive)' : 'var(--accent-deep)') + ';white-space:nowrap;">' + (r.monto >= 0 ? '+' : '−') + fmtMoney(Math.abs(r.monto)) + '</td></tr>').join('')
       + '</tbody></table>'
     : '<div class="go-faint" style="padding:14px;">Sin movimientos de caja todavía. Registra un ingreso para empezar.</div>';
-  goModal('<div class="go-mc"><div class="go-mh"><h3>Historial · Caja de producción</h3><button class="go-x" onclick="closeModal()">×</button></div>'
+  goModal('<div class="go-mc"><div class="go-mh"><h3>Historial · Caja de producción</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>'
     + '<div class="go-mb">'
     + '<div class="go-kpi-s" style="margin-bottom:10px;line-height:1.6;">Entregado <b>' + fmtMoney(entregado) + '</b> · gastado <b>' + fmtMoney(gastado) + '</b>' + (devuelto ? ' · devuelto <b>' + fmtMoney(devuelto) + '</b>' : '') + ' · saldo a devolver <b>' + fmtMoney(saldo) + '</b></div>'
     + body
     + '<div class="go-help" style="margin-top:10px;">Los <b>ingresos</b> y <b>devoluciones</b> de esta sesión aún no persisten al recargar (van en el handoff de BD). Los <b>gastos</b> pagados con caja sí persisten.</div>'
     + '</div>'
-    + '<div class="go-mf"><button class="btn btn-secondary" onclick="closeModal()">Cerrar</button></div></div>');
+    + '<div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cerrar</button></div></div>');
 }
 
 /* ---------- acciones proyecto ---------- */
@@ -465,8 +466,8 @@ function goCompEstado(m) {
 }
 function goCompCell(x, onclickFn, faltaLabel) {
   const st = goCompEstado(x);
-  if (st === 'ok') return '<button class="go-cmp ok" onclick="' + onclickFn + '(\'' + x.id + '\')">✓ ver</button>';
-  if (st === 'roto') return '<button class="go-cmp no" title="El archivo no llegó a guardarse (referencia de una versión anterior). Edita el gasto y vuelve a adjuntar el comprobante." onclick="' + onclickFn + '(\'' + x.id + '\')">⚠ re-subir</button>';
+  if (st === 'ok') return '<button class="go-cmp ok" ' + accionHTML('go.comp', onclickFn, x.id) + '>✓ ver</button>';
+  if (st === 'roto') return '<button class="go-cmp no" title="El archivo no llegó a guardarse (referencia de una versión anterior). Edita el gasto y vuelve a adjuntar el comprobante." ' + accionHTML('go.comp', onclickFn, x.id) + '>⚠ re-subir</button>';
   return '<span class="go-cmp no">' + (faltaLabel || '—') + '</span>';
 }
 async function goVerComprobante(id) {
@@ -476,12 +477,12 @@ async function goVerComprobante(id) {
   /* Legado roto: tenía comprobante pero nunca llegó a Storage (blob muerto). El
      archivo no existe; hay que re-adjuntarlo desde el dispositivo original. */
   if (!x.filePath) {
-    goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Comprobante no disponible</h3><button class="go-x" onclick="closeModal()">×</button></div>
+    goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Comprobante no disponible</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
       <div class="go-mb"><div class="go-help" style="line-height:1.6;">El comprobante de <b>${escapeHtml(x.concepto || '')}</b> no quedó guardado en la nube: era una referencia temporal de una versión anterior y se perdió al cerrar la pestaña. No se puede recuperar desde acá.<br><br>Para arreglarlo, <b>edita este gasto</b> y vuelve a adjuntar el comprobante desde el dispositivo donde está la foto o el PDF original.</div></div>
-      <div class="go-mf"><button class="btn btn-primary btn-sm" onclick="closeModal();goOpenGasto('${x.id}')">Editar y re-adjuntar</button><button class="btn btn-secondary" onclick="closeModal()">Cerrar</button></div></div>`);
+      <div class="go-mf"><button class="btn btn-primary btn-sm" ${accionHTML('go.reAdjuntar', x.id)}>Editar y re-adjuntar</button><button class="btn btn-secondary" data-accion="ui.cerrar">Cerrar</button></div></div>`);
     return;
   }
-  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Comprobante · ${escapeHtml(x.concepto || '')}</h3><button class="go-x" onclick="closeModal()">×</button></div><div class="go-mb"><div class="go-help">Cargando comprobante…</div></div></div>`);
+  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Comprobante · ${escapeHtml(x.concepto || '')}</h3><button class="go-x" data-accion="ui.cerrar">×</button></div><div class="go-mb"><div class="go-help">Cargando comprobante…</div></div></div>`);
   try {
     const { data, error } = await sb.storage.from('adjuntos-gastos').createSignedUrl(x.filePath, 3600);
     if (error || !data || !data.signedUrl) throw (error || new Error('sin url'));
@@ -491,14 +492,14 @@ async function goVerComprobante(id) {
     const body = esImg
       ? `<img src="${safeUrl(url)}" style="max-width:100%;border-radius:8px;">`
       : `<div class="go-help" style="line-height:1.6;">No hay vista previa para este archivo (<b>${escapeHtml(nombre)}</b>). Las fotos de iPhone (.HEIC) y los PDF no se previsualizan en el navegador, pero puedes <b>descargarlos</b>.</div>`;
-    goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Comprobante · ${escapeHtml(x.concepto || '')}</h3><button class="go-x" onclick="closeModal()">×</button></div>
+    goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Comprobante · ${escapeHtml(x.concepto || '')}</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
       <div class="go-mb">${body}</div>
-      <div class="go-mf"><a class="btn btn-secondary btn-sm" href="${safeUrl(url)}" target="_blank" rel="noopener" download="${escapeHtml(nombre)}">⬇ Descargar / abrir</a><button class="btn btn-secondary" onclick="closeModal()">Cerrar</button></div></div>`);
+      <div class="go-mf"><a class="btn btn-secondary btn-sm" href="${safeUrl(url)}" target="_blank" rel="noopener" download="${escapeHtml(nombre)}">⬇ Descargar / abrir</a><button class="btn btn-secondary" data-accion="ui.cerrar">Cerrar</button></div></div>`);
   } catch (e) {
     console.warn('[storage] no se pudo abrir el comprobante', e);
-    goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Comprobante</h3><button class="go-x" onclick="closeModal()">×</button></div>
+    goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Comprobante</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
       <div class="go-mb"><div class="go-help">No se pudo abrir el comprobante (problema de red o permisos). Reinténtalo en un momento.</div></div>
-      <div class="go-mf"><button class="btn btn-secondary" onclick="closeModal()">Cerrar</button></div></div>`);
+      <div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cerrar</button></div></div>`);
   }
 }
 
@@ -575,11 +576,11 @@ function goOpenPresup() {
   const lineas = goGastosLineas(project);
   const contactos = goContactos(project);
 
-  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Crear presupuesto · ${escapeHtml(goProjName(project))}</h3><button class="go-x" onclick="closeModal()">×</button></div>
+  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Crear presupuesto · ${escapeHtml(goProjName(project))}</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
     <div class="go-mb">
       <div class="go-field"><label>Nombre del presupuesto</label><input class="go-inp" id="pp_nombre" placeholder="ej. Compras Súper día 3"></div>
       <div class="go-field"><label>Asociar a línea del Presupuesto</label>
-        <select class="go-inp" id="pp_linea" onchange="goPpLineaChange()"><option value="">— elige una línea —</option>${lineas.map(l => '<option>' + escapeHtml(l) + '</option>').join('')}<option value="__new__">+ Crear nueva línea (parte en $0)…</option></select>
+        <select class="go-inp" id="pp_linea" data-accion="go.ppLinea" data-on="change"><option value="">— elige una línea —</option>${lineas.map(l => '<option>' + escapeHtml(l) + '</option>').join('')}<option value="__new__">+ Crear nueva línea (parte en $0)…</option></select>
         <div class="go-field" id="pp_newWrap" style="display:none;margin-top:10px;"><label>Nombre de la nueva línea</label><input class="go-inp" id="pp_newName" placeholder="ej. Maquillaje"></div>
         <div class="go-help">Estas son las filas de <b>Gastos de producción</b> del Presupuesto. Si falta una, crea una nueva: se agrega al Presupuesto (parte en $0, marcada como EXTRA) y verás cuánto se pasa el proyecto.</div>
       </div>
@@ -591,7 +592,7 @@ function goOpenPresup() {
       <div class="go-help" style="margin-top:2px;">Crear presupuestos es facultad de los perfiles Administrador, Ejecutivo y Producción${jp.nombre ? (' · Jefe de producción del proyecto: <b>' + escapeHtml(jp.nombre) + '</b>') : ''}.</div>
       <datalist id="go_dl_contactos">${contactos.map(c => '<option value="' + escapeHtml(c) + '">').join('')}</datalist>
     </div>
-    <div class="go-mf"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="goSavePresup()">Crear presupuesto</button></div></div>`);
+    <div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.guardarPresup">Crear presupuesto</button></div></div>`);
 }
 function goPpLineaChange() {
   const el = document.getElementById('pp_linea'); if (!el) return;
@@ -651,21 +652,21 @@ function goOpenGasto(editId) {
   const compBox = (g && g.filePath)
     ? '<div class="go-attached"><div class="go-thumb">📄</div><div style="flex:1;">' + escapeHtml(g.fileName || 'comprobante') + '<div class="go-sub">comprobante actual · adjunta otro para reemplazarlo</div></div></div>'
     : ((g && (g.comp || g.fileName)) ? '<div class="go-sub" style="color:var(--accent-deep);">⚠ El comprobante anterior no quedó guardado (versión vieja). Adjúntalo de nuevo.</div>' : '');
-  goModal(`<div class="go-mc"><div class="go-mh"><h3>${esEd ? 'Editar' : 'Agregar'} gasto · ${escapeHtml(goProjName(project))}</h3><button class="go-x" onclick="closeModal()">×</button></div>
+  goModal(`<div class="go-mc"><div class="go-mh"><h3>${esEd ? 'Editar' : 'Agregar'} gasto · ${escapeHtml(goProjName(project))}</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
     <div class="go-mb">
       <div class="go-frow">
         <div class="go-field half"><label>Fecha</label><input class="go-inp" type="date" id="f_fecha" value="${g ? escapeHtml(g.fecha) : goToday()}"></div>
         <div class="go-field half"><label>Monto (CLP)</label><input class="go-inp" id="f_monto" placeholder="0" inputmode="numeric" value="${g ? (g.monto || '') : ''}"></div>
       </div>
       <div class="go-field"><label>Presupuesto · a qué se carga</label>
-        <select class="go-inp" id="f_pres" onchange="goGastoHint()"><option value="">— elige un presupuesto —</option>${envs.map(e => '<option value="' + e.id + '"' + sel(e.id, g ? g.pres : '') + '>' + escapeHtml(e.nombre) + ' (→ ' + escapeHtml(e.linea) + ')</option>').join('')}</select>
+        <select class="go-inp" id="f_pres" data-accion="go.hint" data-on="change"><option value="">— elige un presupuesto —</option>${envs.map(e => '<option value="' + e.id + '"' + sel(e.id, g ? g.pres : '') + '>' + escapeHtml(e.nombre) + ' (→ ' + escapeHtml(e.linea) + ')</option>').join('')}</select>
         <div class="go-hintbox" id="goGastoHint"></div>
       </div>
       <div class="go-frow">
         <div class="go-field half"><label>Concepto</label><input class="go-inp" id="f_concepto" placeholder="¿En qué se gastó?" value="${g ? escapeHtml(g.concepto) : ''}"></div>
         <div class="go-field half"><label>Proveedor <span class="go-faint" style="font-weight:400;">· empresa</span></label>
           <span class="combobox-wrap person-combobox" style="display:block;">
-            <input class="go-inp combobox-input" id="f_prov" data-emp-rol="proveedor" data-emp-add="1" placeholder="Empresa proveedora — escribe para buscar en la BD…" autocomplete="off" value="${g ? escapeHtml(g.prov) : ''}" onfocus="comboboxFilterEmpresas(this)" oninput="comboboxFilterEmpresas(this)" onblur="comboboxCloseDelayed(this)">
+            <input class="go-inp combobox-input" id="f_prov" data-emp-rol="proveedor" data-emp-add="1" placeholder="Empresa proveedora — escribe para buscar en la BD…" autocomplete="off" value="${g ? escapeHtml(g.prov) : ''}" data-accion="bd.pfEmpresa" data-on="focus input blur">
             <div class="combobox-dropdown" hidden></div>
           </span>
         </div>
@@ -673,13 +674,13 @@ function goOpenGasto(editId) {
       <div class="go-frow">
         <div class="go-field half"><label>Quién gastó</label>
           <span class="combobox-wrap person-combobox" style="display:block;">
-            <input class="go-inp combobox-input" id="f_quien" placeholder="Buscar persona en la BD…" autocomplete="off" value="${g ? escapeHtml(g.quien === '—' ? '' : g.quien) : ''}" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this); goCheckPersona();" onblur="comboboxCloseDelayed(this)" onchange="goCheckPersona()">
+            <input class="go-inp combobox-input" id="f_quien" placeholder="Buscar persona en la BD…" autocomplete="off" value="${g ? escapeHtml(g.quien === '—' ? '' : g.quien) : ''}" data-accion="go.quienCombo" data-on="focus input blur change">
             <div class="combobox-dropdown" hidden></div>
           </span>
         </div>
         <div class="go-field half"><label>Quién registra</label>
           <span class="combobox-wrap person-combobox" style="display:block;">
-            <input class="go-inp combobox-input" id="f_registra" placeholder="Buscar persona en la BD…" autocomplete="off" value="${g ? escapeHtml(g.registra === '—' ? '' : g.registra) : ''}" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this)" onblur="comboboxCloseDelayed(this)">
+            <input class="go-inp combobox-input" id="f_registra" placeholder="Buscar persona en la BD…" autocomplete="off" value="${g ? escapeHtml(g.registra === '—' ? '' : g.registra) : ''}" data-accion="go.persCombo" data-on="focus input blur">
             <div class="combobox-dropdown" hidden></div>
           </span>
         </div>
@@ -694,14 +695,14 @@ function goOpenGasto(editId) {
         <div class="go-field half"><label>Tipo de documento</label><select class="go-inp" id="f_tipo">${GO_TIPOS.map(t => '<option' + sel(t, g ? g.tipo : '') + '>' + escapeHtml(t) + '</option>').join('')}</select></div>
       </div>
       <div class="go-field"><label>Comprobante</label>
-        <div class="go-dz" onclick="document.getElementById('f_file').click()"><span class="go-big">📎</span>Adjunta foto o PDF de la boleta/factura</div>
-        <input type="file" id="f_file" accept="image/*,application/pdf" style="display:none" onchange="goOnFile(this)"><div id="f_fileBox">${compBox}</div>
+        <div class="go-dz" data-accion="go.dz" data-args="[&quot;f_file&quot;]"><span class="go-big">📎</span>Adjunta foto o PDF de la boleta/factura</div>
+        <input type="file" id="f_file" accept="image/*,application/pdf" style="display:none" data-accion="go.file" data-on="change"><div id="f_fileBox">${compBox}</div>
       </div>
       <div class="go-field"><label>Comentario (opcional)</label><textarea class="go-inp" id="f_coment" placeholder="Nota para el equipo o Finanzas… (ej. falta la boleta, llega mañana)">${g ? escapeHtml(g.coment || '') : ''}</textarea></div>
       <datalist id="go_dl_contactos">${contactos.map(c => '<option value="' + escapeHtml(c) + '">').join('')}</datalist>
     </div>
-    <div class="go-mf">${esEd ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);" onclick="goDeleteGasto('${GO_EDIT_ID}')">Eliminar gasto</button>` : ''}<span class="go-help" style="margin-right:auto;margin-left:${esEd ? '12px' : '0'};">Si falta info (comprobante, concepto…) queda <b>Pendiente</b> y no molesta a Finanzas.</span>
-      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="goSaveGasto()">${esEd ? 'Guardar cambios' : 'Guardar gasto'}</button></div></div>`);
+    <div class="go-mf">${esEd ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);" ${accionHTML('go.borrarGasto', GO_EDIT_ID)}>Eliminar gasto</button>` : ''}<span class="go-help" style="margin-right:auto;margin-left:${esEd ? '12px' : '0'};">Si falta info (comprobante, concepto…) queda <b>Pendiente</b> y no molesta a Finanzas.</span>
+      <button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.guardarGasto">${esEd ? 'Guardar cambios' : 'Guardar gasto'}</button></div></div>`);
   if (esEd) { try { goGastoHint(); } catch (e) {} }
 }
 function goCheckPersona() {
@@ -813,17 +814,17 @@ function goDeleteGasto(id) {
 function goOpenQuick() {
   const project = STATE.currentProject; GO_DRAFT = { filePath: null, fileName: null, fileUrl: null }; GO_EDIT_ID = null;
   const envs = goPresList(project);
-  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>⚡ Captura rápida</h3><button class="go-x" onclick="closeModal()">×</button></div>
+  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>⚡ Captura rápida</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
     <div class="go-mb"><div class="go-phone">
       <div class="go-field"><label>Comprobante</label>
-        <div class="go-dz" onclick="document.getElementById('q_file').click()"><span class="go-big">📷</span>Saca la foto a la boleta</div>
-        <input type="file" id="q_file" accept="image/*" capture="environment" style="display:none" onchange="goOnFileQ(this)"><div id="q_fileBox"></div></div>
+        <div class="go-dz" data-accion="go.dz" data-args="[&quot;q_file&quot;]"><span class="go-big">📷</span>Saca la foto a la boleta</div>
+        <input type="file" id="q_file" accept="image/*" capture="environment" style="display:none" data-accion="go.fileQ" data-on="change"><div id="q_fileBox"></div></div>
       <div class="go-field"><label>Monto (CLP)</label><input class="go-inp" id="q_monto" placeholder="0" inputmode="numeric"></div>
       <div class="go-field"><label>Presupuesto (opcional ahora)</label><select class="go-inp" id="q_pres"><option value="">— completar después —</option>${envs.map(e => '<option value="' + e.id + '">' + escapeHtml(e.nombre) + '</option>').join('')}</select></div>
       <div class="go-field"><label>Proyecto</label><input class="go-inp" value="${escapeHtml(goProjName(project))}" disabled></div>
       <div class="go-help">Lo demás (concepto, proveedor…) lo completas después. Queda <b>Pendiente</b>.</div>
     </div></div>
-    <div class="go-mf"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="goSaveQuick()">Guardar y completar después</button></div></div>`);
+    <div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.guardarQuick">Guardar y completar después</button></div></div>`);
 }
 async function goOnFileQ(inp) {
   const f = inp.files[0]; if (!f) return;
@@ -873,7 +874,7 @@ export function openGlobalCFO() {
   document.getElementById('projectView').classList.add('hidden');
   document.getElementById('bdGlobalView').classList.remove('hidden');
   const mm = document.getElementById('moduleMain'); if (mm) mm.innerHTML = '';
-  document.getElementById('breadcrumb').innerHTML = `<span class="breadcrumb-link" onclick="navigateToControlRoom()">Control Room</span><span class="breadcrumb-sep">›</span><span class="breadcrumb-current">Finanzas</span>`;
+  document.getElementById('breadcrumb').innerHTML = `<span class="breadcrumb-link" data-accion="kanban.controlRoom">Control Room</span><span class="breadcrumb-sep">›</span><span class="breadcrumb-current">Finanzas</span>`;
   renderModule('cfo');
   window.scrollTo(0, 0);
   /* V11.7.1 · precarga los pagos de cliente desde la base y re-renderiza el
@@ -970,13 +971,13 @@ function cfoBirdView() {
     const val = _projValorCliente(p), cob = _projCobrado(p), saldo = Math.max(0, val - cob);
     totVal += val; totCob += cob;
     const pct = val > 0 ? Math.min(100, Math.round(cob / val * 100)) : 0;
-    return `<tr style="cursor:pointer;" onclick="cfoIrAPresupuesto('${p.id}')" title="Ver el presupuesto de este proyecto">
+    return `<tr style="cursor:pointer;" ${accionHTML('go.cfoPresup', p.id)} title="Ver el presupuesto de este proyecto">
       <td>${escapeHtml(goProjName(p))}<div class="go-sub">${escapeHtml((STATES[p.state] && STATES[p.state].name) || p.state || '')}</div></td>
       <td class="go-num">${fmtMoney(val)}</td>
       <td class="go-num" style="color:var(--positive);">${fmtMoney(cob)}</td>
       <td class="go-num" style="color:${saldo > 0 ? 'var(--accent-deep,#c2410c)' : 'var(--ink-faint)'};">${fmtMoney(saldo)}</td>
       <td style="min-width:90px;"><div style="background:var(--rule);border-radius:999px;height:7px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:var(--positive);"></div></div><div class="go-sub" style="text-align:right;">${pct}%</div></td>
-      <td><button class="go-mini" onclick="event.stopPropagation();cfoRegistrarPago('${p.id}')">+ Registrar pago</button></td>
+      <td><button class="go-mini" ${accionHTML('go.cfoPago', p.id)}>+ Registrar pago</button></td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" class="go-faint" style="padding:16px;">Sin proyectos activos.</td></tr>';
   const saldoTot = Math.max(0, totVal - totCob);
@@ -1001,14 +1002,14 @@ function closeModalGlobalIfAny() { try { const m = document.getElementById('modu
 function cfoRegistrarPago(projId) {
   const p = PROJECTS.find(x => x.id === projId); if (!p) return;
   const val = _projValorCliente(p), cob = _projCobrado(p), saldo = Math.max(0, val - cob);
-  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:420px;">'
+  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop"><div class="modal" style="max-width:420px;">'
     + '<div class="modal-header"><div class="modal-title">Registrar pago de cliente</div></div>'
     + '<div class="modal-body">'
     + '<p style="margin:0 0 12px;font-size:12.5px;color:var(--ink-secondary);line-height:1.5;"><strong>' + escapeHtml(goProjName(p)) + '</strong><br>Ingreso ' + fmtMoney(val) + ' · cobrado ' + fmtMoney(cob) + ' · por cobrar <strong>' + fmtMoney(saldo) + '</strong></p>'
     + '<div class="emp-field" style="margin-bottom:10px;"><label>Monto recibido (CLP)</label><input class="input" id="cfoPagoMonto" type="number" inputmode="numeric" placeholder="0"></div>'
     + '<div class="emp-field"><label>Nota (opcional)</label><input class="input" id="cfoPagoNota" placeholder="Ej. Abono 50%, cuota 1 de 3…"></div>'
     + '</div>'
-    + '<div class="modal-footer"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="cfoGuardarPago(\'' + projId + '\')">Registrar</button></div>'
+    + '<div class="modal-footer"><button class="btn" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" ' + accionHTML('go.cfoPagoOk', projId) + '>Registrar</button></div>'
     + '</div></div>';
 }
 async function cfoGuardarPago(projId) {
@@ -1055,11 +1056,11 @@ function renderCFO() {
       <div class="go-kpi pos"><div class="l">Validado</div><div class="v">${validados}</div><div class="s">${_usaChipax() ? 'listo para Chipax' : 'gastos validados'}</div></div>
     </div></div></div>
     <div class="go-tabs">
-      <button class="go-tab ${GO_STATE.cfoTab === 'validacion' ? 'on' : ''}" onclick="goSetCfoTab('validacion')">Validación${pend.length ? '<span class="b">' + pend.length + '</span>' : ''}</button>
-      <button class="go-tab ${GO_STATE.cfoTab === 'reembolsos' ? 'on' : ''}" onclick="goSetCfoTab('reembolsos')">Reembolsos${reemb.length ? '<span class="b">' + reemb.length + '</span>' : ''}</button>
-      <button class="go-tab ${GO_STATE.cfoTab === 'prontospagos' ? 'on' : ''}" onclick="goSetCfoTab('prontospagos')">Prontos Pagos${pp.length ? '<span class="b">' + pp.length + '</span>' : ''}</button>
-      <button class="go-tab ${GO_STATE.cfoTab === 'proyectos' ? 'on' : ''}" onclick="goSetCfoTab('proyectos')">Por proyecto</button>
-      ${_usaChipax() ? `<button class="go-tab ${GO_STATE.cfoTab === 'export' ? 'on' : ''}" onclick="goSetCfoTab('export')">Exportar a Chipax</button>` : ''}
+      <button class="go-tab ${GO_STATE.cfoTab === 'validacion' ? 'on' : ''}" data-accion="go.cfoTab" data-args="[&quot;validacion&quot;]">Validación${pend.length ? '<span class="b">' + pend.length + '</span>' : ''}</button>
+      <button class="go-tab ${GO_STATE.cfoTab === 'reembolsos' ? 'on' : ''}" data-accion="go.cfoTab" data-args="[&quot;reembolsos&quot;]">Reembolsos${reemb.length ? '<span class="b">' + reemb.length + '</span>' : ''}</button>
+      <button class="go-tab ${GO_STATE.cfoTab === 'prontospagos' ? 'on' : ''}" data-accion="go.cfoTab" data-args="[&quot;prontospagos&quot;]">Prontos Pagos${pp.length ? '<span class="b">' + pp.length + '</span>' : ''}</button>
+      <button class="go-tab ${GO_STATE.cfoTab === 'proyectos' ? 'on' : ''}" data-accion="go.cfoTab" data-args="[&quot;proyectos&quot;]">Por proyecto</button>
+      ${_usaChipax() ? `<button class="go-tab ${GO_STATE.cfoTab === 'export' ? 'on' : ''}" data-accion="go.cfoTab" data-args="[&quot;export&quot;]">Exportar a Chipax</button>` : ''}
     </div>
     <div id="go-cfo-body">${goCfoBody()}</div>
   </div>`;
@@ -1084,7 +1085,7 @@ function goCfoValidacion() {
       <td><span class="go-tag">${escapeHtml(e ? e.nombre : '—')}</span></td><td>${escapeHtml(x.quien)}</td>
       <td class="go-num">${fmtMoney(x.monto)}</td><td>${comp}</td>
       <td><span class="go-est ${x.estado}">${GO_ESTADOS[x.estado]}</span></td>
-      <td style="white-space:nowrap;"><button class="btn btn-secondary btn-sm go-btn-pos" onclick="goValidar('${x.id}')">Validar</button> <button class="btn btn-secondary btn-sm go-btn-warn" onclick="goObservar('${x.id}')">Observar</button></td></tr>`;
+      <td style="white-space:nowrap;"><button class="btn btn-secondary btn-sm go-btn-pos" ${accionHTML('go.validar', x.id)}>Validar</button> <button class="btn btn-secondary btn-sm go-btn-warn" ${accionHTML('go.observar', x.id)}>Observar</button></td></tr>`;
   }).join('') : '<tr><td colspan="9" class="go-faint" style="padding:18px;">Nada pendiente. Todo validado ✓</td></tr>';
   return `<div class="go-card"><div class="go-card-h"><h3>Cola de validación <span class="go-faint">· solo gastos listos, de todos los proyectos (los “Pendiente” no aparecen)</span></h3></div>
     <div class="go-card-b go-tablewrap"><table class="go-tbl"><thead><tr><th>Fecha</th><th>Proyecto</th><th>Concepto</th><th>Presupuesto</th><th>Quién gastó</th><th class="go-num">Monto</th><th>Comp.</th><th>Estado</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
@@ -1097,15 +1098,15 @@ function goCfoReembolsos() {
     const x = o.m; const st = x.objetivo ? (x.objetivo < hoy ? 'venc' : (x.objetivo === hoy ? 'hoy' : '')) : '';
     const badge = st === 'venc' ? ' · <span class="go-paybadge venc">⚠ vencido</span>' : (st === 'hoy' ? ' · <span class="go-paybadge hoy">● pagar hoy</span>' : '');
     return `<tr class="${st}"><td>${escapeHtml(x.concepto)}<div class="go-sub">${escapeHtml(x.fecha.slice(5))}${badge}</div></td><td><b>${escapeHtml(x.quien)}</b></td><td class="go-sub">${escapeHtml(goProjName(o.project))}</td><td class="go-num">${fmtMoney(x.monto)}</td>
-      <td><input type="date" class="go-dateinp" id="rp_${x.id}" value="${x.objetivo || hoy}" onchange="goSetObjetivo('${x.id}',this.value)"></td>
-      <td><button class="btn btn-secondary btn-sm go-btn-pos" onclick="goPagarReemb('${x.id}')">Marcar pagado</button></td></tr>`;
+      <td><input type="date" class="go-dateinp" id="rp_${x.id}" value="${x.objetivo || hoy}" ${accionHTML('go.objetivo', x.id, { on: 'change' })}></td>
+      <td><button class="btn btn-secondary btn-sm go-btn-pos" ${accionHTML('go.pagarReemb', x.id)}>Marcar pagado</button></td></tr>`;
   }).join('') : '<tr><td colspan="6" class="go-faint" style="padding:18px;">Sin reembolsos pendientes.</td></tr>';
   const pagBlock = pagados.length ? `<div class="go-card"><div class="go-card-h"><h3 class="go-sm">Pagados <span class="go-faint">· para conciliar con Chipax · fecha editable</span></h3></div>
     <div class="go-card-b go-tablewrap"><table class="go-tbl"><thead><tr><th>Fecha pago</th><th>A quién</th><th>Proyecto</th><th class="go-num">Monto</th><th></th></tr></thead><tbody>
-    ${pagados.map(o => `<tr><td><input type="date" class="go-dateinp" value="${o.m.fechaPago}" onchange="goSetFechaPago('${o.m.id}',this.value)"></td><td>${escapeHtml(o.m.quien)}</td><td class="go-sub">${escapeHtml(goProjName(o.project))}</td><td class="go-num">${fmtMoney(o.m.monto)}</td><td><button class="go-mini" onclick="goSetFechaPago('${o.m.id}','')">deshacer</button></td></tr>`).join('')}
+    ${pagados.map(o => `<tr><td><input type="date" class="go-dateinp" value="${o.m.fechaPago}" ${accionHTML('go.fechaPago', o.m.id, { on: 'change' })}></td><td>${escapeHtml(o.m.quien)}</td><td class="go-sub">${escapeHtml(goProjName(o.project))}</td><td class="go-num">${fmtMoney(o.m.monto)}</td><td><button class="go-mini" ${accionHTML('go.fechaPagoUndo', o.m.id)}>deshacer</button></td></tr>`).join('')}
     </tbody></table></div></div>` : '';
   return `<div class="go-card"><div class="go-card-h"><h3>Reembolsos pendientes <span class="go-faint">· fecha de pago editable · se avisa lo que vence hoy o está vencido</span></h3>
-      ${pend.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-secondary btn-sm" onclick="goExportSantander()">⬇ Exportar transferencias (Santander)</button><button class="btn btn-primary btn-sm" onclick="goPagarTodos()">Marcar todos pagados (hoy)</button></div>' : ''}</div>
+      ${pend.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-secondary btn-sm" data-accion="go.santander">⬇ Exportar transferencias (Santander)</button><button class="btn btn-primary btn-sm" data-accion="go.pagarTodos">Marcar todos pagados (hoy)</button></div>' : ''}</div>
     <div class="go-card-b go-tablewrap"><table class="go-tbl"><thead><tr><th>Gasto</th><th>A quién pagar</th><th>Proyecto</th><th class="go-num">Monto</th><th>Fecha de pago</th><th></th></tr></thead><tbody>${pendRows}</tbody></table></div></div>${pagBlock}`;
 }
 /* ════════════════════════════════════════════════════════════════════
@@ -1361,7 +1362,7 @@ function goCfoProntosPagos() {
       '<td class="go-sub">' + (fechasRod ? escapeHtml(fechasRod) : '<span class="go-faint">sin fecha</span>') + '</td>' +
       '<td>' + d.html + '</td>' +
       '<td style="white-space:nowrap;"><input type="date" class="go-dateinp" id="' + inpId + '" value="' + goToday() + '"> ' +
-        '<button class="btn btn-secondary btn-sm go-btn-pos" onclick="goPagarPP(' + ppArgs(o) + ',\'' + inpId + '\')">Marcar pagado</button></td>' +
+        '<button class="btn btn-secondary btn-sm go-btn-pos" ' + accionHTML('go.pagarPP', o.project.id, o.nombre, inpId) + '>Marcar pagado</button></td>' +
       '</tr>';
   };
   /* fila PAGADA (bloque global: con proyecto + alerta si se pagó antes del rodaje) */
@@ -1370,11 +1371,11 @@ function goCfoProntosPagos() {
     const minRod = _ppRodajeFechasISO(o.project)[0] || '';
     const alerta = (pago && minRod && pago < minRod) ? ' <span class="go-paybadge venc" data-tip="La fecha de pago es ANTES del rodaje. No transfieras antes de que la persona trabaje.">⚠ antes del rodaje</span>' : '';
     return '<tr>' +
-      '<td style="white-space:nowrap;"><input type="date" class="go-dateinp" value="' + escapeHtml(pago) + '" onchange="goSetPPFechaPago(' + ppArgs(o) + ',this.value)">' + alerta + '</td>' +
+      '<td style="white-space:nowrap;"><input type="date" class="go-dateinp" value="' + escapeHtml(pago) + '" ' + accionHTML('go.ppFecha', o.project.id, o.nombre, { on: 'change' }) + '>' + alerta + '</td>' +
       '<td><b>' + escapeHtml(o.nombre) + '</b></td>' +
       '<td class="go-sub">' + escapeHtml(goProjName(o.project)) + '</td>' +
       '<td class="go-num">' + montoCellOf(o) + '</td>' +
-      '<td><button class="go-mini" onclick="goSetPPFechaPago(' + ppArgs(o) + ',\'\')">deshacer</button></td>' +
+      '<td><button class="go-mini" ' + accionHTML('go.ppFechaUndo', o.project.id, o.nombre) + '>deshacer</button></td>' +
       '</tr>';
   };
 
@@ -1384,14 +1385,14 @@ function goCfoProntosPagos() {
   const projKeys = Object.keys(byProj);
 
   const head = '<div class="go-card"><div class="go-card-h"><h3>Prontos pagos pendientes <span class="go-faint">· filas del Presupuesto marcadas con PP (confirmadas) · separados por proyecto · monto = neto del costo real según DTE real</span></h3>' +
-    (pend.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-secondary btn-sm" onclick="goExportSantanderPP()">⬇ Exportar TODOS (Santander)</button><button class="btn btn-secondary btn-sm" onclick="goExportSantanderConsolidado()">⬇ Consolidado (reembolsos + prontos pagos)</button></div>' : '') + '</div>' +
+    (pend.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-secondary btn-sm" data-accion="go.santanderPP">⬇ Exportar TODOS (Santander)</button><button class="btn btn-secondary btn-sm" data-accion="go.santanderCons">⬇ Consolidado (reembolsos + prontos pagos)</button></div>' : '') + '</div>' +
     '<div class="go-card-b"><div class="go-help" style="margin:0;">El <b>monto neto</b> sale del costo real de cada fila y su DTE real (boleta retiene; factura no), no del cotizado. <b>Proforma</b> = aún sin costo real (no se exporta). Cada proyecto tiene su propio botón para exportar la nómina Santander solo de ese proyecto. Revisa la <b>fecha de rodaje</b>: no transfieras antes de que la persona trabaje.</div></div></div>';
 
   const thead = '<thead><tr><th>A quién pagar</th><th class="go-num">Monto neto</th><th>Fecha de rodaje</th><th>Datos de transferencia</th><th>Marcar pagado</th></tr></thead>';
   const secciones = projKeys.length ? projKeys.map(k => {
     const g = byProj[k];
     return '<div class="go-card"><div class="go-card-h"><h3 class="go-sm">' + escapeHtml(goProjName(g.project)) + ' <span class="go-faint">· ' + g.items.length + ' por pagar</span></h3>' +
-      '<button class="btn btn-secondary btn-sm" onclick="goExportSantanderPPProyecto(\'' + escapeHtml(g.project.id) + '\')">⬇ Exportar Santander de este proyecto</button></div>' +
+      '<button class="btn btn-secondary btn-sm" ' + accionHTML('go.santanderProy', g.project.id) + '>⬇ Exportar Santander de este proyecto</button></div>' +
       '<div class="go-card-b go-tablewrap"><table class="go-tbl">' + thead + '<tbody>' + g.items.map(pendRow).join('') + '</tbody></table></div></div>';
   }).join('') : '<div class="go-card"><div class="go-card-b go-faint" style="padding:18px;">Sin prontos pagos pendientes. Marca la píldora <b>PP</b> en las filas del Presupuesto (confirmadas) para que aparezcan aquí.</div></div>';
 
@@ -1410,7 +1411,7 @@ function goCfoProyectos() {
     const abierto = expandido === p.id;
     let tr = `<tr><td><b>${escapeHtml(goProjName(p))}</b><div class="go-sub">${escapeHtml(goProjCliente(p))}</div></td><td class="go-num">${fmtMoney(cot)}</td><td class="go-num">${fmtMoney(real)}</td>` +
       `<td class="go-num" style="${disp < 0 ? 'color:var(--accent-deep)' : ''}">${fmtMoney(disp)}</td><td class="go-num">${gs.length}</td><td class="go-num">${pv || '—'}</td>` +
-      `<td>${val.length ? `<button class="btn btn-secondary btn-sm" onclick="goToggleProyVal('${p.id}')">${abierto ? 'Ocultar' : ('Ver validados (' + val.length + ')')}</button>` : '<span class="go-faint">—</span>'}</td></tr>`;
+      `<td>${val.length ? `<button class="btn btn-secondary btn-sm" ${accionHTML('go.toggleVal', p.id)}>${abierto ? 'Ocultar' : ('Ver validados (' + val.length + ')')}</button>` : '<span class="go-faint">—</span>'}</td></tr>`;
     if (abierto && val.length) {
       const sub = val.map(m => {
         const e = goPresById(p, m.pres);
@@ -1430,8 +1431,8 @@ function goCfoExportPanel() {
   return `<div class="go-card"><div class="go-card-b">
     <div class="go-sectitle">Exportar a Chipax · consolidado</div>
     <p class="go-muted" style="font-size:12.5px;margin-top:0;">Genera el .xlsx de importación masiva con los gastos <b>validados</b> de todos los proyectos.</p>
-    <button class="btn btn-primary" onclick="goOpenExport(null)">⬇ Preparar exportación consolidada</button>
-    <span class="btn btn-secondary" onclick="goOpenMapeo()" style="margin-left:8px;cursor:pointer;">⚙ Editar mapeo de cuentas</span>
+    <button class="btn btn-primary" data-accion="go.exportCons">⬇ Preparar exportación consolidada</button>
+    <span class="btn btn-secondary" data-accion="go.mapeo" style="margin-left:8px;cursor:pointer;">⚙ Editar mapeo de cuentas</span>
     <div class="go-help" style="margin-top:10px;">También puedes exportar un proyecto individual desde su Vista de Gastos. Máx. 100 registros por archivo; si hay más, se generan varios lotes.</div>
   </div></div>`;
 }
@@ -1518,11 +1519,11 @@ function goSetObjetivo(id, v) { const r = goFindMov(id); if (r) { r.m.objetivo =
 /* ---------- editor de mapeo de cuentas Chipax ---------- */
 function goOpenMapeo() {
   const lineas = Object.keys(CHIPAX_CUENTA);
-  goModal(`<div class="go-mc"><div class="go-mh"><h3>Mapeo línea → cuenta Chipax</h3><button class="go-x" onclick="closeModal()">×</button></div>
+  goModal(`<div class="go-mc"><div class="go-mh"><h3>Mapeo línea → cuenta Chipax</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
     <div class="go-mb"><p class="go-help" style="margin-top:0;">Edita la cuenta de Chipax a la que se asigna cada línea. Se guarda con el OS.</p>
       ${lineas.map(l => `<div class="go-frow" style="align-items:center;margin-bottom:8px;"><div style="width:160px;font-size:12.5px;">${escapeHtml(l)}</div><input class="go-inp" id="cx_${escapeHtml(l).replace(/[^a-zA-Z]/g, '')}" data-linea="${escapeHtml(l)}" value="${escapeHtml(CHIPAX_CUENTA[l])}" style="flex:1;"></div>`).join('')}
     </div>
-    <div class="go-mf"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="goSaveMapeo()">Guardar mapeo</button></div></div>`);
+    <div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.mapeoOk">Guardar mapeo</button></div></div>`);
 }
 function goSaveMapeo() {
   document.querySelectorAll('#modalRoot [data-linea]').forEach(inp => { const l = inp.getAttribute('data-linea'); if (l) CHIPAX_CUENTA[l] = inp.value.trim() || CHIPAX_CUENTA[l]; });
@@ -1551,14 +1552,14 @@ function goOpenExport(projId) {
   const title = project ? ('Exportar a Chipax · ' + goProjName(project)) : 'Exportar a Chipax · consolidado (todos los proyectos)';
   const lotes = Math.ceil(rows.length / 100) || 1;
   const body = rows.length ? rows.map(r => `<tr><td>${escapeHtml(r.Fecha)}</td><td>${escapeHtml(r.Periodo)}</td><td class="go-cuenta">${escapeHtml(r.Cuenta)}</td><td>${escapeHtml(r.Linea)}</td><td>${escapeHtml(r.Responsable)}</td><td>${escapeHtml(r.TipoDoc)}</td><td>${escapeHtml(r.Proveedor)}</td><td></td><td>${escapeHtml(r.Descripcion)}</td><td class="go-num">${r.Monto}</td><td>${r.Moneda}</td></tr>`).join('') : '<tr><td colspan="11" class="go-faint" style="padding:18px;">No hay gastos validados para exportar. Valida gastos en la pestaña Validación de Finanzas.</td></tr>';
-  goModal(`<div class="go-mc wide"><div class="go-mh"><h3>${escapeHtml(title)}</h3><button class="go-x" onclick="closeModal()">×</button></div>
+  goModal(`<div class="go-mc wide"><div class="go-mh"><h3>${escapeHtml(title)}</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
     <div class="go-mb">
       <div class="go-expbar"><button class="btn btn-primary" onclick='goDescargarXlsx(${projId ? ('"' + projId + '"') : 'null'})' ${rows.length ? '' : 'disabled'}>⬇ Descargar .xlsx</button>
         <span class="go-batchnote">${rows.length} gastos validados · ${lotes} ${lotes > 1 ? 'lotes de 100' : 'lote'} · formato de importación masiva de Chipax</span></div>
       <div class="go-help" style="margin-bottom:10px;">Solo gastos <b>validados</b>. <b>Línea de Negocio</b> = “${escapeHtml(project ? goLineaNegocio(project) : 'Proyecto de Cliente')}”. <b>Tipo Doc</b>: Factura/Exenta→Invoice · Boleta/Honorario→Boleta · Otro→Recibo. Montos sin formato.</div>
       <div class="go-expscroll"><table class="go-tbl"><thead><tr><th>Fecha</th><th>Periodo</th><th>Cuenta</th><th>Línea de Negocio</th><th>Responsable</th><th>Tipo Doc</th><th>Proveedor</th><th>N° Doc</th><th>Descripción</th><th class="go-num">Monto</th><th>Moneda</th></tr></thead><tbody>${body}</tbody></table></div>
     </div>
-    <div class="go-mf"><button class="btn btn-secondary" onclick="closeModal()">Cerrar</button></div></div>`);
+    <div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cerrar</button></div></div>`);
 }
 function goDescargarXlsx(projId) {
   const rows = goChipaxRows(projId);
@@ -1613,51 +1614,11 @@ function goDescargarXlsx(projId) {
 // ── Window bridges Gastos/CFO ──────────────────────────────────────
 // Lista generada cruzando definiciones con consumidores (index, módulos, HTML generado).
 window._syncGastosCostoReal = _syncGastosCostoReal;
-window.cfoGuardarPago = cfoGuardarPago;
-window.cfoIrAPresupuesto = cfoIrAPresupuesto;
-window.cfoRegistrarPago = cfoRegistrarPago;
-window.goCajaDevolucion = goCajaDevolucion;
-window.goCajaDevolucionSave = goCajaDevolucionSave;
-window.goCajaHistorial = goCajaHistorial;
-window.goCajaIngreso = goCajaIngreso;
-window.goCajaIngresoSave = goCajaIngresoSave;
-window.goCheckPersona = goCheckPersona;
-window.goDeleteGasto = goDeleteGasto;
 window.goDescargarXlsx = goDescargarXlsx;
-window.goExportSantander = goExportSantander;
-window.goExportSantanderConsolidado = goExportSantanderConsolidado;
-window.goExportSantanderPP = goExportSantanderPP;
-window.goExportSantanderPPProyecto = goExportSantanderPPProyecto;
 window.goGastoHint = goGastoHint;
 window.goLineaRealGastado = goLineaRealGastado;
 window.goLineaTieneCaja = goLineaTieneCaja;
-window.goMarcarListo = goMarcarListo;
-window.goObservar = goObservar;
-window.goOnFile = goOnFile;
-window.goOnFileQ = goOnFileQ;
-window.goOpenExport = goOpenExport;
-window.goOpenGasto = goOpenGasto;
-window.goOpenMapeo = goOpenMapeo;
-window.goOpenPresup = goOpenPresup;
-window.goOpenQuick = goOpenQuick;
-window.goPagarPP = goPagarPP;
-window.goPagarReemb = goPagarReemb;
-window.goPagarTodos = goPagarTodos;
-window.goPpLineaChange = goPpLineaChange;
-window.goRegFilter = goRegFilter;
-window.goRegSortBy = goRegSortBy;
-window.goResponderHilo = goResponderHilo;
-window.goRevertirPendiente = goRevertirPendiente;
-window.goSaveGasto = goSaveGasto;
-window.goSaveMapeo = goSaveMapeo;
 window.goSavePresup = goSavePresup;
-window.goSaveQuick = goSaveQuick;
-window.goSetCfoTab = goSetCfoTab;
-window.goSetFechaPago = goSetFechaPago;
-window.goSetObjetivo = goSetObjetivo;
-window.goSetPPFechaPago = goSetPPFechaPago;
-window.goToggleProyVal = goToggleProyVal;
-window.goValidar = goValidar;
 window.openGlobalCFO = openGlobalCFO;
 window.renderCFO = renderCFO;
 window.renderGastos = renderGastos;
@@ -1665,3 +1626,66 @@ window.renderGastos = renderGastos;
 // ── Bridges auditoría pre-B (nombres pasados como string a goCompCell → onclick generado) ──
 window.goVerComprobante = goVerComprobante;
 window.goCfoVer         = goCfoVer;
+
+// D2 · acciones delegadas (ppArgs y goCompCell: args con comillas → JSON)
+registrarAcciones('go', {
+  crearPresup: function () { goOpenPresup(); },
+  regFiltro: function (a, el) { goRegFilter(el.value); },
+  exportChipax: function (a) { goOpenExport(a[0]); },
+  quick: function () { goOpenQuick(); },
+  nuevoGasto: function () { goOpenGasto(); },
+  cajaHist: function () { goCajaHistorial(); },
+  cajaIngreso: function () { goCajaIngreso(); },
+  cajaDevolucion: function () { goCajaDevolucion(); },
+  sort: function (a) { goRegSortBy(a[0]); },
+  listo: function (a) { goMarcarListo(a[0]); },
+  revertir: function (a) { goRevertirPendiente(a[0]); },
+  hilo: function (a) { goResponderHilo(a[0]); },
+  editar: function (a) { goOpenGasto(a[0]); },
+  cajaIngresoOk: function () { goCajaIngresoSave(); },
+  cajaDevolucionOk: function () { goCajaDevolucionSave(); },
+  comp: function (a) { var f = { goVerComprobante: goVerComprobante, goCfoVer: goCfoVer }[a[0]]; if (f) f(a[1]); },
+  reAdjuntar: function (a) { closeModal(); goOpenGasto(a[0]); },
+  ppLinea: function () { goPpLineaChange(); },
+  guardarPresup: function () { goSavePresup(); },
+  hint: function () { goGastoHint(); },
+  quienCombo: function (a, el, ev) {
+    if (ev.type === 'focus') comboboxOpen(el);
+    else if (ev.type === 'input') { comboboxFilter(el); goCheckPersona(); }
+    else if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else goCheckPersona();
+  },
+  persCombo: function (a, el, ev) {
+    if (ev.type === 'focus') comboboxOpen(el);
+    else if (ev.type === 'input') comboboxFilter(el);
+    else comboboxCloseDelayed(el);
+  },
+  dz: function (a) { document.getElementById(a[0]).click(); },
+  file: function (a, el) { goOnFile(el); },
+  fileQ: function (a, el) { goOnFileQ(el); },
+  borrarGasto: function (a) { goDeleteGasto(a[0]); },
+  guardarGasto: function () { goSaveGasto(); },
+  guardarQuick: function () { goSaveQuick(); },
+  cfoPresup: function (a) { cfoIrAPresupuesto(a[0]); },
+  cfoPago: function (a) { cfoRegistrarPago(a[0]); },
+  cfoPagoOk: function (a) { cfoGuardarPago(a[0]); },
+  cfoTab: function (a) { goSetCfoTab(a[0]); },
+  validar: function (a) { goValidar(a[0]); },
+  observar: function (a) { goObservar(a[0]); },
+  objetivo: function (a, el) { goSetObjetivo(a[0], el.value); },
+  pagarReemb: function (a) { goPagarReemb(a[0]); },
+  fechaPago: function (a, el) { goSetFechaPago(a[0], el.value); },
+  fechaPagoUndo: function (a) { goSetFechaPago(a[0], ''); },
+  santander: function () { goExportSantander(); },
+  pagarTodos: function () { goPagarTodos(); },
+  pagarPP: function (a) { goPagarPP(a[0], a[1], a[2]); },
+  ppFecha: function (a, el) { goSetPPFechaPago(a[0], a[1], el.value); },
+  ppFechaUndo: function (a) { goSetPPFechaPago(a[0], a[1], ''); },
+  santanderPP: function () { goExportSantanderPP(); },
+  santanderCons: function () { goExportSantanderConsolidado(); },
+  santanderProy: function (a) { goExportSantanderPPProyecto(a[0]); },
+  toggleVal: function (a) { goToggleProyVal(a[0]); },
+  exportCons: function () { goOpenExport(null); },
+  mapeo: function () { goOpenMapeo(); },
+  mapeoOk: function () { goSaveMapeo(); },
+});
