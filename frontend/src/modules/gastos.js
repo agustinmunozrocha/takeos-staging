@@ -24,6 +24,7 @@ import { markDirty } from './persistencia-local.js';
 import { manejarErrorPlan } from './plan-limites.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
+import { gancho, define } from '../lib/ganchos.js';
 /* ════════════════════════════════════════════════════════════════════
    MÓDULO GASTOS (proyecto) + MÓDULO CFO (global) + EXPORT CHIPAX  · V8.0.0
    ════════════════════════════════════════════════════════════════════
@@ -1455,7 +1456,7 @@ function goHiloDe(project, gastoId) {
 }
 function goPushComentario(project, gastoId, texto) {
   const t = (texto || '').trim(); if (!t || !project) return false;
-  goComentarios(project).push({ id: goNewId('gcm'), gastoId: gastoId, autor: currentUser(), texto: t, ts: new Date().toLocaleString('es-CL') });
+  goComentarios(project).push({ id: goNewId('gcm'), gastoId: gastoId, autor: gancho('currentUser')(), texto: t, ts: new Date().toLocaleString('es-CL') });
   return true;
 }
 /* Indicador para la celda del registro / cola CFO: nota del rendidor + nº de comentarios. */
@@ -1616,7 +1617,6 @@ function goDescargarXlsx(projId) {
 window._syncGastosCostoReal = _syncGastosCostoReal;
 window.goDescargarXlsx = goDescargarXlsx;
 window.goGastoHint = goGastoHint;
-window.goLineaRealGastado = goLineaRealGastado;
 window.goLineaTieneCaja = goLineaTieneCaja;
 window.goSavePresup = goSavePresup;
 window.openGlobalCFO = openGlobalCFO;
@@ -1689,3 +1689,10 @@ registrarAcciones('go', {
   mapeo: function () { goOpenMapeo(); },
   mapeoOk: function () { goSaveMapeo(); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('_syncGastosCostoReal', _syncGastosCostoReal);
+define('goLineaRealGastado', goLineaRealGastado);
+define('goLineaTieneCaja', goLineaTieneCaja);
+define('goSavePresup', goSavePresup);
+define('renderGastos', renderGastos);

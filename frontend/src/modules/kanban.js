@@ -28,6 +28,7 @@ import { captureUndoBaseline, markDirty } from './persistencia-local.js';
 // ── Constantes ──────────────────────────────────────────────────────────────
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
+import { gancho, define } from '../lib/ganchos.js';
 export const STATES = {
   'venta':         { name: 'Venta',          color: 'var(--state-sale)',   order: 1 },
   'preproduccion': { name: 'Preproducción',  color: 'var(--state-prep)',   order: 2 },
@@ -357,10 +358,13 @@ window._lastViewLeer           = _lastViewLeer;
 
 // D2 · acciones delegadas (panel/exportar llaman vía window: aristas diferidas de D1)
 registrarAcciones('kanban', {
-  panel: function () { irAlPanelPersonal(); },
+  panel: function () { gancho('irAlPanelPersonal')(); },
   controlRoom: function () { navigateToControlRoom(); },
-  exportar: function (a) { exportSingleProject(a[0]); },
+  exportar: function (a) { gancho('exportSingleProject')(a[0]); },
   npDraft: function (a, el) { window._npDraft[a[0]] = el.value; },
   delCheck: function (a, el) { document.getElementById('delConfirmBtn').disabled = (el.value.trim() !== window._delExpected); },
   delConfirm: function (a) { confirmDeleteProject(a[0]); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('_lastViewSave', _lastViewSave);

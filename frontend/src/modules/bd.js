@@ -22,6 +22,7 @@ import { goMovs } from './gastos.js';
 import { autosaveNow, markDirty } from './persistencia-local.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
+import { gancho, define } from '../lib/ganchos.js';
 /* ════════════════════════════════════════════════════════════════════
    V8.5 · TIPO DE CUENTA (desplegable estandarizado)
    ════════════════════════════════════════════════════════════════════ */
@@ -1161,12 +1162,12 @@ window.openPersonaByName      = openPersonaByName;   // locaciones.js la llama c
 registrarAcciones('bd', {
   tab: function (a) { STATE.ui.bdTab = a[0]; renderBDPersonas(); },
   buscar: function (a, el) { STATE.ui.bdSearch = el.value; renderBDListByTab(); },
-  exportar: function () { exportBDExcelV71(); },
-  plantilla: function () { downloadBDPlantilla(); },
-  importar: function () { triggerBDExcelImport(); },
+  exportar: function () { gancho('exportBDExcelV71')(); },
+  plantilla: function () { gancho('downloadBDPlantilla')(); },
+  importar: function () { gancho('triggerBDExcelImport')(); },
   archivados: function () { openArchivadosBD(); },
-  linkInv: function () { _invAbrirDatos(); },
-  importFile: function (a, el) { importBDExcelV71(el); },
+  linkInv: function () { gancho('_invAbrirDatos')(); },
+  importFile: function (a, el) { gancho('importBDExcelV71')(el); },
   nuevaPersona: function () { openAddPersonaQuick(); },
   nuevaEmpresa: function () { openAddEmpresaQuick(); },
   nuevoTalento: function () { openAddTalentoQuick(); },
@@ -1208,10 +1209,16 @@ registrarAcciones('bd', {
   restaurarArch: function (a) { var f = window[a[0]]; if (f) f(a[1]); },
   pfTalento: function () { togglePfTalento(); },
   pfCrew: function () { togglePfCrew(); },
-  invitarLink: function () { closeModal(); _invAbrirDatos(); },
+  invitarLink: function () { closeModal(); gancho('_invAbrirDatos')(); },
   pfEmpresa: function (a, el, ev) { if (ev.type === 'blur') comboboxCloseDelayed(el); else comboboxFilterEmpresas(el); },
   pfExtranjera: function () { togglePfExtranjera(); },
   pfBanco: function (a, el) { pfBancoChange(el.value); },
   archivarContacto: function (a) { archivarContactoModal(a[0]); },
   guardarPersona: function (a) { submitPersonaForm(a[0], a[1]); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('crewAddToBD', crewAddToBD);
+define('openPersonaByName', openPersonaByName);
+define('openPersonaForm', openPersonaForm);
+define('renderBDPersonas', renderBDPersonas);

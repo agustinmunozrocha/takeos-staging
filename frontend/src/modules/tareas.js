@@ -14,6 +14,7 @@ import { navigateToProject, renderMetrics, renderKanban } from './kanban.js';
 import { markDirty } from './persistencia-local.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
+import { gancho, define } from '../lib/ganchos.js';
 function ensureTareas(project) { if (!project.data.tareas) project.data.tareas = []; return project.data.tareas; }
 function ensureSenales(project) { if (!project.data.senales) project.data.senales = []; return project.data.senales; }
 function _taskId() { return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -29,7 +30,7 @@ function projectPeople(project) {
 }
 
 function userOpenTasks(user) {
-  const out = []; const u = user || currentUser();
+  const out = []; const u = user || gancho('currentUser')();
   PROJECTS.forEach(p => (ensureTareas(p)).forEach(t => { if (t.estado !== 'completada' && t.asignadoA === u) out.push({ project: p, tarea: t }); }));
   return out;
 }
@@ -38,12 +39,12 @@ function sectionTaskCount(project, seccion) { return (ensureTareas(project)).fil
 /* ── V9.6.16 · Sistema de COMUNICACIÓN (Mis tareas / Menciones / Requieren atención) ── */
 // Mis tareas ABIERTAS asignadas a mí en una sección (para el contador de la barra lateral).
 function userSectionTaskCount(project, seccion, user) {
-  const u = user || currentUser();
+  const u = user || gancho('currentUser')();
   return (ensureTareas(project)).filter(t => t.seccion === seccion && t.estado !== 'completada' && t.asignadoA === u).length;
 }
 // Menciones: comentarios (y textos de tarea) donde me etiquetaron con @, en todos los proyectos.
 function userMentions(user) {
-  const u = user || currentUser();
+  const u = user || gancho('currentUser')();
   if (!u) return [];
   const tag = '@' + u;
   const out = [];
@@ -66,7 +67,7 @@ function userMentions(user) {
 // Inyecta/actualiza el badge de mis tareas abiertas junto a cada pestaña de la barra lateral.
 function refreshSidebarTaskCounters() {
   const p = STATE.currentProject; if (!p) return;
-  const u = currentUser();
+  const u = gancho('currentUser')();
   document.querySelectorAll('.sidebar-item[data-module]').forEach(el => {
     const mod = el.getAttribute('data-module');
     const n = userSectionTaskCount(p, mod, u);
@@ -80,7 +81,7 @@ function refreshSidebarTaskCounters() {
 }
 
 export function marcarSenal(project, sig) {
-  const arr = ensureSenales(project); const visto = [currentUser()];
+  const arr = ensureSenales(project); const visto = [gancho('currentUser')()];
   const ex = arr.find(x => x.tipo === sig.tipo && x.seccion === sig.seccion);
   if (ex) { ex.ts = Date.now(); ex.vistoPor = visto; ex.descripcion = sig.descripcion || ex.descripcion; }
   else arr.push({ id: _taskId(), tipo: sig.tipo, seccion: sig.seccion, rolObjetivo: sig.rolObjetivo || null, descripcion: sig.descripcion || '', ts: Date.now(), vistoPor: visto });
@@ -96,8 +97,8 @@ function senalAplica(project, sg, user) {
   if (sg.rolObjetivo === 'JP') return ip.jefeProduccion === user;
   return false;
 }
-function userSenales(project, user) { const u = user || currentUser(); return (ensureSenales(project)).filter(sg => senalAplica(project, sg, u)); }
-function marcarSenalVista(projId, sigId) { const p = PROJECTS.find(x => x.id === projId); if (!p) return; const sg = (ensureSenales(p)).find(x => x.id === sigId); if (sg) { if (!sg.vistoPor) sg.vistoPor = []; if (sg.vistoPor.indexOf(currentUser()) === -1) sg.vistoPor.push(currentUser()); markDirty(); try { renderMetrics(); renderKanban(); } catch (e) {} } }
+function userSenales(project, user) { const u = user || gancho('currentUser')(); return (ensureSenales(project)).filter(sg => senalAplica(project, sg, u)); }
+function marcarSenalVista(projId, sigId) { const p = PROJECTS.find(x => x.id === projId); if (!p) return; const sg = (ensureSenales(p)).find(x => x.id === sigId); if (sg) { if (!sg.vistoPor) sg.vistoPor = []; if (sg.vistoPor.indexOf(gancho('currentUser')()) === -1) sg.vistoPor.push(gancho('currentUser')()); markDirty(); try { renderMetrics(); renderKanban(); } catch (e) {} } }
 
 /* projectAttentionCount, projectsNeedingAttention -> movidos a src/modules/kanban.js (Etapa 2) */
 
@@ -146,7 +147,7 @@ function openTareasModal(seccion) { if (!STATE.currentProject) return; window._t
 function _tm() { return window._tmState || { seccion: null, adjuntos: [] }; }
 function _tmFind(id) { const p = STATE.currentProject; if (!p) return null; return ensureTareas(p).find(t => t.id === id); }
 function _tmAssigneeSelect(people, current) {
-  let list = people.slice(); const u = currentUser(); if (u && list.indexOf(u) === -1) list = [u].concat(list);
+  let list = people.slice(); const u = gancho('currentUser')(); if (u && list.indexOf(u) === -1) list = [u].concat(list);
   const opts = ['<option value="">— elige a quién —</option>'].concat(list.map(n => '<option value="' + escapeHtml(n) + '"' + (n === current ? ' selected' : '') + '>' + escapeHtml(n) + (n === u ? ' (yo)' : '') + '</option>'));
   return '<select class="input" id="tmAsignado" data-accion="tm.asignado" data-on="change">' + opts.join('') + '</select>';
 }
@@ -183,7 +184,7 @@ function renderTareasModal() {
   const list = tareas.length ? tareas.map(t => _tmTaskHtml(project, t, people)).join('') : '<div class="tm-empty">Sin tareas en esta sección todavía.</div>';
   const root = document.getElementById('modalRoot');
   root.innerHTML = '<div class="modal-backdrop"><div class="modal" style="max-width:640px;width:94vw;max-height:88vh;overflow:auto;">' +
-    '<div class="modal-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><div><div class="modal-title">Tareas \u00b7 ' + escapeHtml(secLabel) + '</div><div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">' + escapeHtml(project.name) + ' \u00b7 viendo como <strong>' + escapeHtml(currentUser()) + '</strong></div></div><button class="go-x" data-accion="ui.cerrar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">\u00d7</button></div>' +
+    '<div class="modal-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><div><div class="modal-title">Tareas \u00b7 ' + escapeHtml(secLabel) + '</div><div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">' + escapeHtml(project.name) + ' \u00b7 viendo como <strong>' + escapeHtml(gancho('currentUser')()) + '</strong></div></div><button class="go-x" data-accion="ui.cerrar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">\u00d7</button></div>' +
     '<div class="modal-body">' + createForm + '<div class="tm-list">' + list + '</div></div>' +
     '<div class="modal-footer"><button class="btn" data-accion="ui.cerrar">Cerrar</button></div></div></div>';
 }
@@ -221,7 +222,7 @@ async function tmAddFiles(files) {
 function tmRemoveAtt(i) { const st = _tm(); const a = (st.adjuntos || [])[i]; if (a && a.path && sb && sb.storage) { try { sb.storage.from(STORAGE_BUCKET_ADJUNTOS).remove([a.path]); } catch (e) {} } (st.adjuntos || []).splice(i, 1); renderTareasModal(); }
 function _tmPush(project, st, texto, asignado) {
   if (!_puedeEditarTareas()) { showToast({ kind: 'info', title: 'Solo lectura', body: 'Tu perfil no puede crear tareas en esta sección.' }); return; }   // V10.5.2
-  ensureTareas(project).push({ id: _taskId(), seccion: st.seccion, texto: texto, asignadoA: asignado, creadoPor: currentUser(), estado: 'pendiente', adjuntos: (st.adjuntos || []).slice(), comentarios: [], creadaTs: Date.now() });
+  ensureTareas(project).push({ id: _taskId(), seccion: st.seccion, texto: texto, asignadoA: asignado, creadoPor: gancho('currentUser')(), estado: 'pendiente', adjuntos: (st.adjuntos || []).slice(), comentarios: [], creadaTs: Date.now() });
   st.asignado = ''; st.adjuntos = []; markDirty();
   showToast({ kind: 'success', title: 'Tarea creada', body: 'Asignada a ' + escapeHtml(asignado) + '. El aviso real a la persona llega con el backend.' });
   renderTareasModal(); refreshSectionTareasBadge();
@@ -238,15 +239,15 @@ function tmSelfAssign() {
   const project = STATE.currentProject; const st = _tm();
   const txtEl = document.getElementById('tmNuevoTexto'); const texto = txtEl ? txtEl.value.trim() : '';
   if (!texto) { showToast({ kind: 'warning', title: 'Falta la tarea', body: 'Escribe en qué consiste la tarea.' }); return; }
-  _tmPush(project, st, texto, currentUser());
+  _tmPush(project, st, texto, gancho('currentUser')());
 }
 function tmToggle(id) { if (!_puedeEditarTareas()) return; const t = _tmFind(id); if (t) { t.estado = t.estado === 'completada' ? 'pendiente' : 'completada'; markDirty(); renderTareasModal(); refreshSectionTareasBadge(); } }
 function tmToggleExpand(id) { const st = _tm(); st.expanded = st.expanded === id ? null : id; renderTareasModal(); }
-function tmAddComentario(id) { if (!_puedeEditarTareas()) return; const t = _tmFind(id); if (!t) return; const el = document.getElementById('tmCom_' + id); const v = el ? el.value.trim() : ''; if (!v) return; if (!t.comentarios) t.comentarios = []; t.comentarios.push({ id: _taskId(), autor: currentUser(), texto: v, ts: new Date().toLocaleString('es-CL') }); markDirty(); renderTareasModal(); }
+function tmAddComentario(id) { if (!_puedeEditarTareas()) return; const t = _tmFind(id); if (!t) return; const el = document.getElementById('tmCom_' + id); const v = el ? el.value.trim() : ''; if (!v) return; if (!t.comentarios) t.comentarios = []; t.comentarios.push({ id: _taskId(), autor: gancho('currentUser')(), texto: v, ts: new Date().toLocaleString('es-CL') }); markDirty(); renderTareasModal(); }
 function refreshSectionTareasBadge() { if (STATE.currentView === 'project' && STATE.currentModule) { try { renderModule(STATE.currentModule); } catch (e) {} try { refreshSidebarTaskCounters(); } catch (e) {} } }
 function renderMisTareas() {
   const el = document.getElementById('crTareasPanel'); if (!el) return;
-  const u = currentUser();
+  const u = gancho('currentUser')();
   const e = escapeHtml;
   const modTitle = (sec) => e((MODULES[sec] && MODULES[sec].title) || sec);
 
@@ -308,9 +309,7 @@ window.marcarSenal = marcarSenal;
 window.mentionBlur = mentionBlur;
 window.mentionInput = mentionInput;
 window.openTareasModal = openTareasModal;
-window.refreshSidebarTaskCounters = refreshSidebarTaskCounters;
 window.renderMisTareas = renderMisTareas;
-window.sectionTaskCount = sectionTaskCount;
 window.userSenales = userSenales;
 
 // D2 · acciones delegadas
@@ -332,3 +331,10 @@ registrarAcciones('tm', {
   crtSenal: function (a) { crtGoSenal(a[0], a[1]); },
   senalVista: function (a) { marcarSenalVista(a[0], a[1]); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('mentionBlur', mentionBlur);
+define('mentionInput', mentionInput);
+define('openTareasModal', openTareasModal);
+define('refreshSidebarTaskCounters', refreshSidebarTaskCounters);
+define('sectionTaskCount', sectionTaskCount);

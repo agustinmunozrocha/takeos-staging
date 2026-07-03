@@ -15,6 +15,7 @@ import { dalTouchProyecto } from './dal.js';
 import { collectApprovalBlockers, renderInfoProyecto } from './info-proyecto.js';
 
 import '../lib/delegacion.js';
+import { define } from '../lib/ganchos.js';
 /* V11.3.0 · la contraseña compartida del Modo Admin fue eliminada. El permiso
    depende del perfil (solo Administrador); el modo se mantiene como barrera
    operacional consciente, con advertencia, no como autenticación. */
@@ -391,3 +392,9 @@ window.exportSupabaseBackup = exportSupabaseBackup;
 window.requestAdminPassword = requestAdminPassword;
 window.toggleAdminMode = toggleAdminMode;
 window.updateProjectState = updateProjectState;
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('_puedeModoAdmin', _puedeModoAdmin);
+define('exportSupabaseBackup', exportSupabaseBackup);
+define('toggleAdminMode', toggleAdminMode);
+define('updateProjectState', updateProjectState);

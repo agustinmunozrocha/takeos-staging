@@ -18,13 +18,10 @@ import { dalBootContactos, dalBootLegal, dalBootLocaciones, dalBootPerfil, dalBo
 import { openGlobalCFO } from '../modules/gastos.js';
 
 import { registrarAcciones } from './delegacion.js';
-import { ESPACIO_DEMO, _espConstruir, _espInyectarCtaProductora, _espInyectarHerramientas, _espInyectarInvitaciones, _swToggle, renderEspacioUsuario } from '../modules/espacio.js';
-import { _configPanelOpen, _cpTourInicialQuizas, _pdCookiesBootCheck, abrirFlujoCrearProductora, closeConfigPanel, openConfigPanel } from '../modules/config.js';
 import { _gsearchHide, globalSearchInput, globalSearchKey } from '../modules/buscador.js';
-import { abrirInvitacionRecibida } from '../modules/invitaciones.js';
-import { abrirPerfilUsuario } from '../modules/perfil-onboarding.js';
 import { navigateToModule } from './nav.js';
 import { openTrash } from '../modules/info-proyecto.js';
+import { gancho, valor, define } from './ganchos.js';
 function currentUser() {
   if (USUARIO_ACTUAL && String(USUARIO_ACTUAL).trim()) return USUARIO_ACTUAL;
   const ep = (typeof EMPRESA_PERFIL !== 'undefined') ? EMPRESA_PERFIL : {};
@@ -63,7 +60,7 @@ function setCurrentUser(name) { setUsuarioActual(name || ''); try { localStorage
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === ',') {
     e.preventDefault();
-    _configPanelOpen() ? closeConfigPanel() : openConfigPanel();
+    gancho('_configPanelOpen')()() ? gancho('closeConfigPanel')() : gancho('openConfigPanel')();
   }
   if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
     const ae = document.activeElement;
@@ -215,7 +212,7 @@ export function _bootCoverHide(){ try{ clearTimeout(window._bootCoverTO); }catch
 /* Render seguro cuando NO hay empresa confirmada: el Panel Personal cubre el
    Control Room. Jamás cae al Control Room. */
 function _renderEspacioSeguro(email){
-  try{ renderEspacioUsuario(_espConstruir([], email || '')); }
+  try{ gancho('renderEspacioUsuario')(gancho('_espConstruir')([], email || '')); }
   catch(e){ _bootCoverHide(); }
 }
 // DAL LECTORES: _SOURCE flags (ahora window, lib/state.js), DAL_KNOWN_*, _dal*Map, dalLoadTanda1, dalApplyTanda1, dalBootContactos, dalBootPersonasExternos, dalBulkFrozen, dalLoad/Apply/BootLocaciones, dalLoad/Apply/BootLegal → movido a src/modules/dal.js (Etapa B1)
@@ -577,15 +574,15 @@ export function arrancarTakeOS() {
      jamás se entra al Control Room (se re-deriva la vista correcta). */
   var _pend = false; try { _pend = !!sessionStorage.getItem('takeos_ir_proyecto'); } catch (e) {}
   if (!_TIENE_EMPRESA && !_pend) { resolverEspacioYArrancar(); return; }
-  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootPersonasExternos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} }).then(function(){ try { _cpTourInicialQuizas(); } catch (e) {} }).then(function(){ try { setTimeout(_pdCookiesBootCheck, 1200); } catch (e) {} }).catch(function(e){ console.error('[boot] cadena dal interrumpida', e); try { _bootCoverHide(); } catch (_) {} });
+  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootPersonasExternos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} }).then(function(){ try { gancho('_cpTourInicialQuizas')(); } catch (e) {} }).then(function(){ try { setTimeout(_pdCookiesBootCheck, 1200); } catch (e) {} }).catch(function(e){ console.error('[boot] cadena dal interrumpida', e); try { _bootCoverHide(); } catch (_) {} });
 }
 
-// _espIniciales, _espSello, _titleCaseNombre, ESPACIO_DEMO, _espConstruir, _espCargarConteos → movido a src/modules/espacio.js (Etapa C4)
+// _espIniciales, _espSello, _titleCaseNombre, valor('ESPACIO_DEMO'), _espConstruir, _espCargarConteos → movido a src/modules/espacio.js (Etapa C4)
 
 export async function resolverEspacioYArrancar(){
   const forzar = /[?&]espacio=1\b/.test(window.location.search);
   const demo   = /[?&]espacio=demo\b/.test(window.location.search);
-  if (demo) { try { renderEspacioUsuario(ESPACIO_DEMO); return; } catch(e){ arrancarTakeOS(); return; } }
+  if (demo) { try { gancho('renderEspacioUsuario')(valor('ESPACIO_DEMO')); return; } catch(e){ arrancarTakeOS(); return; } }
   /* FRENTE A · A1 · disparador del flujo de creación de productora:
      ?plan=<gratis|rodaje|produccion>. El plan llega ya elegido desde la landing.
      Se limpia de la URL para que cerrar/cancelar el flujo no lo vuelva a disparar.
@@ -598,7 +595,7 @@ export async function resolverEspacioYArrancar(){
         const _qs = window.location.search.replace(/[?&]plan=[^&]*/, '').replace(/^&/, '?');
         history.replaceState(null, '', window.location.pathname + (_qs === '?' ? '' : _qs));
       } catch (e) {}
-      abrirFlujoCrearProductora(_plan);
+      gancho('abrirFlujoCrearProductora')(_plan);
       return;
     }
   } catch (e) {}
@@ -612,7 +609,7 @@ export async function resolverEspacioYArrancar(){
     // V11.3.0 · link de invitación pendiente: va directo a la pantalla de invitación.
     let _invTok = null;
     try { _invTok = sessionStorage.getItem('takeos_inv_pendiente'); } catch (e) {}
-    if (_invTok) { abrirInvitacionRecibida(_invTok); return; }
+    if (_invTok) { gancho('abrirInvitacionRecibida')(_invTok); return; }
     const res = await client.from('memberships')
       .select('organization_id, tipo, profile_id, estado, organizations(nombre)')
       .eq('user_id', uid).eq('estado','activo');
@@ -624,13 +621,13 @@ export async function resolverEspacioYArrancar(){
     // V11.3.0 · bandeja interna: invitaciones pendientes del usuario.
     let _invs = [];
     try { const ir = await client.rpc('mis_invitaciones'); if (!ir.error && Array.isArray(ir.data)) _invs = ir.data; } catch (e) {}
-    if (rows.length === 0) { renderEspacioUsuario(_espConstruir([], email)); _espInyectarInvitaciones(_invs); _espInyectarHerramientas(); _espInyectarCtaProductora(); return; }  // cuenta sin productora aún (land-and-expand)
+    if (rows.length === 0) { gancho('renderEspacioUsuario')(gancho('_espConstruir')([], email)); gancho('_espInyectarInvitaciones')(_invs); gancho('_espInyectarHerramientas')(); gancho('_espInyectarCtaProductora')(); return; }  // cuenta sin productora aún (land-and-expand)
     if (rows.length === 1 && !forzar && _invs.length === 0 && rows[0].tipo !== 'externo') { setTieneEmpresa(true); _bootCoverShow('Entrando a tu productora…'); _setOrgActiva(rows[0].organization_id); arrancarTakeOS(); return; }   // un interno único entra directo a su productora
     /* V11.9.7 · un externo opera desde su Panel Personal: ve sus proyectos y
        entra directo a ellos. Nunca aterriza en el Control Room de la productora. */
-    renderEspacioUsuario(_espConstruir(rows, email));
-    _espInyectarInvitaciones(_invs);
-    _espInyectarHerramientas();
+    gancho('renderEspacioUsuario')(gancho('_espConstruir')(rows, email));
+    gancho('_espInyectarInvitaciones')(_invs);
+    gancho('_espInyectarHerramientas')();
   } catch (e) {
     _renderEspacioSeguro('');   // V11.13.0 · ante cualquier problema, Panel Personal, NUNCA Control Room
   }
@@ -657,7 +654,7 @@ async function iniciarSesionTakeOS() {
         if (pr.error) console.warn('[perfil] no se pudo verificar el perfil personal; se omite el onboarding', pr.error);
         if (!pr.error && pr && pr.data) { setUserNombre(String(pr.data.nombre || '').trim()); setUserApellido(String(pr.data.apellido || '').trim()); try { aplicarUsuario(); } catch (e) {} }
         if (!pr.error && (!pr || !pr.data)) {
-          abrirPerfilUsuario(true, function () { resolverEspacioYArrancar(); });
+          gancho('abrirPerfilUsuario')(true, function () { resolverEspacioYArrancar(); });
           return;
         }
       }
@@ -720,13 +717,13 @@ registrarAcciones('boot', {
 registrarAcciones('app', {
   modulo: function (a, el) { navigateToModule(el.dataset.module); },
   controlRoom: function () { navigateToControlRoom(); },
-  swToggle: function (a, el, ev) { _swToggle(ev); },
+  swToggle: function (a, el, ev) { gancho('_swToggle')(ev); },
   buscar: function (a, el, ev) {
     if (ev.type === 'keydown') globalSearchKey(ev);
     else if (ev.type === 'blur') setTimeout(_gsearchHide, 160);
     else globalSearchInput(el.value);
   },
-  config: function () { openConfigPanel(); },
+  config: function () { gancho('openConfigPanel')(); },
   undo: function () { undoLast(); },
   importSave: function (a, el) { importSaveFromInput(el); },
   bell: function () { bellToggle(); },
@@ -738,3 +735,15 @@ registrarAcciones('app', {
   cfo: function () { openGlobalCFO(); },
   nuevoProyecto: function () { newProject(); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('_bootCoverHide', _bootCoverHide);
+define('_firstVisibleModule', _firstVisibleModule);
+define('_setOrgActiva', _setOrgActiva);
+define('aplicarMarcaOrg', aplicarMarcaOrg);
+define('applyModuleReadonly', applyModuleReadonly);
+define('applyPermisosUI', applyPermisosUI);
+define('currentUser', currentUser);
+define('orgNombre', orgNombre);
+define('renderTopbarUser', renderTopbarUser);
+define('setCurrentUser', setCurrentUser);

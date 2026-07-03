@@ -6,6 +6,7 @@ import { STATE } from '../lib/state.js';
 import { showModal } from '../lib/ui.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
+import { define } from '../lib/ganchos.js';
 /* ════════════════════════════════════════════════════════════════════
    ════════════════════════════════════════════════════════════════════
    V5.3 · CAPA 3 — MÓDULO: RODAJES
@@ -227,3 +228,6 @@ registrarAcciones('rodajes', {
   activo: function (a, el) { toggleRodajeActivo(a[0], el.checked); },
   borrar: function (a) { deleteRodaje(a[0]); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('renderRodajes', renderRodajes);

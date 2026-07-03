@@ -11,6 +11,7 @@ import { _setOrgActiva, _bootCoverShow, arrancarTakeOS, resolverEspacioYArrancar
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { setTieneEmpresa, ORG_ID } from '../lib/state.js';
+import { define } from '../lib/ganchos.js';
 /* ════════════════════════════════════════════════════════════════════
    V11.3.0 · SISTEMA DE INVITACIONES (frontend)
    ════════════════════════════════════════════════════════════════════
@@ -211,3 +212,6 @@ registrarAcciones('inv', {
   rechazar: function (a) { invRechazar(a[0]); },
   aceptar: function (a) { invAceptar(a[0], a[1]); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('abrirInvitacionRecibida', abrirInvitacionRecibida);

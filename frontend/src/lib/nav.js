@@ -9,10 +9,11 @@ import { STATE } from './state.js';
 import { authPuedeVer } from './auth.js';
 import { sectionResponsableHTML } from './ui.js';
 
+import { gancho } from './ganchos.js';
 export function navigateToModule(moduleKey) {
   // V10.4.0 (Gate B): no navegar a módulos sin acceso; caer al primero visible
   if (!authPuedeVer(moduleKey)) {
-    const first = _firstVisibleModule();
+    const first = gancho('_firstVisibleModule')();
     showToast({ kind: 'warning', title: 'Sin acceso', body: 'Tu perfil no tiene acceso a este módulo.' });
     if (first && first !== moduleKey) return navigateToModule(first);
     return;
@@ -26,8 +27,8 @@ export function navigateToModule(moduleKey) {
 
   // Render module
   renderModule(moduleKey);
-  try { refreshSidebarTaskCounters(); } catch (e) {}   // V9.6.16
-  _lastViewSave();   // V11.15.0 · FRENTE B (proyecto + pestaña)
+  try { gancho('refreshSidebarTaskCounters')(); } catch (e) {}   // V9.6.16
+  gancho('_lastViewSave')();   // V11.15.0 · FRENTE B (proyecto + pestaña)
   document.querySelector('.module-main').scrollTop = 0;
 }
 
@@ -51,7 +52,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Identidad',
     layer: 'Implementado · V5 Capa 2',
     scope: 'project',  // necesita un proyecto activo
-    render: () => renderInfoProyecto(),
+    render: () => gancho('renderInfoProyecto')(),
     description: 'Identidad del proyecto, cliente, agencia, equipo asignado y resumen financiero alimentado desde Presupuesto.'
   },
   'bd-personas': {
@@ -60,7 +61,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Personas',
     layer: 'Implementado · V5 Capa 2',
     scope: 'global',  // BD es transversal a todos los proyectos
-    render: () => renderBDPersonas(),
+    render: () => gancho('renderBDPersonas')(),
     description: 'Repositorio único transversal a todos los proyectos: personas, empresas, talentos, locaciones y futuras entidades. Alimenta Info Proyecto, Presupuesto, Crew, Locaciones y Legal con datos básicos, tributarios y operativos.'
   },
   'presupuesto': {
@@ -69,7 +70,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Presupuesto',
     layer: 'Implementado · V5 Capa 2 (bug del Enter corregido)',
     scope: 'project',
-    render: () => renderPresupuesto(),
+    render: () => gancho('renderPresupuesto')(),
     description: 'Roles, personas, valores, DTE, cantidades, confirmaciones. Aquí nace el equipo del proyecto. Renders granulares: los cambios numéricos NO disparan re-render completo.'
   },
   'crew': {
@@ -78,7 +79,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Equipo',
     layer: 'Implementado · V5 Capa 2',
     scope: 'project',
-    render: () => renderCrew(),
+    render: () => gancho('renderCrew')(),
     description: 'Espejo automático del Presupuesto (solo confirmados con nombre asignado). Auto-lookup desde BD de Personas para datos operativos.'
   },
   'cargos': {
@@ -87,7 +88,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Equipo',
     layer: 'Implementado · V11.2 Capa 1 (persistencia provisional)',
     scope: 'project',
-    render: () => renderCargos(),
+    render: () => gancho('renderCargos')(),
     description: 'Capa de asignación sobre el Crew: cargo, persona, tipo (interno/externo) y perfil de acceso. El envío real de invitaciones a externos se activa con el sistema de invitaciones (Auth + Legal).'
   },
   'rodajes': {
@@ -96,7 +97,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Producción',
     layer: 'Implementado · V5.3 Capa 3',
     scope: 'project',
-    render: () => renderRodajes(),
+    render: () => gancho('renderRodajes')(),
     description: 'Cada día tiene fecha, estado, descripción e identificador único. Soporta múltiples días, activación y desactivación sin eliminar. Vinculado con Hoja de Llamado.'
   },
   'locaciones': {
@@ -105,7 +106,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Producción',
     layer: 'Implementado · V8.2 Capa 3',
     scope: 'project',
-    render: () => renderLocaciones(),
+    render: () => gancho('renderLocaciones')(),
     description: 'Fuente de verdad de las locaciones del proyecto. Repositorio con galería de fotos comprimidas y estados (Candidata/Confirmada/Descartada), más un Plan de Scouting. Las locaciones canónicas viven en la BD de Locaciones (transversal); el proyecto guarda solo su uso.'
   },
   'hoja-llamado': {
@@ -114,7 +115,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Producción',
     layer: 'Implementado · V5.3 Capa 3',
     scope: 'project',
-    render: () => renderHojaLlamado(),
+    render: () => gancho('renderHojaLlamado')(),
     description: 'Combina datos automáticos (crew, contactos, fechas) con input manual (call times, locaciones, notas). Se exporta como PDF para distribución y se versiona cuando hay cambios.'
   },
   'plan-rodaje': {
@@ -123,7 +124,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Producción',
     layer: 'Implementado · V7.6 (editor y motor; export PDF en camino)',
     scope: 'project',
-    render: () => renderPlanRodaje(),
+    render: () => gancho('renderPlanRodaje')(),
     description: 'Un plan por día de rodaje (Plan A / Plan B). Filas Plano · Situación · Marcador, anclas con detección de choque, paralelos que no mueven el reloj, columnas modulares, banco de planos y versión por documento. La cabecera se alimenta de Info Proyecto, RODAJES y Hoja de Llamado.'
   },
   'legal': {
@@ -132,7 +133,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Legal',
     layer: 'Implementado · V8.3 Capa 3',
     scope: 'project',
-    render: () => renderLegal(),
+    render: () => gancho('renderLegal')(),
     description: 'Genera documentos legales desde plantillas fijas, autollenando variables desde la BD de Personas, el Presupuesto, Info Proyecto y el bloque Derechos. Ciclo de vida Borrador→Generado→Enviado→Firmado, versionado, export a PDF con marca y archivo trazable. Los documentos viven en la BD de Legal (transversal).'
   },
   'correos': {
@@ -150,7 +151,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Creative Hub',
     layer: 'Implementado · V6.7 (registro por link)',
     scope: 'project',
-    render: () => renderDocumentos(),   // arrow diferido (C1): referencia directa evaluaba en parse-time y renderDocumentos ya vive en documentos.js
+    render: () => gancho('renderDocumentos')(),   // arrow diferido (C1): referencia directa evaluaba en parse-time y renderDocumentos ya vive en documentos.js
     description: 'Repositorio central que reemplaza el rol de Milanote/Excel para documentos creativos y estratégicos del proyecto.'
   },
   'gastos': {
@@ -177,7 +178,7 @@ export const MODULES = {   // window.MODULES se asigna al cierre de la definici�
     eyebrow: 'Venta',
     layer: 'Implementado · V6.5',
     scope: 'project',
-    render: () => renderCotizacion(),
+    render: () => gancho('renderCotizacion')(),
     description: 'Una o varias ofertas (packs) por proyecto. Cada oferta tiene su valor, qué incluye / qué NO, entregables y, opcionalmente, un presupuesto alternativo costeable internamente para saber si es rentable. La Carta de Cotización en PDF llega en V6.1.'
   },
   'reporte-cierre': {
@@ -241,7 +242,7 @@ export function renderModule(key) {
         <span class="stub-tag">${m.layer}</span>
       </div>`;
   }
-  try { applyModuleReadonly(key); } catch (e) {}   // V10.4.0 (Gate B): solo-lectura si nivel 'L'
+  try { gancho('applyModuleReadonly')(key); } catch (e) {}   // V10.4.0 (Gate B): solo-lectura si nivel 'L'
 }
 
 // ── Window bridges (3 barridos func+const) ──

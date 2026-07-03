@@ -25,6 +25,7 @@ import { _dalLegalDocSaveSoon, _dalLegalTplSaveSoon, dalEliminarLegalDoc, dalEli
 import { markDirty, autosaveNow } from './persistencia-local.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
+import { define } from '../lib/ganchos.js';
 /* ════════════════════════════════════════════════════════════════════
    V8.3 · MÓDULO LEGAL
    Genera, versiona y archiva documentos legales (cesión de derechos,
@@ -946,3 +947,7 @@ registrarAcciones('lgl', {
   ov: function (a, el) { legalGenSetOv(a[0], el.value); },
   money: function (a, el) { legalMoneyInput(el, a[0]); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('legalRep', legalRep);
+define('renderLegal', renderLegal);

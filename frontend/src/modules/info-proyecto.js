@@ -19,6 +19,7 @@ import { markDirty } from './persistencia-local.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { navigateToModule } from '../lib/nav.js';
+import { gancho, define } from '../lib/ganchos.js';
 /* ════════════════════════════════════════════════════════════════════
    ════════════════════════════════════════════════════════════════════
    MÓDULO: INFO PROYECTO
@@ -585,7 +586,12 @@ registrarAcciones('info', {
   nombre: function (a, el) { updateInfoField('nombreProyecto', el.value); updateProjectHeader(); },
   derechos: function (a, el) { updateDerechos(a[0], el.value); },
   irCargos: function () { navigateToModule('cargos'); },
-  estado: function (a, el) { updateProjectState(el.value); },
+  estado: function (a, el) { gancho('updateProjectState')(el.value); },
   borrarProy: function (a) { deleteProjectFlow(a[0]); },
   restaurar: function (a) { restoreFromTrash(a[0]); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('_markRowDirty', _markRowDirty);
+define('renderInfoProyecto', renderInfoProyecto);
+define('updateInfoField', updateInfoField);

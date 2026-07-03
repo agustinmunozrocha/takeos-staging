@@ -10,6 +10,7 @@ import { dalTouchProyecto } from './dal.js';
 import { markDirty, autosaveNow } from './persistencia-local.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
+import { define } from '../lib/ganchos.js';
 /* ════════════════════════════════════════════════════════════════════
    V6.7 — MÓDULO DOCUMENTOS / CREATIVE HUB (V1)
    Centro documental del proyecto: reemplaza el rol de Milanote/Excel para
@@ -219,3 +220,6 @@ registrarAcciones('doc', {
   quitar: function (a) { docRemoveArchivo(a[0]); },
   adjuntar: function (a, el) { docAttachPDF(a[0], el); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('renderDocumentos', renderDocumentos);

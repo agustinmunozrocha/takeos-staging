@@ -29,6 +29,7 @@ import { _lastViewLeer, navigateToControlRoom, navigateToProject, renderKanban, 
 import { bdLocFind, renderLocaciones } from './locaciones.js';
 import { openGlobalBDPersonas, renderBDPersonas } from './bd.js';
 import { renderLegal } from './legal.js';
+import { gancho, define } from '../lib/ganchos.js';
 export async function dalCargarCargos(project) {
   if (!project || project.data._cargosOK) return;
   if (!sb || PROJECTS_SOURCE !== 'supabase') { project.data._cargosOK = true; return; }
@@ -40,11 +41,11 @@ export async function dalCargarCargos(project) {
     const rows = r.data || [];
     if (rows.length === 0) {
       let st = null;
-      try { st = JSON.parse(localStorage.getItem(_cargosKey(project)) || 'null'); } catch (e) { st = null; }
+      try { st = JSON.parse(localStorage.getItem(gancho('_cargosKey')(project)) || 'null'); } catch (e) { st = null; }
       if (Array.isArray(st) && st.length) {
         project.data.cargos = st;
         const ok = await dalGuardarCargos(project);
-        if (ok) { try { localStorage.removeItem(_cargosKey(project)); } catch (e) {} }
+        if (ok) { try { localStorage.removeItem(gancho('_cargosKey')(project)); } catch (e) {} }
         project.data._cargosOK = true;
         return;
       }
@@ -57,7 +58,7 @@ export async function dalCargarCargos(project) {
       });
     }
     project.data._cargosOK = true;
-    _cargosDerivarRECI(project);
+    gancho('_cargosDerivarRECI')(project);
   } catch (e) {
     console.error('[dal] cargar cargos', e);
     project.data._cargosOK = true;   // no bloquea el render; queda vacío en memoria
@@ -70,7 +71,7 @@ export async function dalGuardarCargos(project) {
     const payload = (project.data.cargos || []).map(function (c) {
       return { id: c.id, cargo: c.cargo, custom: !!c.custom, personaNombre: c.personaNombre || '',
                tipo: c.tipo, perfil: c.perfil || '', estado: c.estado,
-               contactId: c.contactId || _cargoContactIdPorNombre(c.personaNombre),
+               contactId: c.contactId || gancho('_cargoContactIdPorNombre')(c.personaNombre),
                invitedUserId: c.invitedUserId || null };
     });
     const { error } = await sb.rpc('guardar_cargos', { p_project_id: project.id, p_cargos: payload });
@@ -449,7 +450,7 @@ function dalApplyPerfil(profile, nombreCanonico) {
      canónico de la organización (organizations.nombre). */
   if (!(String(EMPRESA_PERFIL.nombreFicticio || '').trim()) && nombreCanonico) EMPRESA_PERFIL.nombreFicticio = nombreCanonico;
   setSource('perfil', 'supabase');
-  try { aplicarMarcaOrg(); } catch (e) {}
+  try { gancho('aplicarMarcaOrg')(); } catch (e) {}
 }
 export async function dalBootPerfil(opts) {
   const silent = opts && opts.silent;
@@ -490,7 +491,7 @@ export async function dalResolveIdentidad() {
       if (uidCache && uidCache !== DAL_SESSION_UID) {
         setUsuarioActual(''); window.__TAKEOS_USER = '';
         try { localStorage.removeItem('takeos_usuario_actual'); } catch (e) {}
-        try { renderTopbarUser(); } catch (e) {}
+        try { gancho('renderTopbarUser')(); } catch (e) {}
       }
     } catch (e) {}
     /* V11.9.2 · BUG-6 · la identidad del header sale del PROPIO perfil del
@@ -509,7 +510,7 @@ export async function dalResolveIdentidad() {
     if (!nombreReal && DAL_SESSION_EMAIL) {
       Object.keys(BD_CONTACTOS).forEach(id => { const c = BD_CONTACTOS[id]; if (c && (c.email || '').toLowerCase() === DAL_SESSION_EMAIL && c.nombre) nombreReal = c.nombre; });
     }
-    if (nombreReal) { setCurrentUser(nombreReal); window.__TAKEOS_USER = nombreReal; try { localStorage.setItem('takeos_usuario_uid', DAL_SESSION_UID || ''); } catch (e) {} try { renderTopbarUser(); } catch (e) {} }
+    if (nombreReal) { gancho('setCurrentUser')(nombreReal); window.__TAKEOS_USER = nombreReal; try { localStorage.setItem('takeos_usuario_uid', DAL_SESSION_UID || ''); } catch (e) {} try { gancho('renderTopbarUser')(); } catch (e) {} }
   } catch (e) { console.error('[dal] identidad', e); }
 }
 
@@ -554,7 +555,7 @@ export async function dalLoadPermisos() {
     setTakeosPerfil({ codigo: pp.codigo || null, nombre: pp.nombre || '', tipo: mem.tipo || '', profileId: mem.profile_id || null, contactId: mem.contact_id || null });
     // Nombre real desde el contacto vinculado (más confiable que el email)
     if (mem.contact_id && BD_CONTACTOS[mem.contact_id] && BD_CONTACTOS[mem.contact_id].nombre) {
-      setCurrentUser(BD_CONTACTOS[mem.contact_id].nombre);
+      gancho('setCurrentUser')(BD_CONTACTOS[mem.contact_id].nombre);
       window.__TAKEOS_USER = BD_CONTACTOS[mem.contact_id].nombre;
     }
     // Matriz de permisos del perfil
@@ -567,8 +568,8 @@ export async function dalLoadPermisos() {
     const acc = {};
     (perms || []).forEach(function (p) { acc[p.modulo] = p.nivel; });
     setTakeosAcceso(Object.keys(acc).length ? acc : null);
-    renderTopbarUser();
-    applyPermisosUI();
+    gancho('renderTopbarUser')();
+    gancho('applyPermisosUI')();
   } catch (e) {
     console.warn('[auth] permisos no cargados (fail-open):', e);
     // fail-open: no se restringe nada
@@ -1155,7 +1156,7 @@ export function _dalProyectoPartes(p) {
 
   const info = {
     cliente: cliente, clienteEmpresaId: com.cliente_empresa_id || '', agencia: agencia,
-    nombreProyecto: p.nombre_proyecto || '', servicio: p.servicio || 'Producción', productora: p.productora || orgNombre(),
+    nombreProyecto: p.nombre_proyecto || '', servicio: p.servicio || 'Producción', productora: p.productora || gancho('orgNombre')(),
     derechos: { tiempo: com.derechos_tiempo || '', plataformas: com.derechos_plataformas || '', territorio: com.derechos_territorio || '' },
     contactoCliente: com.contacto_cliente || '', mailContactoCliente: com.mail_contacto_cliente || '', telefonoContactoCliente: com.telefono_contacto_cliente || '',
     contactoAgencia: com.contacto_agencia || '', mailContactoAgencia: com.mail_contacto_agencia || '', telefonoContactoAgencia: com.telefono_contacto_agencia || '',
@@ -1313,8 +1314,8 @@ export async function dalBootProyectos() {
   const _ep = _dalEpoca();
   const rows = await dalLoadProyectos();
   if (_ep !== _dalEpoca()) return;                    // cadena obsoleta: no aplica ni toca el veil (la cadena vigente lo cierra)
-  if (!rows) { try { renderMetrics(); renderKanban(); } catch (e) {} _bootCoverHide(); return; }   // error o sin red -> se pinta el estado actual (post-reset: tablero vacío honesto, no fantasmas de la org anterior)
-  if (!rows.length) { setSource('projects', 'supabase'); try { renderMetrics(); renderKanban(); } catch (e) {} _bootCoverHide(); return; }   // org sin proyectos: la nube respondió -> escritura habilitada y tablero vacío real (sin esto el flag quedaba 'pending' y nada sincronizaba)
+  if (!rows) { try { renderMetrics(); renderKanban(); } catch (e) {} gancho('_bootCoverHide')(); return; }   // error o sin red -> se pinta el estado actual (post-reset: tablero vacío honesto, no fantasmas de la org anterior)
+  if (!rows.length) { setSource('projects', 'supabase'); try { renderMetrics(); renderKanban(); } catch (e) {} gancho('_bootCoverHide')(); return; }   // org sin proyectos: la nube respondió -> escritura habilitada y tablero vacío real (sin esto el flag quedaba 'pending' y nada sincronizaba)
   let aplicados = 0;
   rows.forEach(function(p){
     const partes = _dalProyectoPartes(p);
@@ -1335,8 +1336,8 @@ export async function dalBootProyectos() {
     var _irA = sessionStorage.getItem('takeos_ir_proyecto');
     if (_irA) {
       sessionStorage.removeItem('takeos_ir_proyecto');
-      if (PROJECTS.find(function (x) { return x.id === _irA; })) { setTimeout(function () { try { navigateToProject(_irA); } catch (e) {} try { _bootCoverHide(); } catch (e) {} }, 60); }
-      else { _bootCoverHide(); }
+      if (PROJECTS.find(function (x) { return x.id === _irA; })) { setTimeout(function () { try { navigateToProject(_irA); } catch (e) {} try { gancho('_bootCoverHide')(); } catch (e) {} }, 60); }
+      else { gancho('_bootCoverHide')(); }
     } else {
       /* V11.15.0 · B2: restaurar la vista donde estaba el usuario antes de recargar.
          takeos_ir_proyecto (entrada desde Panel) tiene prioridad y ya se procesó arriba.
@@ -1352,12 +1353,12 @@ export async function dalBootProyectos() {
           if (_lv.module && _lv.module !== 'info-proyecto') {
             try { navigateToModule(_lv.module); } catch (e2) {}
           }
-          try { _bootCoverHide(); } catch (e) {}
+          try { gancho('_bootCoverHide')(); } catch (e) {}
         }, 60);
       } else if (_lv && _lv.org === ORG_ID && _lv.view === 'bd-global') {
         setTimeout(function () {
           try { openGlobalBDPersonas(); } catch (e) {}
-          try { _bootCoverHide(); } catch (e) {}
+          try { gancho('_bootCoverHide')(); } catch (e) {}
         }, 60);
       } else {
         /* D0 · la vista guardada viene de OTRA organización (cambio de org desde
@@ -1365,10 +1366,10 @@ export async function dalBootProyectos() {
            la vista activa en pantalla es un fantasma de la org anterior (con sus
            nombres). Navegamos al Control Room de la org nueva. */
         try { if (_lv && _lv.org !== ORG_ID) navigateToControlRoom(); } catch (_e2) {}
-        _bootCoverHide();
+        gancho('_bootCoverHide')();
       }
     }
-  } catch (e) { try { _bootCoverHide(); } catch (_) {} }
+  } catch (e) { try { gancho('_bootCoverHide')(); } catch (_) {} }
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -1892,8 +1893,6 @@ export async function dalFlushProyectos() {
 /* Banner visible dentro del modulo Base de Datos (claridad sobre comodidad). */
 
 // ── Window bridges DAL (3 barridos: consumo externo, auto-consumo, nombre-string) ──
-window._dalEmpresaSaveSoon = _dalEmpresaSaveSoon;
-window._dalPerfilSaveSoon = _dalPerfilSaveSoon;
 window.dalBootProyectos = dalBootProyectos;
 window.dalCargarTopeColaboradores = dalCargarTopeColaboradores;
 window.dalGuardarContacto = dalGuardarContacto;
@@ -1903,3 +1902,8 @@ window.dalLoadPermisos = dalLoadPermisos;
 window.dalResolveIdentidad = dalResolveIdentidad;
 window.dalTouchProyecto = dalTouchProyecto;
 window.dalFlushProyectos = dalFlushProyectos;   // D0 · rescate pre-reset en el cambio de org (boot.js/_setOrgActiva)
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('_dalEmpresaSaveSoon', _dalEmpresaSaveSoon);
+define('_dalPerfilSaveSoon', _dalPerfilSaveSoon);
+define('dalGuardarEmpresa', dalGuardarEmpresa);

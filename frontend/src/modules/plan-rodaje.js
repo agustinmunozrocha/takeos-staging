@@ -18,6 +18,7 @@ import { orgNombre } from '../lib/boot.js';
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { _fechaCorta, ntfOpenFromHoja } from './notificaciones.js';
 import { navigateToModule } from '../lib/nav.js';
+import { gancho, define } from '../lib/ganchos.js';
 var PR_DRAG_ID = null;
 let HL_DRAG = null;
 var _hlPrevMargen = 13;
@@ -1124,7 +1125,7 @@ function _callSheetSignature(project, diaId) {
     // V8.2: la firma usa las locaciones CONFIRMADAS del proyecto (BD_LOC + uso),
     // para que un cambio de locación siga avanzando la versión tras la migración.
     locaciones: projLocConfirmadas(project).map(u => { const l = bdLocFind(u.locId) || {}; return { locId: u.locId, nombre: l.nombre, direccion: l.direccion, comuna: l.comuna, maps: l.maps, costo: u.costo, contratacion: u.contratacion, notasProy: u.notasProy }; }),
-    crew: getCrewForExport(project),   // captura cambios de Crew, Presupuesto y BD
+    crew: gancho('getCrewForExport')(project),   // captura cambios de Crew, Presupuesto y BD
     rodaje: rodaje ? { fecha: rodaje.fecha, descripcion: rodaje.descripcion, activo: rodaje.activo } : null,
     ip: {
       cliente: ip.cliente, agencia: ip.agencia, nombreProyecto: ip.nombreProyecto, productora: ip.productora,
@@ -1481,12 +1482,7 @@ window.printViaIframe        = printViaIframe;   // legal.js lo llama como globa
 window._callSheetSignature = _callSheetSignature;
 window._hashStr = _hashStr;
 window.getConfirmedCrew = getConfirmedCrew;
-window.prCompressImage = prCompressImage;
-window.prComputeTimes = prComputeTimes;
 window.prEffectiveStartMin = prEffectiveStartMin;
-window.prFmtClock = prFmtClock;
-window.prFmtDur = prFmtDur;
-window.prParseHM = prParseHM;
 
 // ── Bridge auditoría pre-B (botón «Exportar de todas formas» del modal HL) ──
 
@@ -1560,3 +1556,13 @@ registrarAcciones('pr', {
   exportIgual: function (a) { closeModal(); if (a[0] === 'hl') _hlDoExportPDF(); else _prDoExportPDF(); },
   margen: function (a, el) { hlPrevSetMargen(+el.value); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('prCompressImage', prCompressImage);
+define('prComputeTimes', prComputeTimes);
+define('prFmtClock', prFmtClock);
+define('prFmtDur', prFmtDur);
+define('prParseHM', prParseHM);
+define('printViaIframe', printViaIframe);
+define('renderHojaLlamado', renderHojaLlamado);
+define('renderPlanRodaje', renderPlanRodaje);

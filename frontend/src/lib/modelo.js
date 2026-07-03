@@ -5,6 +5,8 @@
 // D1e · imports reales (regla lib-precede: solo de libs anteriores en main.js)
 import { BD_CONTACTOS, BD_EMPRESAS, BD_EMPRESAS_BYID, BD_LOC, BD_PERSONAS, BD_TALENTOS } from './state.js';
 
+import { DEFAULT_DEPARTAMENTOS, DEFAULT_EQUIPOS, DEFAULT_GASTOS, DEFAULT_TALENTOS, COTIZACION_CONDICIONES_DEFAULTS, LOC_ESTADO_RANK, ROLES_OPERATIVOS } from './catalogos.js';
+import { gancho } from './ganchos.js';
 /* ── DTE: texto del Excel/Form ("Boleta de Honorarios") → código interno ── */
 function _tipoDTEaCodigo(tipo) {
   const t = String(tipo || '').toLowerCase();
@@ -18,12 +20,12 @@ function _tipoDTEaCodigo(tipo) {
 
 /* ── Construcción de bloques de perfil ────────────────────────────────── */
 export function _buildPerfilPago(o) {
-  const banco = _norm(o.banco), codigoBanco = _norm(o.codigoBanco) || (typeof _codigoBancoSBIF === 'function' ? _codigoBancoSBIF(o.banco) : '');
+  const banco = _norm(o.banco), codigoBanco = _norm(o.codigoBanco) || (typeof _codigoBancoSBIF === 'function' ? gancho('_codigoBancoSBIF')(o.banco) : '');
   const tipoCuenta = _norm(o.tipoCuenta), nCuenta = _norm(o.nCuenta || o.numeroCuenta);
   const tipoDTE = _norm(o.tipoDTE), dteHabitual = o.dteHabitual || _tipoDTEaCodigo(tipoDTE) || null;
   const cuentaExtranjera = !!o.cuentaExtranjera, datosExtranjeros = _norm(o.datosExtranjeros);
   if (!banco && !nCuenta && !tipoCuenta && !tipoDTE && !dteHabitual && !cuentaExtranjera && !datosExtranjeros) return null;
-  const bancoOf = banco && typeof _nombreBancoOficial === 'function' ? _nombreBancoOficial(banco) : banco;
+  const bancoOf = banco && typeof _nombreBancoOficial === 'function' ? gancho('_nombreBancoOficial')(banco) : banco;
   return { banco: bancoOf, codigoBanco, tipoCuenta, nCuenta, tipoDTE, dteHabitual, cuentaExtranjera, datosExtranjeros };
 }
 export function _buildPerfilTalento(o) {
@@ -440,7 +442,7 @@ function dedupeProjectLocaciones(project) {
   d.locaciones.forEach(u => { if (!u || !u.locId) return; if (byId[u.locId]) fold(byId[u.locId], u); else { byId[u.locId] = u; pass1.push(u); } });
   const byName = {}; const result = [];
   pass1.forEach(u => {
-    const nm = normLocName((bdLocFind(u.locId) || {}).nombre);
+    const nm = normLocName((gancho('bdLocFind')(u.locId) || {}).nombre);
     if (!nm) { result.push(u); return; }
     if (byName[nm]) fold(byName[nm], u); else { byName[nm] = u; result.push(u); }
   });
@@ -455,11 +457,11 @@ function migrateProjectLocaciones(project) {
   const legacy = hl && Array.isArray(hl.locaciones) ? hl.locaciones : [];
   if (!legacy.length || d._locMigrated) { d._locMigrated = true; return; }
   legacy.forEach(old => {
-    const locId = old.id || nextLocIdBD();
-    if (!bdLocFind(locId)) {
+    const locId = old.id || gancho('nextLocIdBD')();
+    if (!gancho('bdLocFind')(locId)) {
       BD_LOC.push({ locId: locId, nombre: old.nombre || '', direccion: old.direccion || '', direccion2: old.direccion2 || '', comuna: old.comuna || '', ciudad: old.ciudad || 'Santiago', region: old.region || '', maps: old.maps || '', orientacion: old.orientacion || '—', contactos: [], notas: old.notas || '', fotos: [] });
     }
-    if (!projLocFind(project, locId)) {
+    if (!gancho('projLocFind')(project, locId)) {
       d.locaciones.push({ locId: locId, estado: 'confirmada', costo: 0, contratacion: '', notasProy: '' });
     }
   });

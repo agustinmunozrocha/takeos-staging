@@ -18,6 +18,7 @@ import { _setOrgActiva, _bootCoverShow, _bootCoverHide, arrancarTakeOS } from '.
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { setTieneEmpresa, USER_NOMBRE, USER_APELLIDO } from '../lib/state.js';
 import { abrirInvitacionRecibida } from './invitaciones.js';
+import { define } from '../lib/ganchos.js';
 /* ── FRENTE C · C3 · Selector "Cambiar de espacio" (topbar) ──────────────────
    Cambia el contexto de organización activa desde la barra superior. Lista:
    Panel personal · tus productoras (Control Room, interno) · proyectos externos
@@ -445,3 +446,12 @@ registrarAcciones('esp', {
   ctaSaberMas: function () { ctaProdSaberMas(); },
   verInv: function (a) { abrirInvitacionRecibida(a[0]); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('ESPACIO_DEMO', ESPACIO_DEMO);
+define('_espConstruir', _espConstruir);
+define('_espInyectarCtaProductora', _espInyectarCtaProductora);
+define('_espInyectarHerramientas', _espInyectarHerramientas);
+define('_espInyectarInvitaciones', _espInyectarInvitaciones);
+define('_swToggle', _swToggle);
+define('renderEspacioUsuario', renderEspacioUsuario);

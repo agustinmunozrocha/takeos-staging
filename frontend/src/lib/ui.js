@@ -8,6 +8,7 @@ import { BANCOS_CHILE, REGIONES_CHILE } from './data.js';
 import { _puedeEditarResponsables } from './auth.js';
 
 import { registrarAcciones, accionHTML } from './delegacion.js';
+import { gancho } from './ganchos.js';
 /* ─── PERSON SELECT (sustituye datalist+input bugeado) ──────────────
    Bug original: el datalist+input no permitía cambiar ni borrar a una
    persona ya seleccionada. UX rota.
@@ -157,8 +158,8 @@ export function comboboxAddToBD(btn) {
   const wrap = btn && btn.closest ? btn.closest('.combobox-wrap') : null;
   const inp = wrap ? wrap.querySelector('.combobox-input') : null;
   const nombre = inp ? (inp.value || '').trim() : '';
-  if (typeof crewAddToBD === 'function') { crewAddToBD(nombre); }
-  else if (typeof openPersonaForm === 'function') { openPersonaForm('create', null); setTimeout(function () { const el = document.getElementById('pf_nombre'); if (el) { el.value = nombre; el.focus(); } }, 30); }
+  if (typeof crewAddToBD === 'function') { gancho('crewAddToBD')(nombre); }
+  else if (typeof openPersonaForm === 'function') { gancho('openPersonaForm')('create', null); setTimeout(function () { const el = document.getElementById('pf_nombre'); if (el) { el.value = nombre; el.focus(); } }, 30); }
 }
 
 /* V11.23 (Pasada 4.1) · Empresas como las personas: alta exprés solo con el
@@ -187,7 +188,7 @@ export function comboboxAddEmpresaToBD(btn) {
   if (!inp) return;
   const rol = (inp.dataset.empRol || 'proveedor').trim().toLowerCase();
   const rolCap = rol.charAt(0).toUpperCase() + rol.slice(1);   // Proveedor | Cliente | Agencia
-  const nombre = _normNameBD((inp.value || '').trim());
+  const nombre = gancho('_normNameBD')((inp.value || '').trim());
   if (!nombre) { showToast({ kind: 'error', title: 'Falta el nombre', body: 'Escribe el nombre de la empresa antes de agregarla.' }); return; }
   let eid;
   const existente = BD_EMPRESAS[nombre];
@@ -198,7 +199,7 @@ export function comboboxAddEmpresaToBD(btn) {
     const nuevoTipo = _empAddRol(e.tipo, rolCap);
     if (nuevoTipo !== e.tipo) {
       e.tipo = nuevoTipo;
-      syncLegacyFromContactos(); autosaveNow(); _dalEmpresaSaveSoon(eid);
+      syncLegacyFromContactos(); gancho('autosaveNow')(); gancho('_dalEmpresaSaveSoon')(eid);
       showToast({ kind: 'success', title: 'Empresa actualizada', body: `<strong>${escapeHtml(nombre)}</strong> ahora también es ${escapeHtml(rolCap)}.` });
     } else {
       showToast({ kind: 'info', title: 'Ya estaba en la BD', body: `<strong>${escapeHtml(nombre)}</strong> ya figura como ${escapeHtml(rolCap)}.` });
@@ -211,7 +212,7 @@ export function comboboxAddEmpresaToBD(btn) {
       tipo: rolCap, giroSII: '', giroInformal: '',
       contactoPrincipal: '', contactoPrincipalId: '', emailContacto: '', telefonoContacto: '', web: '', notas: ''
     };
-    syncLegacyFromContactos(); autosaveNow(); dalGuardarEmpresa(BD_EMPRESAS_BYID[eid]);
+    syncLegacyFromContactos(); gancho('autosaveNow')(); gancho('dalGuardarEmpresa')(BD_EMPRESAS_BYID[eid]);
     showToast({ kind: 'success', title: 'Empresa creada', body: `<strong>${escapeHtml(nombre)}</strong> agregada a la BD como ${escapeHtml(rolCap)}.` });
   }
   // Dejarla seleccionada en el input que disparó el alta.
@@ -229,11 +230,11 @@ export function comboboxFilter(inputEl) {
   if (!wrap) return;
   const dropdown = wrap.querySelector('.combobox-dropdown');
   if (!dropdown) return;
-  const q = _normKey(inputEl.value || '');  // V5.9 (Nota 3): sin tildes
+  const q = gancho('_normKey')(inputEl.value || '');  // V5.9 (Nota 3): sin tildes
   const personas = Object.keys(BD_PERSONAS).sort();
   // Si está vacío, mostrar todos. Si tipea, filtrar.
   const matched = q
-    ? personas.filter(n => _normKey(n).includes(q) || _normKey(BD_PERSONAS[n].rolHabitual || '').includes(q))
+    ? personas.filter(n => gancho('_normKey')(n).includes(q) || gancho('_normKey')(BD_PERSONAS[n].rolHabitual || '').includes(q))
     : personas;
 
   if (matched.length === 0) {
@@ -358,7 +359,7 @@ export function regionSelectHTML(current, opts) {
   /* V11.8.1 · si `current` matchea una región chilena ignorando may/acentos,
      usamos la forma canónica para que el <option> quede seleccionado. */
   let cur = current || '';
-  try { const _c = (typeof _regionCanonica === 'function') ? _regionCanonica(cur) : null; if (_c) cur = _c; } catch (e) {}
+  try { const _c = (typeof _regionCanonica === 'function') ? gancho('_regionCanonica')(cur) : null; if (_c) cur = _c; } catch (e) {}
   const inList = REGIONES_CHILE.indexOf(cur) !== -1;
   let o = '<option value=""' + (cur === '' ? ' selected' : '') + '>— Sin especificar</option>';
   if (cur && !inList) o += '<option value="' + escapeHtml(cur) + '" selected>' + escapeHtml(cur) + ' (texto)</option>';
@@ -367,7 +368,7 @@ export function regionSelectHTML(current, opts) {
 }
 
 // BANCOS_CHILE → movido a src/lib/data.js (Etapa B3)
-export function bancoCodigo(nombre) { const b = BANCOS_CHILE.find(x => x.nombre === nombre); if (b) return b.codigo; return (typeof _codigoBancoSBIF === 'function') ? _codigoBancoSBIF(nombre) : ''; }
+export function bancoCodigo(nombre) { const b = BANCOS_CHILE.find(x => x.nombre === nombre); if (b) return b.codigo; return (typeof _codigoBancoSBIF === 'function') ? gancho('_codigoBancoSBIF')(nombre) : ''; }
 export function bancoSelectHTML(current, opts) {
   opts = opts || {};
   const cur = current || '';
@@ -418,10 +419,10 @@ export function comboboxFilterEmpresas(inputEl) {
   // Sin esos atributos, comportamiento histórico: todas las empresas, sin alta.
   const rol = (inputEl.dataset.empRol || '').trim().toLowerCase();
   const puedeAgregar = inputEl.dataset.empAdd === '1';
-  const q = _normKey(inputEl.value || '');
+  const q = gancho('_normKey')(inputEl.value || '');
   let names = Object.keys(BD_EMPRESAS).sort();
   if (rol) names = names.filter(n => _empTieneRol(BD_EMPRESAS[n].tipo, rol));
-  const matched = q ? names.filter(n => _normKey(n).includes(q)) : names;
+  const matched = q ? names.filter(n => gancho('_normKey')(n).includes(q)) : names;
   if (matched.length === 0) {
     if (puedeAgregar) {
       const lbl = rol === 'cliente' ? '+ Agregar empresa cliente a la BD'
@@ -482,7 +483,7 @@ function setSectionResponsable(key, nombre) {
   if (!_puedeEditarResponsables()) return;   // V10.5.2: solo Administrador y Ejecutivo
   const r = _projResp(); if (!r) return;
   r[key] = (nombre || '').trim();
-  markDirty();
+  gancho('markDirty')();
   const box = document.getElementById('sectionRespBox');
   if (box) box.innerHTML = sectionResponsableInner(key);
 }
@@ -512,7 +513,7 @@ function sectionResponsableInner(key) {
 }
 function sectionTareasBtnHTML(key) {
   if (!STATE.currentProject) return '';
-  const n = sectionTaskCount(STATE.currentProject, key);
+  const n = gancho('sectionTaskCount')(STATE.currentProject, key);
   return '<button type="button" class="module-tareas-btn" ' + accionHTML('ui.tareas', key) + ' data-tip="Tareas de esta sección — asigna trabajo a tu equipo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Tareas' + (n ? '<span class="module-tareas-badge">' + n + '</span>' : '') + '</button>';
 }
 export function sectionResponsableHTML(key) {
@@ -805,12 +806,12 @@ registrarAcciones('ui', {
   cbAddBD: function (a, el, ev) { if (ev.type === 'mousedown') ev.preventDefault(); else comboboxAddToBD(el); },
   cbAddEmpresa: function (a, el, ev) { if (ev.type === 'mousedown') ev.preventDefault(); else comboboxAddEmpresaToBD(el); },
   cbSel: function (a, el) { comboboxSelect(el, a[0]); },
-  verPersona: function (a) { openPersonaByName(a[0]); },
+  verPersona: function (a) { gancho('openPersonaByName')(a[0]); },
   respCombo: function (a, el, ev) {
     if (ev.type === 'focus') comboboxOpen(el);
     else if (ev.type === 'input') comboboxFilter(el);
     else if (ev.type === 'blur') comboboxCloseDelayed(el);
     else setSectionResponsable(a[0], el.value);
   },
-  tareas: function (a) { openTareasModal(a[0]); },
+  tareas: function (a) { gancho('openTareasModal')(a[0]); },
 });

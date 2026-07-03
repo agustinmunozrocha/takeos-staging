@@ -17,6 +17,7 @@ import { navigateToModule } from '../lib/nav.js';
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { _conflictoBannerHide, dalTouchProyecto } from './dal.js';
 import { navigateToControlRoom, renderKanban, renderMetrics } from './kanban.js';
+import { gancho, define } from '../lib/ganchos.js';
 let UNDO_STACK = [];
 let UNDO_BASELINE = null;
 const UNDO_MAX = 30;
@@ -187,7 +188,7 @@ export function importSaveFromInput(input) {
   input.value = ''; // permitir recargar el mismo archivo después
   if (!file) return;
   // V10.5.1: Cargar OS reservado al perfil Administrador, en modo administrador (acción seria).
-  if (!_puedeModoAdmin()) {
+  if (!gancho('_puedeModoAdmin')()) {
     showToast({ kind: 'error', title: 'Cargar OS no disponible', body: 'Solo el perfil Administrador puede cargar un OS.' });
     return;
   }
@@ -638,3 +639,10 @@ registrarAcciones('snap', {
   revertir: function (args) { restoreSnapshot(args[0]); },
   borrar: function (args) { deleteSnapshotFromModal(args[0]); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('autosaveNow', autosaveNow);
+define('exportSave', exportSave);
+define('exportSingleProject', exportSingleProject);
+define('markDirty', markDirty);
+define('openSnapshotsModal', openSnapshotsModal);

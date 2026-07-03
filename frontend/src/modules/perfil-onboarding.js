@@ -15,6 +15,7 @@ import { _DAL_TIPOCUENTA_LABEL, _dalBancoNombre } from './dal.js';
 import { aplicarUsuario } from '../lib/boot.js';
 
 import { setUserNombre, setUserApellido } from '../lib/state.js';
+import { define } from '../lib/ganchos.js';
 /* ════════════════════════════════════════════════════════════════════
    V10.8.0 · PERFIL PERSONAL DEL USUARIO + ONBOARDING
    ─────────────────────────────────────────────────────────────────────
@@ -600,3 +601,7 @@ async function _perfilGuardar() {
 window.abrirPerfilUsuario = abrirPerfilUsuario;
 window._rutValido         = _rutValido;
 window._regionCanonica    = _regionCanonica;
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('_regionCanonica', _regionCanonica);
+define('abrirPerfilUsuario', abrirPerfilUsuario);

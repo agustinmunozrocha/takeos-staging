@@ -21,6 +21,7 @@ import { markDirty } from './persistencia-local.js';
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { IVA } from '../lib/rates.js';
 import { navigateToModule } from '../lib/nav.js';
+import { gancho, define } from '../lib/ganchos.js';
 function cotizadoLocked(project) {
   if (!project) return false;
   return window.STATES_WITH_LOCKED_BUDGET.includes(project.state);
@@ -106,7 +107,7 @@ function calcHeadcount(project) {
   const d = project.data;
   let crew = 0;
   Object.keys(d.servicios).forEach(dept => {
-    const dk = _normKey(dept);
+    const dk = gancho('_normKey')(dept);
     if (dk.includes('postprod') || dk.includes('catering')) return;
     d.servicios[dept].forEach(r => { if (rowCountsAsPerson(r)) crew++; });
   });
@@ -581,7 +582,7 @@ function openVisualizacionPanel() {
 
 export function renderSimpleSection(sectionKey) {
   const project = STATE.currentProject;
-  if (sectionKey === 'gastos') _syncGastosCostoReal(project);   // 4a · Costo Real derivado de los gastos
+  if (sectionKey === 'gastos') gancho('_syncGastosCostoReal')(project);   // 4a · Costo Real derivado de los gastos
   const items = project.data[sectionKey];
   const showReal = window.STATES_WITH_REAL_COST.includes(project.state);
 
@@ -736,8 +737,8 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
      libremente (un gasto puntual con un único proveedor no necesita un presupuesto;
      y si el real cae a $0 vuelve a ser editable). */
   const _gastosDerivado = _esGastosSec && (typeof goLineaTieneCaja === 'function')
-    && goLineaTieneCaja(STATE.currentProject, item.item)
-    && goLineaRealGastado(STATE.currentProject, item.item) > 0;
+    && gancho('goLineaTieneCaja')(STATE.currentProject, item.item)
+    && gancho('goLineaRealGastado')(STATE.currentProject, item.item) > 0;
   const _crShow = (item.costoReal ? window.displayMoneyInputValue(item.costoReal) : '0');
   const costoRealCell = _gastosDerivado
     ? `<td class="num go-cr-derivado" data-accion="pre.d" data-args="[&quot;navigateToModule&quot;,&quot;gastos&quot;]" title="Costo real = suma de los gastos registrados en el módulo Gastos asociados a esta línea («${escapeHtml(item.item || '')}»). Clic para ir a la pestaña Gastos. No se edita a mano." style="cursor:pointer;">
@@ -1111,8 +1112,8 @@ function budgetColResizeReset(ev, sectionKey, colId) {
   /* re-render SOLO de la sección afectada (no toda la página): renderServiciosBody /
      renderSimpleSection / renderGastos preservan el scroll horizontal, así la columna
      vuelve a su ancho por defecto sin que la vista salte a la izquierda. */
-  if (sectionKey === 'gastosReg') { if (typeof renderGastos === 'function') renderGastos(); }
-  else if (sectionKey === 'hlCrew' || sectionKey === 'hlExt') { if (typeof renderHojaLlamado === 'function') renderHojaLlamado(); }
+  if (sectionKey === 'gastosReg') { if (typeof renderGastos === 'function') gancho('renderGastos')(); }
+  else if (sectionKey === 'hlCrew' || sectionKey === 'hlExt') { if (typeof renderHojaLlamado === 'function') gancho('renderHojaLlamado')(); }
   else if (sectionKey === 'servicios') { if (typeof renderServiciosBody === 'function') renderServiciosBody(); }
   else if (typeof renderSimpleSection === 'function') renderSimpleSection(sectionKey);
 }
@@ -1264,7 +1265,7 @@ export function afterRowChange(sectionKey, dept, idx) {
       span.className = 'cell-name-warn';
       span.setAttribute('data-tip', '+ Agregar a la BD');
       span.style.cursor = 'pointer';
-      span.onclick = function () { crewAddToBD(item.nombre); };
+      span.onclick = function () { gancho('crewAddToBD')(item.nombre); };
       span.textContent = '●';
       nameWrap.appendChild(span);
     } else if (!nameNotInBD && existingWarn) {
@@ -1277,7 +1278,7 @@ export function afterRowChange(sectionKey, dept, idx) {
   // recomputar el cache (item.horaExtra) y refrescar la celda. Las filas con
   // override propio (tarifa plana / fórmula con valor hora fijo) no se tocan.
   if (item.heConfig && item.heConfig.usaProyecto !== false) {
-    item.horaExtra = _heComputeCosto(item.heConfig, item) || null;
+    item.horaExtra = gancho('_heComputeCosto')(item.heConfig, item) || null;
   }
   const heCostEl = rowEl.querySelector('[data-he-cell]');
   if (heCostEl) {
@@ -1479,7 +1480,7 @@ export function recalcAllDeptSummaries() {
    ════════════════════════════════════════════════════════════════════ */
 
 export function calcSummaryFin(project) {
-  _syncGastosCostoReal(project);   // 4a · el real de Gastos sale de los movimientos, no de tipeo manual
+  gancho('_syncGastosCostoReal')(project);   // 4a · el real de Gastos sale de los movimientos, no de tipeo manual
   const d = project.data;
   const fin = d.finanzas;
 
@@ -1815,7 +1816,7 @@ async function exportPresupuestoExcel() {
   const project = STATE.currentProject;
   if (!project) return;
   let ExcelJSlib;
-  try { ExcelJSlib = await ensureExcelJS(); }
+  try { ExcelJSlib = await gancho('ensureExcelJS')(); }
   catch (e) { showToast({ kind: 'error', title: 'No se pudo exportar', body: e.message }); return; }
 
   const ip = project.data.infoProyecto || {};
@@ -3685,12 +3686,12 @@ setInterval(function () {
 
 function cotCondTplSet(v) {
   window.EMPRESA_PERFIL.condCotTpl = String(v || '');
-  window.markDirty(); _dalPerfilSaveSoon();
+  window.markDirty(); gancho('_dalPerfilSaveSoon')();
   cotCondPreviewVivo();
 }
 function cotCondRestaurar() {
   window.EMPRESA_PERFIL.condCotTpl = '';
-  window.markDirty(); _dalPerfilSaveSoon();
+  window.markDirty(); gancho('_dalPerfilSaveSoon')();
   const ta = document.getElementById('cotCondTa'); if (ta) ta.value = cotCondTplDefault();
   cotCondPreviewVivo();
   showToast({ kind: 'info', title: 'Texto original restaurado', body: 'Las condiciones vuelven al estándar de TakeOS.' });
@@ -3720,7 +3721,7 @@ function cotCondPreviewVivo() {
    Personalización (plantilla, color, logo, tamaño de logo, tipografía,
    orientación, formato, márgenes) persiste como default de la productora.
    Sin literales de marca: nombre por window.orgNombre(), logo por _orgLogos(),
-   contacto por legalRep()/window.EMPRESA_PERFIL con fallback vacío.
+   contacto por gancho('legalRep')()/window.EMPRESA_PERFIL con fallback vacío.
    ════════════════════════════════════════════════════════════════════ */
 
 /* ── Geometría única (mm → px y @page) ── */
@@ -3801,7 +3802,7 @@ function cotPrevSaveSettings(patch) {
     if (!window.EMPRESA_PERFIL.cotDoc) window.EMPRESA_PERFIL.cotDoc = {};
     Object.assign(window.EMPRESA_PERFIL.cotDoc, patch);
     window.EMPRESA_PERFIL.cotPlantilla = window.EMPRESA_PERFIL.cotDoc.plantilla;   // compat con lecturas previas
-    window.markDirty(); _dalPerfilSaveSoon();
+    window.markDirty(); gancho('_dalPerfilSaveSoon')();
   } catch (e) {}
 }
 
@@ -3810,7 +3811,7 @@ function cotPrevLogoData(opts) {
   try {
     const logos = _orgLogos().filter(l => l && l.dataUrl);
     if (opts && opts.logoId) { const f = logos.find(l => l.id === opts.logoId); if (f) return f.dataUrl; }
-    return orgLogo();
+    return gancho('orgLogo')();
   } catch (e) { return ''; }
 }
 
@@ -3901,7 +3902,7 @@ function cotTplCarta(M, opts) {
   const E = escapeHtml;
   const iva = M.masIVA ? ' + IVA' : '';
   const logo = cotPrevLogoData(opts), logoH = cotPrevLogoH(opts.logoSize);
-  const lr = (typeof legalRep === 'function') ? legalRep() : {};
+  const lr = (typeof legalRep === 'function') ? gancho('legalRep')() : {};
   const ep = (typeof window.EMPRESA_PERFIL !== 'undefined' && window.EMPRESA_PERFIL) ? window.EMPRESA_PERFIL : {};
   const contacto = [lr.domEmp, ep.web, ep.telefono, ep.email].filter(x => x && String(x).trim()).map(E).join(' · ');
   const repNom = M.rep || '';
@@ -4217,7 +4218,7 @@ function cotPreviewGenerar() {
   const vTxt = 'V.' + (c.exportNum || 1);
   const fname = `Cotización - ${ip.nombreProyecto || project.name || 'Proyecto'}${ip.cliente ? ' - ' + ip.cliente : ''} - ${vTxt}`;
   window.closeModal();
-  printViaIframe(html, fname);
+  gancho('printViaIframe')(html, fname);
   showToast({ kind: 'success', title: 'Carta lista para PDF (' + vTxt + ')', body: 'Se abrió el diálogo de impresión. Elige <strong>“Guardar como PDF”</strong>. Esta versión queda bloqueada: cualquier edición pedirá confirmación.' });
 }
 
@@ -4284,7 +4285,7 @@ function onUnidadSelectChange(selectEl, sectionKey, dept, idx) {
   const item = sectionKey === 'servicios'
     ? project.data.servicios[dept][idx]
     : project.data[sectionKey][idx];
-  _markRowDirty(item);
+  gancho('_markRowDirty')(item);
   if (selectEl.value === '__custom__') {
     item.unidad = '';
     const td = selectEl.closest('td');
@@ -4301,7 +4302,7 @@ function onUnidadInputChange(inputEl, sectionKey, dept, idx) {
     ? project.data.servicios[dept][idx]
     : project.data[sectionKey][idx];
   item.unidad = inputEl.value;
-  _markRowDirty(item);
+  gancho('_markRowDirty')(item);
 }
 function onUnidadReset(btnEl, sectionKey, dept, idx) {
   const project = STATE.currentProject;
@@ -4309,7 +4310,7 @@ function onUnidadReset(btnEl, sectionKey, dept, idx) {
     ? project.data.servicios[dept][idx]
     : project.data[sectionKey][idx];
   item.unidad = 'Tarifa Plana';
-  _markRowDirty(item); window.markDirty();
+  gancho('_markRowDirty')(item); window.markDirty();
   const td = btnEl.closest('td');
   td.innerHTML = renderUnidadCellSelect(sectionKey, dept, idx, 'Tarifa Plana');
 }
@@ -4535,32 +4536,32 @@ var _PRE_FN = {
   cotVideoAdd: function () { return cotVideoAdd.apply(null, arguments); },
   cotVideoDel: function () { return cotVideoDel.apply(null, arguments); },
   cotVideoName: function () { return cotVideoName.apply(null, arguments); },
-  crewAddToBD: function () { return crewAddToBD.apply(null, arguments); },
+  crewAddToBD: gancho('crewAddToBD'),
   deleteRow: function () { return deleteRow.apply(null, arguments); },
   deleteServiceDept: function () { return deleteServiceDept.apply(null, arguments); },
   exportPresupuestoExcel: function () { return exportPresupuestoExcel.apply(null, arguments); },
-  mentionBlur: function () { return mentionBlur.apply(null, arguments); },
-  mentionInput: function () { return mentionInput.apply(null, arguments); },
+  mentionBlur: gancho('mentionBlur'),
+  mentionInput: gancho('mentionInput'),
   moveServiceDept: function () { return moveServiceDept.apply(null, arguments); },
   navigateToModule: function () { return navigateToModule.apply(null, arguments); },
   onUnidadInputChange: function () { return onUnidadInputChange.apply(null, arguments); },
   onUnidadReset: function () { return onUnidadReset.apply(null, arguments); },
   onUnidadSelectChange: function () { return onUnidadSelectChange.apply(null, arguments); },
-  openCalculadoraTributaria: function () { return openCalculadoraTributaria.apply(null, arguments); },
-  openCostoRealCalc: function () { return openCostoRealCalc.apply(null, arguments); },
-  openHeProyectoDefault: function () { return openHeProyectoDefault.apply(null, arguments); },
-  openHorasExtraCalc: function () { return openHorasExtraCalc.apply(null, arguments); },
+  openCalculadoraTributaria: gancho('openCalculadoraTributaria'),
+  openCostoRealCalc: gancho('openCostoRealCalc'),
+  openHeProyectoDefault: gancho('openHeProyectoDefault'),
+  openHorasExtraCalc: gancho('openHorasExtraCalc'),
   openRowNote: function () { return openRowNote.apply(null, arguments); },
   openVisualizacionPanel: function () { return openVisualizacionPanel.apply(null, arguments); },
   presupSetCotVersion: function () { return presupSetCotVersion.apply(null, arguments); },
   renameServiceDept: function () { return renameServiceDept.apply(null, arguments); },
   rowHandleDown: function () { return rowHandleDown.apply(null, arguments); },
   saveRowNote: function () { return saveRowNote.apply(null, arguments); },
-  setHeHoras: function () { return setHeHoras.apply(null, arguments); },
+  setHeHoras: gancho('setHeHoras'),
   toggleBudgetCotizado: function () { return toggleBudgetCotizado.apply(null, arguments); },
   toggleBudgetServiciosBreakdown: function () { return toggleBudgetServiciosBreakdown.apply(null, arguments); },
   toggleDept: function () { return toggleDept.apply(null, arguments); },
-  updateInfoField: function () { return updateInfoField.apply(null, arguments); },
+  updateInfoField: gancho('updateInfoField'),
   vizRenameInput: function () { return vizRenameInput.apply(null, arguments); },
 };
 function _preSent(x, el, ev) { return x === '§v§' ? el.value : x === '§c§' ? el.checked : x === '§el§' ? el : x === '§ev§' ? ev : x; }
@@ -4594,5 +4595,10 @@ registrarAcciones('pre', {
 registrarAcciones('pre', {
   zoom: function (a) { CotPreview.setZoom(CotPreview.zoom + a[0]); },
   modo: function (a) { CotPreview.setMode(a[0]); },
-  nota: function (a, el, ev) { if (ev.type === 'input') mentionInput(el); else mentionBlur(); },
+  nota: function (a, el, ev) { if (ev.type === 'input') gancho('mentionInput')(el); else gancho('mentionBlur')(); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('renderCotizacion', renderCotizacion);
+define('renderPresupuesto', renderPresupuesto);
+define('updateRowField', updateRowField);

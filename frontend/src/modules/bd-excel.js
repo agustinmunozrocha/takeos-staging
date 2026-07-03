@@ -14,6 +14,7 @@ import { dalFinishBulkImport } from './dal.js';
 import { autosaveNow, markDirty, pushSnapshot } from './persistencia-local.js';
 
 import { renderBDPersonas } from './bd.js';
+import { define } from '../lib/ganchos.js';
 /* Helper para datalists: lista de nombres para autocompletar */
 /* ════════════════════════════════════════════════════════════════════
    V5.7 (Nota 4) · IMPORTACIÓN DE LA BD DESDE EXCEL (.xlsx)
@@ -753,7 +754,17 @@ window._nombreBancoOficial  = _nombreBancoOficial;
 window.exportBDExcelV71     = exportBDExcelV71;
 window.downloadBDPlantilla  = downloadBDPlantilla;
 window.importBDExcelV71     = importBDExcelV71;
-window.triggerBDExcelImport = triggerBDExcelImport;
 window.processBDRows        = processBDRows;
 window.showBDImportResult   = showBDImportResult;
 window.buildPersonasDatalist = buildPersonasDatalist; // presupuesto-cotizacion.js:296 e INFO PROYECTO (index) la llaman
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('_codigoBancoSBIF', _codigoBancoSBIF);
+define('_nombreBancoOficial', _nombreBancoOficial);
+define('_normKey', _normKey);
+define('_normNameBD', _normNameBD);
+define('downloadBDPlantilla', downloadBDPlantilla);
+define('ensureExcelJS', ensureExcelJS);
+define('exportBDExcelV71', exportBDExcelV71);
+define('importBDExcelV71', importBDExcelV71);
+define('triggerBDExcelImport', triggerBDExcelImport);

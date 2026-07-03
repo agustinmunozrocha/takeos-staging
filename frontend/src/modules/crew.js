@@ -13,6 +13,7 @@ import { orgNombre } from '../lib/boot.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { crewAddToBD } from './bd.js';
+import { define } from '../lib/ganchos.js';
 function renderCrew() {
   const project = STATE.currentProject;
   if (!project) return;
@@ -359,3 +360,7 @@ registrarAcciones('crew', {
   selTrans: function (a, el) { if (el.checked) window._transportSel.add(a[0]); else window._transportSel.delete(a[0]); },
   transExport: function () { doExportTransporte(); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('getCrewForExport', getCrewForExport);
+define('renderCrew', renderCrew);

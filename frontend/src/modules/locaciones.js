@@ -23,6 +23,7 @@ import { orgNombre } from '../lib/boot.js';
 // REGIONES_CHILE local eliminada (estaba muerta) — dedup B3
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
+import { gancho, define } from '../lib/ganchos.js';
 export function bdLocFind(locId) { return window.BD_LOC.find(l => l.locId === locId) || null; }
 export function projLocList(project) { const d = project && project.data; if (!d) return []; if (!Array.isArray(d.locaciones)) d.locaciones = []; return d.locaciones; }
 function projLocFind(project, locId) { return projLocList(project).find(u => u.locId === locId) || null; }
@@ -390,7 +391,7 @@ async function locAddFotos(locId, inputEl) {
   let nube = 0, local = 0;
   for (const f of files) {
     try {
-      const url = await prCompressImage(f, 1280, 0.6); if (!url) continue;
+      const url = await gancho('prCompressImage')(f, 1280, 0.6); if (!url) continue;
       const up = await _uploadLocFoto(locId, url, f.name);
       if (up) { up._signedUrl = url; l.fotos.push(up); nube++; }   // preview inmediato con el dataURL recién comprimido
       else { l.fotos.push({ url: url }); local++; }
@@ -561,7 +562,7 @@ function locScoutTimes(project) {
   // duración (se ignora aunque venga en datos antiguos). La cascada calcula las
   // horas con los traslados y el "término aprox." sigue funcionando.
   const filas = s.filas.map(f => ({ tipo: f.tipo, dur: f.tipo === 'traslado' ? f.dur : null, anchor: null }));
-  return prComputeTimes(filas, prParseHM(s.inicio));
+  return gancho('prComputeTimes')(filas, gancho('prParseHM')(s.inicio));
 }
 function locScoutSet(field, value) { const s = locEnsureScout(STATE.currentProject); s[field] = (field === 'inicio') ? (window.normalizeTime24 ? window.normalizeTime24(value) : value) : value; window.markDirty(); if (field === 'inicio') renderLocaciones(); }
 function locScoutSetFila(i, field, value, reflow) { const s = locEnsureScout(STATE.currentProject); if (!s.filas[i]) return; s.filas[i][field] = (field === 'dur') ? window.prNormalizeDur(value) : value; window.markDirty(); if (reflow) renderLocaciones(); }
@@ -687,9 +688,9 @@ function locScoutingHTML(project) {
   const e = escapeHtml;
   const usos = projLocList(project);
   const times = locScoutTimes(project);
-  const fin = times.length ? prFmtClock(times[times.length - 1].termino != null ? times[times.length - 1].termino : times[times.length - 1].inicio) : (s.inicio || '—');
+  const fin = times.length ? gancho('prFmtClock')(times[times.length - 1].termino != null ? times[times.length - 1].termino : times[times.length - 1].inicio) : (s.inicio || '—');
   const nParadas = s.filas.filter(f => f.tipo === 'parada').length;
-  const totalMin = (prParseHM(fin) != null && prParseHM(s.inicio) != null) ? (prParseHM(fin) - prParseHM(s.inicio)) : null;
+  const totalMin = (gancho('prParseHM')(fin) != null && gancho('prParseHM')(s.inicio) != null) ? (gancho('prParseHM')(fin) - gancho('prParseHM')(s.inicio)) : null;
   const quienes = s.quienes.map((q, i) => `<span class="scout-chip"><span class="combobox-wrap person-combobox cbx-anchored" style="min-width:150px;"><input class="combobox-input" value="${e(q)}" placeholder="Buscar persona…" autocomplete="off" ${accionHTML('loc.scoutQuien', i, { on: 'focus input blur change' })}><div class="combobox-dropdown" hidden></div></span><button class="x" ${accionHTML('loc.scoutQuienDel', i)} title="Quitar">×</button></span>`).join('');
   const nFilas = s.filas.length;
   let _pIdx = -1;
@@ -699,7 +700,7 @@ function locScoutingHTML(project) {
       return `<div class="scout-trasl"><div></div><div class="scout-rail">${ln}</div><div class="scout-seg">⤷ Traslado <input class="scout-dur-in" value="${e(f.dur || '')}" title="HHMM: 100 = 1 hora · tiempo de viaje" ${accionHTML('loc.scoutFila', i, 'dur', true, { on: 'change' })}> <span style="font-size:11px;color:var(--ink-faint);">de viaje</span></div></div>`;
     }
     _pIdx++; const pIdx = _pIdx;
-    const clock = times[i] && times[i].inicio != null ? prFmtClock(times[i].inicio) : '—';
+    const clock = times[i] && times[i].inicio != null ? gancho('prFmtClock')(times[i].inicio) : '—';
     const horaCell = (i === 0)
       ? `<input class="scout-time-in" value="${e(s.inicio || '')}" inputmode="numeric" maxlength="5" title="Hora de inicio del plan (editable)" ${accionHTML('loc.scoutSet', 'inicio', { on: 'change' })}>`
       : `<span>${clock}</span>`;
@@ -748,7 +749,7 @@ function locScoutingHTML(project) {
     </div>
   </div>
   <div class="cot-card" style="padding:14px 16px;">
-    <div class="scout-summary"><b>${nParadas} parada(s)</b> · ${totalMin != null ? prFmtDur(totalMin) + ' total' : 'duración —'} · término aprox. <b>${fin}</b></div>
+    <div class="scout-summary"><b>${nParadas} parada(s)</b> · ${totalMin != null ? gancho('prFmtDur')(totalMin) + ' total' : 'duración —'} · término aprox. <b>${fin}</b></div>
     <div class="scout-tl">${filasHTML || `<div style="color:var(--ink-faint);padding:8px 2px;font-size:13px;">Sin paradas todavía. Agrega tu primera parada.</div>`}</div>
     <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button class="btn btn-secondary btn-sm" data-accion="loc.scoutParadaAdd">+ Parada</button>
@@ -763,8 +764,8 @@ function scoutBuildPDFHTML(project) {
   const ip = project.data.infoProyecto || {};
   const times = locScoutTimes(project);
   const rows = s.filas.map((f, i) => {
-    const clock = times[i] && times[i].inicio != null ? prFmtClock(times[i].inicio) : '—';
-    if (f.tipo === 'traslado') return `<tr class="tr"><td>${clock}</td><td>${e(prFmtDur(prParseHM(f.dur)))}</td><td colspan="3">⤷ Traslado</td></tr>`;
+    const clock = times[i] && times[i].inicio != null ? gancho('prFmtClock')(times[i].inicio) : '—';
+    if (f.tipo === 'traslado') return `<tr class="tr"><td>${clock}</td><td>${e(gancho('prFmtDur')(gancho('prParseHM')(f.dur)))}</td><td colspan="3">⤷ Traslado</td></tr>`;
     const l = bdLocFind(f.locId) || {};
     const _c0 = locPrimaryContact(l) || {};
     const _bdP = (f.resp && typeof BD_PERSONAS !== 'undefined') ? BD_PERSONAS[f.resp] : null;
@@ -776,7 +777,7 @@ function scoutBuildPDFHTML(project) {
     const _mapsLink = _mapsP ? `<br><a href="${safeUrl(_mapsP)}" style="color:#1a5fb4;font-size:11px;">Ver en Maps</a>` : '';
     return `<tr><td>${clock}</td><td></td><td><b>${e(_nomP)}</b><br><span class="mut">${e(l.direccion || '')}</span>${_mapsLink}</td><td>${e(_contacto)}</td><td>${e(f.revisar || '')}</td></tr>`;
   }).join('');
-  const fin = times.length ? prFmtClock(times[times.length - 1].termino != null ? times[times.length - 1].termino : times[times.length - 1].inicio) : '';
+  const fin = times.length ? gancho('prFmtClock')(times[times.length - 1].termino != null ? times[times.length - 1].termino : times[times.length - 1].inicio) : '';
   const _ptsRuta = s.filas.filter(x => x.tipo === 'parada').map(x => { if (x.locId) { const ll = bdLocFind(x.locId) || {}; return String(ll.direccion || ll.nombre || locNombre(x.locId) || '').trim(); } return String(x.nombreLibre || '').trim(); }).filter(Boolean);
   const _rutaUrl = _ptsRuta.length >= 2 ? 'https://www.google.com/maps/dir/' + _ptsRuta.map(p => encodeURIComponent(p)).join('/') : '';
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Plan de Scouting</title>
@@ -954,3 +955,9 @@ registrarAcciones('loc', {
   prevZoom: function (a) { window.CotPreview.setZoom(window.CotPreview.zoom + a[0]); },
   prevModo: function (a) { window.CotPreview.setMode(a[0]); },
 });
+
+// D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+define('bdLocFind', bdLocFind);
+define('nextLocIdBD', nextLocIdBD);
+define('projLocFind', projLocFind);
+define('renderLocaciones', renderLocaciones);

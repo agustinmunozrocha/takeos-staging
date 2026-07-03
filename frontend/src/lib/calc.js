@@ -3,6 +3,7 @@
 // D1e · imports reales (regla lib-precede: solo de libs anteriores en main.js)
 import { DTE_CON_RETENCION, factorRetencionDte } from './data.js';
 
+import { gancho } from './ganchos.js';
 /* Costo empresa cotizado de un ítem.
    Retorna { value: number|null, error: string|null }
    - value === null + error → mostrar error
@@ -54,7 +55,7 @@ export function getCostoReal(item, sectionKey) {
 
 /* Totales completos del proyecto: usado para KPI bar, alerts, Info Proyecto */
 export function calcProjectTotals(project) {
-  _syncGastosCostoReal(project);   // 4a · el real de Gastos sale de los movimientos, no de tipeo manual
+  gancho('_syncGastosCostoReal')(project);   // 4a · el real de Gastos sale de los movimientos, no de tipeo manual
   const d = project.data;
   let totalCot = 0, totalReal = 0;
   let hasReal = false;
@@ -233,7 +234,7 @@ export function displayMoneyInputValue(n) {
    lo que ve el usuario en el mismo input. */
 export function onMoneyInput(input, sectionKey, dept, idx, field) {
   const parsed = parseMoneyCLP(input.value);
-  updateRowField(sectionKey, dept, idx, field, parsed);
+  gancho('updateRowField')(sectionKey, dept, idx, field, parsed);
   input.value = parsed == null ? '' : displayMoneyInputValue(parsed);
 }
 
