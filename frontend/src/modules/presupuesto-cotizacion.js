@@ -18,6 +18,7 @@ import { markDirty } from './persistencia-local.js';
 // UNIDAD_OPTIONS: ahora en lib/data.js (window) — dedup B3
 
 // ── A0: cotizadoLocked (disperso, línea 1583)
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 function cotizadoLocked(project) {
   if (!project) return false;
   return window.STATES_WITH_LOCKED_BUDGET.includes(project.state);
@@ -134,9 +135,9 @@ Suma crew de servicios (excluye Postproducción y la línea de catering), talent
         <div class="headcount-break">Crew ${h.crew} · Talentos ${h.talentos} · Cliente ${h.cliente} · Agencia ${h.agencia} · Visitas ${h.externo}</div>
       </div>
       <div class="headcount-inputs">
-        <div class="hc-field"><label>Cliente</label><input type="number" min="0" class="input num" value="${a.cliente || 0}" onchange="updateAsistentes('cliente', window.readNum(this) ?? 0)"></div>
-        <div class="hc-field"><label>Agencia</label><input type="number" min="0" class="input num" value="${a.agencia || 0}" onchange="updateAsistentes('agencia', window.readNum(this) ?? 0)"></div>
-        <div class="hc-field"><label>Visitas externas</label><input type="number" min="0" class="input num" value="${a.externo || 0}" onchange="updateAsistentes('externo', window.readNum(this) ?? 0)"></div>
+        <div class="hc-field"><label>Cliente</label><input type="number" min="0" class="input num" value="${a.cliente || 0}" ${accionHTML('pre.asis', 'cliente', { on: 'change' })}></div>
+        <div class="hc-field"><label>Agencia</label><input type="number" min="0" class="input num" value="${a.agencia || 0}" ${accionHTML('pre.asis', 'agencia', { on: 'change' })}></div>
+        <div class="hc-field"><label>Visitas externas</label><input type="number" min="0" class="input num" value="${a.externo || 0}" ${accionHTML('pre.asis', 'externo', { on: 'change' })}></div>
       </div>
     </div>`;
 }
@@ -176,7 +177,7 @@ function presupCotVersionBarHTML(project) {
     const act = v.id === cs.activoId;
     const r = v.resumen;
     const sub = r ? `${window.fmtMoney(r.valor)} · ${window.fmtPct(r.margenPct)}` : 'sin datos';
-    return `<button class="cotver-chip ${act ? 'is-active' : ''}" onclick="presupSetCotVersion('${v.id}')" title="${escapeHtml(v.nota || v.label)}">
+    return `<button class="cotver-chip ${act ? 'is-active' : ''}" ${accionHTML('pre.d', 'presupSetCotVersion', v.id)} title="${escapeHtml(v.nota || v.label)}">
        <span class="cotver-chip-label">${escapeHtml(v.label)}${act ? ' · activa' : ''}</span>
        <span class="cotver-chip-sub">${sub}</span>
      </button>`;
@@ -187,7 +188,7 @@ function presupCotVersionBarHTML(project) {
   return `<div class="cot-card cotver-card" style="margin-bottom:14px;">
     <div class="cotver-head">
       <div class="cot-card-title" style="margin:0;">Presupuesto · <strong>${escapeHtml(activa.label)}</strong>${activaEsUltima ? '' : ' <span style="color:var(--accent,#c2410c);font-weight:600;">(versión histórica)</span>'}</div>
-      <div class="cotver-actions"><button class="btn btn-secondary btn-sm" onclick="cotAbrirComparador()">Comparar versiones</button><button class="btn btn-secondary btn-sm" onclick="window.navigateToModule('cotizacion')">Ir a Cotización</button></div>
+      <div class="cotver-actions"><button class="btn btn-secondary btn-sm" data-accion="pre.d" data-args="[&quot;cotAbrirComparador&quot;]">Comparar versiones</button><button class="btn btn-secondary btn-sm" data-accion="pre.d" data-args="[&quot;navigateToModule&quot;,&quot;cotizacion&quot;]">Ir a Cotización</button></div>
     </div>
     <div class="cotver-chips">${chips}</div>
     <p class="config-hint" style="margin:10px 0 0;">${nota}</p>
@@ -276,15 +277,15 @@ export function renderPresupuesto() {
   // Header actions: calculadora tributaria + indicador de modo
   document.getElementById('moduleHeaderActions').innerHTML = `
     <div style="display: flex; gap: 12px; align-items: center;">
-      <button class="calc-trigger" onclick="window.openCalculadoraTributaria()" title="Abrir calculadora tributaria">
+      <button class="calc-trigger" data-accion="pre.d" data-args="[&quot;openCalculadoraTributaria&quot;]" title="Abrir calculadora tributaria">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="13" y1="10" x2="14" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="13" y1="14" x2="14" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="13" y1="18" x2="14" y2="18"/></svg>
         Calculadora tributaria
       </button>
-      <button class="calc-trigger" onclick="exportPresupuestoExcel()" title="Exporta el presupuesto a Excel (.xlsx): todas las versiones, una pestaña por versión, con resumen financiero y detalle. Formato moneda chilena, solo lectura.">
+      <button class="calc-trigger" data-accion="pre.d" data-args="[&quot;exportPresupuestoExcel&quot;]" title="Exporta el presupuesto a Excel (.xlsx): todas las versiones, una pestaña por versión, con resumen financiero y detalle. Formato moneda chilena, solo lectura.">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Exportar Presupuesto
       </button>
-      <button class="calc-trigger" onclick="openVisualizacionPanel()" title="Reordenar y renombrar las sub-secciones de Servicios. El renombrar es estructural (migra las filas a la nueva sub-sección); reordenar es solo el orden en que se muestran.">
+      <button class="calc-trigger" data-accion="pre.d" data-args="[&quot;openVisualizacionPanel&quot;]" title="Reordenar y renombrar las sub-secciones de Servicios. El renombrar es estructural (migra las filas a la nueva sub-sección); reordenar es solo el orden en que se muestran.">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
         Visualización
       </button>
@@ -292,7 +293,7 @@ export function renderPresupuesto() {
         Modo: <strong style="color: var(--ink-secondary);">${showReal ? 'Cotizado + Real' : 'Solo cotización'}</strong>
         ${!showReal ? '<span style="color: var(--ink-faint);"> · se activa en Preproducción</span>' : ''}
       </div>
-      ${showReal ? `<button class="calc-trigger" onclick="toggleBudgetCotizado()" title="Mostrar u ocultar las columnas del cotizado (DTE cotizado, Valor, Cantidad). Tras aprobar quedan congeladas, así que por defecto se ocultan para dar aire al resto.">
+      ${showReal ? `<button class="calc-trigger" data-accion="pre.d" data-args="[&quot;toggleBudgetCotizado&quot;]" title="Mostrar u ocultar las columnas del cotizado (DTE cotizado, Valor, Cantidad). Tras aprobar quedan congeladas, así que por defecto se ocultan para dar aire al resto.">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="${STATE.ui.budgetCollapseCotizado !== false ? '9 18 15 12 9 6' : '15 18 9 12 15 6'}"/></svg>
         ${STATE.ui.budgetCollapseCotizado !== false ? 'Mostrar detalle cotizado' : 'Ocultar detalle cotizado'}
       </button>` : ''}
@@ -317,7 +318,7 @@ export function renderPresupuesto() {
 
     <!-- SERVICIOS -->
     <div class="dept ${isCollapsed('servicios') ? 'collapsed' : ''}" data-dept-key="servicios">
-      <div class="dept-header" onclick="toggleDept('servicios')">
+      <div class="dept-header" data-accion="pre.d" data-args="[&quot;toggleDept&quot;, &quot;servicios&quot;]">
         <div class="dept-title"><span class="dept-chevron">▾</span> Servicios — Personal contratado</div>
         <div class="dept-summary" id="dept-summary-servicios"></div>
       </div>
@@ -326,7 +327,7 @@ export function renderPresupuesto() {
 
     <!-- GASTOS -->
     <div class="dept ${isCollapsed('gastos') ? 'collapsed' : ''}" data-dept-key="gastos">
-      <div class="dept-header" onclick="toggleDept('gastos')">
+      <div class="dept-header" data-accion="pre.d" data-args="[&quot;toggleDept&quot;, &quot;gastos&quot;]">
         <div class="dept-title"><span class="dept-chevron">▾</span> Gastos <span style="font-style:italic;font-weight:400;color:var(--ink-faint);font-size:11.5px;letter-spacing:0;text-transform:none;">· vinculado con la pestaña Gastos</span></div>
         <div class="dept-summary" id="dept-summary-gastos"></div>
       </div>
@@ -335,7 +336,7 @@ export function renderPresupuesto() {
 
     <!-- TÉCNICA (antes "Equipos") -->
     <div class="dept ${isCollapsed('equipos') ? 'collapsed' : ''}" data-dept-key="equipos">
-      <div class="dept-header" onclick="toggleDept('equipos')">
+      <div class="dept-header" data-accion="pre.d" data-args="[&quot;toggleDept&quot;, &quot;equipos&quot;]">
         <div class="dept-title"><span class="dept-chevron">▾</span> Técnica</div>
         <div class="dept-summary" id="dept-summary-equipos"></div>
       </div>
@@ -344,7 +345,7 @@ export function renderPresupuesto() {
 
     <!-- TALENTOS -->
     <div class="dept ${isCollapsed('talentos') ? 'collapsed' : ''}" data-dept-key="talentos">
-      <div class="dept-header" onclick="toggleDept('talentos')">
+      <div class="dept-header" data-accion="pre.d" data-args="[&quot;toggleDept&quot;, &quot;talentos&quot;]">
         <div class="dept-title"><span class="dept-chevron">▾</span> Talentos</div>
         <div class="dept-summary" id="dept-summary-talentos"></div>
       </div>
@@ -391,15 +392,15 @@ export function renderServiciosBody() {
     html += `
       <div class="subdept" data-subdept="${escapeHtml(dept)}">
         <div class="subdept-name">${escapeHtml(dept)}
-          <button type="button" class="subdept-ctl" title="Renombrar sub-sección" onclick="renameServiceDept(${di})">✎</button>
-          <button type="button" class="subdept-ctl danger" title="Eliminar sub-sección" onclick="deleteServiceDept(${di})">×</button>
+          <button type="button" class="subdept-ctl" title="Renombrar sub-sección" ${accionHTML('pre.d', 'renameServiceDept', di)}>✎</button>
+          <button type="button" class="subdept-ctl danger" title="Eliminar sub-sección" ${accionHTML('pre.d', 'deleteServiceDept', di)}>×</button>
         </div>
         <div class="subdept-totals" id="subdept-totals-${escapeHtml(dept)}"></div>
       </div>
       <div style="overflow-x: auto;" data-budget-scroll="servicios:${escapeHtml(dept)}">
         ${renderRoleTable('servicios', dept, d[dept], showReal)}
       </div>
-      <div class="row-add" onclick="addRow('servicios', '${escapeHtml(dept)}')" style="margin: 0 12px 12px;">
+      <div class="row-add" ${accionHTML('pre.d', 'addRow', 'servicios', escapeHtml(dept))} style="margin: 0 12px 12px;">
         + Agregar rol a ${escapeHtml(dept)}
       </div>
     `;
@@ -407,7 +408,7 @@ export function renderServiciosBody() {
   }
   // V8.1 (#5): crear nuevas sub-secciones dinámicamente.
   html += `
-    <div class="row-add subdept-add-row" onclick="addServiceDept()" style="margin: 6px 12px 14px;">
+    <div class="row-add subdept-add-row" data-accion="pre.d" data-args="[&quot;addServiceDept&quot;]" style="margin: 6px 12px 14px;">
       + Agregar sub-sección
     </div>
   `;
@@ -549,17 +550,17 @@ function openVisualizacionPanel() {
         const count = (d[n] || []).length;
         return `<div class="viz-dept-row">
           <div class="viz-dept-ord">
-            <button type="button" class="pr-tool" title="Subir" onclick="moveServiceDept(${i}, -1)" ${i === 0 ? 'disabled' : ''}>⌃</button>
-            <button type="button" class="pr-tool" title="Bajar" onclick="moveServiceDept(${i}, 1)" ${i === names.length - 1 ? 'disabled' : ''}>⌄</button>
+            <button type="button" class="pr-tool" title="Subir" ${accionHTML('pre.d', 'moveServiceDept', i, -1)} ${i === 0 ? 'disabled' : ''}>⌃</button>
+            <button type="button" class="pr-tool" title="Bajar" ${accionHTML('pre.d', 'moveServiceDept', i, 1)} ${i === names.length - 1 ? 'disabled' : ''}>⌄</button>
           </div>
-          <input class="input viz-dept-name" value="${escapeHtml(n)}" onchange="vizRenameInput(${i}, this.value)" title="Renombrar: migra las filas a la nueva sub-sección. Los montos cotizados no cambian.">
+          <input class="input viz-dept-name" value="${escapeHtml(n)}" ${accionHTML('pre.d', 'vizRenameInput', i, '§v§', { on: 'change' })} title="Renombrar: migra las filas a la nueva sub-sección. Los montos cotizados no cambian.">
           <span class="viz-dept-count">${count} fila${count === 1 ? '' : 's'}</span>
         </div>`;
       }).join('')
     : '<p class="config-hint" style="margin:4px 0;">Servicios aún no tiene sub-secciones. Créalas con «+ Agregar sub-sección» en la tabla de Servicios.</p>';
   document.getElementById('modalRoot').innerHTML = `
-    <div class="modal-backdrop" onclick="window.closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width: 560px;">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width: 560px;">
         <div class="modal-header">
           <div class="modal-title">Visualización · Sub-secciones de Servicios</div>
           <div style="font-size: 12px; color: var(--ink-muted); margin-top: 4px;">Reordena con ⌃⌄ y renombra editando el nombre. Renombrar migra las filas a la nueva sub-sección; reordenar solo cambia el orden en pantalla. Los montos cotizados no se tocan.</div>
@@ -568,7 +569,7 @@ function openVisualizacionPanel() {
           <div class="viz-dept-list">${list}</div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-primary" onclick="window.closeModal()">Listo</button>
+          <button class="btn btn-primary" data-accion="ui.cerrar">Listo</button>
         </div>
       </div>
     </div>`;
@@ -594,7 +595,7 @@ export function renderSimpleSection(sectionKey) {
     <div style="overflow-x: auto;" data-budget-scroll="${sectionKey}">
       ${renderRoleTable(sectionKey, null, items, showReal, cfg.firstCol)}
     </div>
-    <div class="row-add" onclick="addRow('${sectionKey}', null)" style="margin: 0 12px 12px;">
+    <div class="row-add" ${accionHTML('pre.d', 'addRow', sectionKey, null)} style="margin: 0 12px 12px;">
       ${cfg.addLabel}
     </div>
   `;
@@ -631,7 +632,7 @@ function renderRoleTable(sectionKey, dept, items, showReal, firstColLabel) {
   const _order = _budgetDisplayOrder(items, sectionKey, dept);
   const _deptArg = sectionKey === 'servicios' ? ("'" + escapeHtml(dept) + "'") : 'null';
   const _sortBar = _sortActive
-    ? `<div class="budget-sort-bar">Orden por columna activo (solo en pantalla; no altera el orden guardado) <button type="button" class="budget-sort-restore" onclick="budgetSortClear('${sectionKey}', ${_deptArg})">↺ Restaurar orden</button></div>`
+    ? `<div class="budget-sort-bar">Orden por columna activo (solo en pantalla; no altera el orden guardado) <button type="button" class="budget-sort-restore" ${accionHTML('pre.d', 'budgetSortClear', sectionKey, _deptArg)}>↺ Restaurar orden</button></div>`
     : '';
   const _costoRealTip = '<span class="tt" data-tip="Ingresa el costo EFECTIVO para la empresa, no el líquido que recibe el proveedor.\n\n• Boleta de honorarios: ingresa el monto BRUTO (con retención incluida). Ese es el costo real para la empresa.\n• Factura: ingresa el monto NETO (sin IVA). El IVA no es costo real porque se recupera contra el crédito fiscal.\n\nPara convertir entre líquido y bruto, usa la Calculadora tributaria en la barra superior.">?</span>';
   // V11.22 · cada columna sale por un helper redimensionable; rTh = ordenable + grip.
@@ -659,7 +660,7 @@ function renderRoleTable(sectionKey, dept, items, showReal, firstColLabel) {
           ${rTh('Costo cotizado', 'costoCotizado', 'num', '')}
           ${showReal ? rTh('Costo real ', 'costoReal', 'num', _costoRealTip) : ''}
           ${showReal ? _budgetColTh(sectionKey, 'dteReal', '', 'DTE real <span class="tt" data-tip="Documento tributario realmente emitido por el proveedor. Por defecto coincide con el DTE cotizado. Cambiarlo NO altera el cotizado (congelado al aprobar); es declarativo, para pagos y trazabilidad.">?</span>') : ''}
-          ${showReal ? rTh('Horas extra ', 'horaExtra', 'num', '<span class="tt" data-tip="Horas extra de la fila como costo empresa (ya con la conversión por DTE). Ingresa el N° de horas en la celda; la HE usa el valor hora (valor de la fila ÷ 10) y el recargo del proyecto. El ⚙ de la fila permite tarifa plana o fórmula propia; este ⚙ fija el recargo por defecto del proyecto. Se suma al Costo de Producción real, aparte del costo base.">?</span><button type="button" class="he-head-cog" title="Fijar el recargo por defecto de las horas extra del proyecto" onclick="event.stopPropagation(); openHeProyectoDefault();">⚙</button>') : ''}
+          ${showReal ? rTh('Horas extra ', 'horaExtra', 'num', '<span class="tt" data-tip="Horas extra de la fila como costo empresa (ya con la conversión por DTE). Ingresa el N° de horas en la celda; la HE usa el valor hora (valor de la fila ÷ 10) y el recargo del proyecto. El ⚙ de la fila permite tarifa plana o fórmula propia; este ⚙ fija el recargo por defecto del proyecto. Se suma al Costo de Producción real, aparte del costo base.">?</span><button type="button" class="he-head-cog" title="Fijar el recargo por defecto de las horas extra del proyecto" data-accion="pre.d" data-args="[&quot;openHeProyectoDefault&quot;]">⚙</button>') : ''}
           ${confHeaderHTML}
           <th style="width: ${BUDGET_MENU_W}px;"></th>
         </tr>
@@ -673,12 +674,13 @@ function renderRoleTable(sectionKey, dept, items, showReal, firstColLabel) {
 
 function renderRoleRow(sectionKey, dept, item, idx, showReal) {
   const ref = sectionKey === 'servicios' ? `'servicios','${escapeHtml(dept)}',${idx}` : `'${sectionKey}',null,${idx}`;
+  const refA = sectionKey === 'servicios' ? ['servicios', dept, idx] : [sectionKey, null, idx];
   // V10.1.0 (#1): con un orden por columna activo, el arrastre manual se desactiva
   // en esta tabla (la vista ordenada no mapea a posiciones del array sin corromper
   // el orden curado). "Restaurar orden" vuelve a habilitarlo.
   const _dragHandle = _budgetSortState(sectionKey, dept)
     ? '<span class="row-drag-handle is-disabled" title="Reordenar a mano está desactivado mientras haya un orden por columna activo. Usa «Restaurar orden» para volver a arrastrar.">⋮⋮</span>'
-    : '<span class="row-drag-handle" title="Arrastra para reordenar (dentro del mismo departamento)" onmousedown="rowHandleDown(this)">⋮⋮</span>';
+    : '<span class="row-drag-handle" title="Arrastra para reordenar (dentro del mismo departamento)" data-accion="pre.d" data-args="[&quot;rowHandleDown&quot;, &quot;\u00a7el\u00a7&quot;]" data-on="mousedown">⋮⋮</span>';
   const calc = calcCostoEmpresa(item.valor, item.cantidad, item.dte, sectionKey);
   const isConfirmed = item.confirmado;
   const roleOrItemField = sectionKey === 'servicios' ? 'rol' : 'item';
@@ -736,15 +738,15 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
     && goLineaRealGastado(STATE.currentProject, item.item) > 0;
   const _crShow = (item.costoReal ? window.displayMoneyInputValue(item.costoReal) : '0');
   const costoRealCell = _gastosDerivado
-    ? `<td class="num go-cr-derivado" onclick="window.navigateToModule('gastos')" title="Costo real = suma de los gastos registrados en el módulo Gastos asociados a esta línea («${escapeHtml(item.item || '')}»). Clic para ir a la pestaña Gastos. No se edita a mano." style="cursor:pointer;">
+    ? `<td class="num go-cr-derivado" data-accion="pre.d" data-args="[&quot;navigateToModule&quot;,&quot;gastos&quot;]" title="Costo real = suma de los gastos registrados en el módulo Gastos asociados a esta línea («${escapeHtml(item.item || '')}»). Clic para ir a la pestaña Gastos. No se edita a mano." style="cursor:pointer;">
           <span class="cr-money-wrap"><span class="cr-money-sign">$</span><span style="font-variant-numeric:tabular-nums;">${_crShow}</span></span>
           <span class="delta-inline ${deltaInitClass}">${deltaInitText}</span>
         </td>`
-    : `<td class="num" ondblclick="openCostoRealCalc(${ref})" title="Doble clic para calcular el costo real (costo empresa) con el DTE de la fila">
+    : `<td class="num" ${accionHTML('pre.d', 'openCostoRealCalc', ...refA, { on: 'dblclick' })} title="Doble clic para calcular el costo real (costo empresa) con el DTE de la fila">
           <span class="cr-money-wrap"><span class="cr-money-sign">$</span><input type="text" inputmode="numeric" class="cell-input num cr-money-input" data-costo-real
                  value="${window.displayMoneyInputValue(item.costoReal)}"
                  placeholder="—"
-                 onchange="onMoneyInput(this, ${ref}, 'costoReal'); afterRowChange(${ref});"></span>
+                 ${accionHTML('pre.rowMoney', ...refA, 'costoReal', { on: 'change' })}></span>
           <span class="delta-inline ${deltaInitClass}" data-delta-inline>${deltaInitText}</span>
         </td>`;
 
@@ -759,17 +761,14 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
                    value="${escapeHtml(item.nombre || '')}"
                    placeholder="—"
                    autocomplete="off"
-                   onfocus="comboboxOpen(this)"
-                   oninput="comboboxFilter(this); updateRowField(${ref}, 'nombre', this.value); afterRowChange(${ref});"
-                   onblur="comboboxCloseDelayed(this)"
-                   onchange="updateRowField(${ref}, 'nombre', this.value); afterRowChange(${ref});">
+                   ${accionHTML('pre.rowName', ...refA, { on: 'focus input blur change' })}>
             <div class="combobox-dropdown" hidden></div>
           </div>
           <div class="cell-name-meta">
-            ${nameNotInBD ? `<span class="cell-name-warn" data-tip="+ Agregar a la BD" style="cursor:pointer;" onclick="crewAddToBD('${escapeHtml(item.nombre || '')}')">●</span>` : ''}
+            ${nameNotInBD ? `<span class="cell-name-warn" data-tip="+ Agregar a la BD" style="cursor:pointer;" ${accionHTML('pre.d', 'crewAddToBD', escapeHtml(item.nombre || ''))}>●</span>` : ''}
             ${isExtra ? '<span class="extra-badge" data-tip="Ítem agregado después de la aprobación del proyecto. Editable libremente. No afecta la cotización original.">EXTRA</span>' : ''}
-            <button type="button" class="row-note-btn ${item.nota ? 'has-note' : ''}" data-tip="${item.nota ? escapeHtml(_noteTip(item.nota, item.notaFecha, item.notaAutor)) : 'Agregar nota a esta fila (contexto interno, no aparece en cotización)'}" onclick="openRowNote(${ref})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/></svg></button>
-            <label class="row-pp" data-tip="Pronto pago negociado para esta fila"><input type="checkbox" ${item.prontoPago ? 'checked' : ''} onchange="updateRowField(${ref}, 'prontoPago', this.checked); afterRowChange(${ref});">PP</label>
+            <button type="button" class="row-note-btn ${item.nota ? 'has-note' : ''}" data-tip="${item.nota ? escapeHtml(_noteTip(item.nota, item.notaFecha, item.notaAutor)) : 'Agregar nota a esta fila (contexto interno, no aparece en cotización)'}" ${accionHTML('pre.d', 'openRowNote', ...refA)}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/></svg></button>
+            <label class="row-pp" data-tip="Pronto pago negociado para esta fila"><input type="checkbox" ${item.prontoPago ? 'checked' : ''} ${accionHTML('pre.rowCk', ...refA, 'prontoPago', { on: 'change' })}>PP</label>
           </div>
           </div>
         </div>
@@ -779,12 +778,12 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
                value="${escapeHtml(roleOrItemValue || '')}"
                placeholder="${escapeHtml(sectionKey === 'servicios' ? 'Rol' : 'Ítem')}"
                ${readonlyAttr}
-               onchange="updateRowField(${ref}, '${roleOrItemField}', this.value);">
+               ${accionHTML('pre.rowF', ...refA, roleOrItemField, { on: 'change' })}>
       </td>
       <td class="col-cot-detail">
         <select class="cell-select ${item.dte ? '' : (sectionKey === 'servicios' || sectionKey === 'talentos' ? 'is-empty' : '')}"
                 ${disabledAttr}
-                onchange="updateRowField(${ref}, 'dte', this.value || null); afterRowChange(${ref});">
+                ${accionHTML('pre.rowDte', ...refA, 'dte', { on: 'change' })}>
           <option value="">${sectionKey === 'gastos' || sectionKey === 'equipos' ? '— Opcional —' : '— DTE —'}</option>
           ${DTE_OPTIONS.map(o =>
             `<option value="${o.value}" ${item.dte === o.value ? 'selected' : ''}>${o.label}</option>`
@@ -796,14 +795,14 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
                value="${window.displayMoneyInputValue(item.valor)}"
                placeholder="—"
                ${readonlyAttr}
-               onchange="onMoneyInput(this, ${ref}, 'valor'); afterRowChange(${ref});">
+               ${accionHTML('pre.rowMoney', ...refA, 'valor', { on: 'change' })}>
       </td>
       <td class="num col-cot-detail">
         <input type="number" step="0.5" class="cell-input num"
                value="${item.cantidad ?? ''}"
                placeholder="0"
                ${readonlyAttr}
-               onchange="updateRowField(${ref}, 'cantidad', window.readNum(this) ?? 0); afterRowChange(${ref});">
+               ${accionHTML('pre.rowNum', ...refA, 'cantidad', { on: 'change' })}>
       </td>
       <td>
         ${renderUnidadCell(ref, item.unidad)}
@@ -817,7 +816,7 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
         ${costoRealCell}
         <td>
           <select class="cell-select ${dteRealVal ? '' : 'is-empty'}"
-                  onchange="updateRowField(${ref}, 'dteReal', this.value || null);">
+                  ${accionHTML('pre.rowDteSolo', ...refA, 'dteReal', { on: 'change' })}>
             <option value="">— DTE real —</option>
             ${DTE_OPTIONS.map(o =>
               `<option value="${o.value}" ${dteRealVal === o.value ? 'selected' : ''}>${o.label}</option>`
@@ -829,20 +828,20 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
             <input type="number" step="0.5" min="0" class="he-horas-input ${hePlana ? 'is-disabled' : ''}"
                    value="${heHoras}" placeholder="0" ${hePlana ? 'disabled' : ''}
                    title="N° de horas extra. La HE se calcula con el valor hora (valor de la fila ÷ 10) y el recargo del proyecto. Usa el ⚙ para una tarifa plana o una fórmula propia."
-                   onchange="setHeHoras(${ref}, this.value)">
-            <span class="he-cost ${item.horaExtra ? 'he-on' : (heNeedsCfg ? 'needs-cfg' : 'zero')}" data-he-cell${heNeedsCfg ? ` onclick="openHorasExtraCalc(${ref})" style="color:var(--warning);cursor:pointer;text-decoration:underline dotted;white-space:nowrap;" title="Ingresaste horas, pero esta fila no es «Jornadas»: no hay un valor hora del cual calcular la HE. Haz clic para fijar un valor hora propio o un monto plano."` : ''}>${item.horaExtra ? window.fmtMoney(item.horaExtra) : (heNeedsCfg ? '⚠ definir' : '—')}</span>
-            <button type="button" class="he-cog ${heOverride ? 'is-override' : ''}" title="Ajustar las horas extra de esta fila (tarifa plana, fórmula propia, IVA)" onclick="openHorasExtraCalc(${ref})">⚙</button>
+                   ${accionHTML('pre.d', 'setHeHoras', ...refA, '§v§', { on: 'change' })}>
+            <span class="he-cost ${item.horaExtra ? 'he-on' : (heNeedsCfg ? 'needs-cfg' : 'zero')}" data-he-cell${heNeedsCfg ? ` ${accionHTML('pre.d', 'openHorasExtraCalc', ...refA)} style="color:var(--warning);cursor:pointer;text-decoration:underline dotted;white-space:nowrap;" title="Ingresaste horas, pero esta fila no es «Jornadas»: no hay un valor hora del cual calcular la HE. Haz clic para fijar un valor hora propio o un monto plano."` : ''}>${item.horaExtra ? window.fmtMoney(item.horaExtra) : (heNeedsCfg ? '⚠ definir' : '—')}</span>
+            <button type="button" class="he-cog ${heOverride ? 'is-override' : ''}" title="Ajustar las horas extra de esta fila (tarifa plana, fórmula propia, IVA)" ${accionHTML('pre.d', 'openHorasExtraCalc', ...refA)}>⚙</button>
           </div>
         </td>
       ` : ''}
       ${showConfirmado ? `<td class="ctr">
         <input type="checkbox" ${isConfirmed ? 'checked' : ''}
-               onchange="updateRowField(${ref}, 'confirmado', this.checked); afterRowConfirmToggle(${ref});">
-        <label class="row-no-rodaje" data-tip="Confirmado pero NO va al rodaje: lo deja fuera de la Hoja de Llamado y del correo de Producción. Sigue contando para pagos."><input type="checkbox" ${item.noVaRodaje ? 'checked' : ''} onchange="updateRowField(${ref}, 'noVaRodaje', this.checked); afterRowConfirmToggle(${ref});">no rodaje</label>
+               ${accionHTML('pre.rowConf', ...refA, 'confirmado', { on: 'change' })}>
+        <label class="row-no-rodaje" data-tip="Confirmado pero NO va al rodaje: lo deja fuera de la Hoja de Llamado y del correo de Producción. Sigue contando para pagos."><input type="checkbox" ${item.noVaRodaje ? 'checked' : ''} ${accionHTML('pre.rowConf', ...refA, 'noVaRodaje', { on: 'change' })}>no rodaje</label>
       </td>` : ''}
       <td>
         ${locked ? '' : `<button class="row-delete" title="Eliminar"
-                onclick="deleteRow(${ref})">×</button>`}
+                ${accionHTML('pre.d', 'deleteRow', ...refA)}>×</button>`}
       </td>
     </tr>
   `;
@@ -993,7 +992,7 @@ function _budgetSortTh(label, sectionKey, dept, colKey, extraClass, styleAttr, t
   const on = s && s.col === colKey;
   const ind = on ? ('<span class="sort-ind on">' + (s.dir === 'asc' ? '▲' : '▼') + '</span>') : '<span class="sort-ind"></span>';
   const cls = 'sortable' + (extraClass ? ' ' + extraClass : '');
-  return '<th class="' + cls + '" data-bsec="' + sectionKey + '" data-bcol="' + colKey + '"' + (styleAttr || '') + ' onclick="budgetSortBy(\'' + sectionKey + '\', ' + deptArg + ', \'' + colKey + '\')">' + label + (tipHTML || '') + ind + (tailHTML || '') + '</th>';
+  return '<th class="' + cls + '" data-bsec="' + sectionKey + '" data-bcol="' + colKey + '"' + (styleAttr || '') + ' ' + accionHTML('pre.d', 'budgetSortBy', sectionKey, deptArg, colKey) + '>' + label + (tipHTML || '') + ind + (tailHTML || '') + '</th>';
 }
 
 /* ─── V11.22 · ancho de columna redimensionable a mano (TODAS las columnas) ───
@@ -1055,9 +1054,9 @@ function _budgetColWSet(sectionKey, colId, px) {
 }
 export function _budgetColGrip(sectionKey, colId) {
   return '<span class="col-resize-grip" title="Arrastra para ajustar el ancho · doble clic para restablecer"'
-    + ' onmousedown="budgetColResizeDown(event, \'' + sectionKey + '\', \'' + colId + '\')"'
-    + ' onclick="event.stopPropagation();"'
-    + ' ondblclick="budgetColResizeReset(event, \'' + sectionKey + '\', \'' + colId + '\')"></span>';
+    + ' ' + accionHTML('pre.colGrip', sectionKey, colId, { on: 'mousedown dblclick' }) + ''
+    + ''
+    + ' ></span>';
 }
 /* <th> redimensionable NO ordenable (DTE, Unidad, DTE real, Conf.). Los ordenables
    ya salen por _budgetSortTh con su mismo grip. */
@@ -1159,20 +1158,20 @@ function openRowNote(sectionKey, dept, idx) {
   const deptArg = dept === null || dept === undefined ? 'null' : `'${escapeHtml(dept)}'`;
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="window.closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width: 480px;">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width: 480px;">
         <div class="modal-header">
           <div class="modal-title">Nota de fila</div>
           <div style="font-size: 12px; color: var(--ink-muted); margin-top: 4px;">Contexto interno para «${escapeHtml(nombre)}». No aparece en la cotización ni en documentos al cliente.</div>
         </div>
         <div class="modal-body">
           <div style="font-size:11px;color:var(--ink-faint);margin-bottom:8px;line-height:1.4;">Autor: <strong>Tú</strong> <span style="opacity:.7;">(se registrará automáticamente al activar cuentas)</span>${item.notaFecha ? ' · Última edición: ' + escapeHtml(item.notaFecha) : ''}</div>
-          <textarea id="rowNoteText" class="input" rows="4" style="width: 100%; resize: vertical;" oninput="mentionInput(this)" onblur="mentionBlur()" placeholder="Ej: va en $0 porque el cliente provee este recurso. Escribe @ para etiquetar.">${escapeHtml(item.nota || '')}</textarea>
+          <textarea id="rowNoteText" class="input" rows="4" style="width: 100%; resize: vertical;" data-accion="pre.nota" data-on="input blur" placeholder="Ej: va en $0 porque el cliente provee este recurso. Escribe @ para etiquetar.">${escapeHtml(item.nota || '')}</textarea>
         </div>
         <div class="modal-footer">
-          ${item.nota ? `<button class="btn" style="margin-right: auto; color: var(--negative);" onclick="saveRowNote('${sectionKey}', ${deptArg}, ${idx}, true)">Borrar nota</button>` : ''}
-          <button class="btn" onclick="window.closeModal()">Cancelar</button>
-          <button class="btn btn-primary" onclick="saveRowNote('${sectionKey}', ${deptArg}, ${idx}, false)">Guardar nota</button>
+          ${item.nota ? `<button class="btn" style="margin-right: auto; color: var(--negative);" ${accionHTML('pre.d', 'saveRowNote', sectionKey, deptArg, idx, true)}>Borrar nota</button>` : ''}
+          <button class="btn" data-accion="ui.cerrar">Cancelar</button>
+          <button class="btn btn-primary" ${accionHTML('pre.d', 'saveRowNote', sectionKey, deptArg, idx, false)}>Guardar nota</button>
         </div>
       </div>
     </div>`;
@@ -1284,9 +1283,9 @@ export function afterRowChange(sectionKey, dept, idx) {
     heCostEl.className = 'he-cost ' + (item.horaExtra ? 'he-on' : (heNeedsCfg ? 'needs-cfg' : 'zero'));
     heCostEl.textContent = item.horaExtra ? window.fmtMoney(item.horaExtra) : (heNeedsCfg ? '⚠ definir' : '—');
     if (heNeedsCfg) {
-      const refHe = sectionKey === 'servicios' ? `'servicios','${escapeHtml(dept)}',${idx}` : `'${sectionKey}',null,${idx}`;
+      const refHeA = sectionKey === 'servicios' ? ['servicios', dept, idx] : [sectionKey, null, idx];
       heCostEl.style.cssText = 'color:var(--warning);cursor:pointer;text-decoration:underline dotted;white-space:nowrap;';
-      heCostEl.setAttribute('onclick', `openHorasExtraCalc(${refHe})`);
+      heCostEl.setAttribute('data-accion', 'pre.d'); heCostEl.setAttribute('data-args', JSON.stringify(['openHorasExtraCalc'].concat(refHeA)));
       heCostEl.setAttribute('title', 'Ingresaste horas, pero esta fila no es «Jornadas»: no hay un valor hora del cual calcular la HE. Haz clic para fijar un valor hora propio o un monto plano.');
     } else {
       heCostEl.style.cssText = '';
@@ -2003,7 +2002,7 @@ export function renderSummaryFin() {
             const open = expandable && _budgetServiciosExpanded;
             const chevron = expandable ? `<span class="dept-chevron" style="display:inline-block;width:14px;transition:transform .15s;${open ? '' : 'transform:rotate(-90deg);'}">▾</span> ` : '';
             const head = `
-          <tr${expandable ? ' style="cursor:pointer;" onclick="toggleBudgetServiciosBreakdown()" title="Ver desglose por departamento"' : ''}>
+          <tr${expandable ? ' style="cursor:pointer;" data-accion="pre.d" data-args="[&quot;toggleBudgetServiciosBreakdown&quot;]" title="Ver desglose por departamento"' : ''}>
             <td>${chevron}${r.label}${expandable ? ` <span style="color:var(--ink-faint);font-size:11px;">(${deptos.length} ${deptos.length === 1 ? 'depto.' : 'deptos.'})</span>` : ''}</td>
             <td class="pct">${pctOfClient(r.cot)}</td>
             <td class="num">${window.fmtMoney(r.cot)}</td>
@@ -2050,7 +2049,7 @@ export function renderSummaryFin() {
             <input type="number" step="0.5" min="0" max="100"
                    value="${(fin.gastosAdminPct * 100).toFixed(1)}"
                    ${lockedAttr}
-                   onchange="updateFinanzasField('gastosAdminPct', (parseFloat(this.value)||0)/100); renderSummaryFin();">%
+                   ${accionHTML('pre.finPct', 'updateFinanzasField', 'gastosAdminPct', { on: 'change' })}>%
           </td>
           <td class="num">${window.fmtMoney(s.admin.cot)}</td>
           ${showReal ? `<td class="num">${s.anyReal ? window.fmtMoney(s.admin.real) : '—'}</td>` : ''}
@@ -2065,21 +2064,21 @@ export function renderSummaryFin() {
                      value="${escapeHtml(r.label)}"
                      placeholder="Nombre del riesgo"
                      ${lockedAttr}
-                     onchange="updateRiesgoLabel(${idx}, this.value);">
+                     ${accionHTML('pre.finLbl', 'updateRiesgoLabel', idx, { on: 'change' })}>
               ${locked ? '' : `<button class="riesgo-del-btn" title="Eliminar riesgo"
-                      onclick="deleteRiesgo(${idx}); renderSummaryFin();">×</button>`}
+                      ${accionHTML('pre.finR', 'deleteRiesgo', idx)}>×</button>`}
             </td>
             <td class="input-cell-narrow">
               <select class="riesgo-mode-select"
                       ${lockedSelectAttr}
-                      onchange="updateRiesgoMode(${idx}, this.value); renderSummaryFin();">
+                      ${accionHTML('pre.finModo', 'updateRiesgoMode', idx, { on: 'change' })}>
                 <option value="monto" ${r.mode === 'monto' ? 'selected' : ''}>$</option>
                 <option value="pct" ${r.mode === 'pct' ? 'selected' : ''}>%</option>
               </select>
               <input type="${r.mode === 'pct' ? 'number' : 'text'}" ${r.mode === 'pct' ? 'step="0.5"' : 'inputmode="numeric"'} min="0"
                      value="${r.mode === 'pct' ? ((r.value || 0) * 100).toFixed(1) : window.displayMoneyInputValue(r.value)}"
                      ${lockedAttr}
-                     onchange="updateRiesgoValue(${idx}, ${r.mode === 'pct' ? '(parseFloat(this.value)||0)/100' : 'window.parseMoneyCLP(this.value)||0'}); renderSummaryFin();">
+                     ${accionHTML('pre.finVal', 'updateRiesgoValue', idx, r.mode, { on: 'change' })}>
               ${r.mode === 'pct' ? '%' : ''}
             </td>
             <td class="num">${window.fmtMoney(r.cot)}</td>
@@ -2092,7 +2091,7 @@ export function renderSummaryFin() {
         ${locked ? '' : `
         <tr class="riesgo-add-row">
           <td colspan="${showReal ? 6 : 3}">
-            <button class="row-add-riesgo" onclick="addRiesgo(); renderSummaryFin();">
+            <button class="row-add-riesgo" data-accion="pre.finR" data-args="[&quot;addRiesgo&quot;]">
               + Agregar riesgo / contingencia
             </button>
             <span class="tt" data-tip="Riesgos y contingencias adicionales: fees de transferencia internacional (Stripe, Wise), conversión de moneda, riesgo climático, contingencia de locación, etc.\n\nGastos administrativos sigue fijo; esto se agrega encima." style="margin-left: 6px;">?</span>
@@ -2130,7 +2129,7 @@ export function renderSummaryFin() {
                    value="${window.displayMoneyInputValue(s.presupCliente)}"
                    placeholder="Ingresa monto cotizado al cliente"
                    ${lockedAttr}
-                   onchange="updateFinanzasField('presupuestoCliente', window.parseMoneyCLP(this.value)||0); renderSummaryFin();">
+                   ${accionHTML('pre.finMoney', 'updateFinanzasField', 'presupuestoCliente', { on: 'change' })}>
           </td>
         </tr>
 
@@ -2144,23 +2143,23 @@ export function renderSummaryFin() {
               <input type="text" class="riesgo-name-input"
                      value="${escapeHtml(x.label || '')}"
                      placeholder="Nombre del extra / ampliación"
-                     onchange="updateExtraIngresoLabel(${idx}, this.value);">
+                     ${accionHTML('pre.finLbl', 'updateExtraIngresoLabel', idx, { on: 'change' })}>
               <button class="riesgo-del-btn" title="Eliminar extra"
-                      onclick="deleteExtraIngreso(${idx}); renderSummaryFin();">×</button>
+                      ${accionHTML('pre.finR', 'deleteExtraIngreso', idx)}>×</button>
             </td>
             <td class="pct">+${baseCliente > 0 ? ((x.monto || 0) / baseCliente * 100).toFixed(1) : '0.0'}%</td>
             <td class="num editable-cell" colspan="${showReal ? 4 : 1}">
               <input type="text" inputmode="numeric"
                      value="${window.displayMoneyInputValue(x.monto || 0)}"
                      placeholder="Monto extra al cliente"
-                     onchange="updateExtraIngresoMonto(${idx}, window.parseMoneyCLP(this.value)||0); renderSummaryFin();">
+                     ${accionHTML('pre.finMoney', 'updateExtraIngresoMonto', idx, { on: 'change' })}>
             </td>
           </tr>
         `).join('')}
 
         <tr class="extra-ingreso-add-row">
           <td colspan="${showReal ? 6 : 3}">
-            <button class="row-add-extra-ingreso" onclick="addExtraIngreso(); renderSummaryFin();">
+            <button class="row-add-extra-ingreso" data-accion="pre.finR" data-args="[&quot;addExtraIngreso&quot;]">
               + Agregar extra / ampliación al cliente
             </button>
             <span class="tt" data-tip="Ingresos adicionales que se le cobran al cliente DESPUÉS de aprobar (ampliaciones de alcance, días extra de rodaje, entregables adicionales, etc.).&#10;&#10;No tocan la cotización original (que queda congelada): se suman aparte para mantener la trazabilidad de cuánto creció el proyecto." style="margin-left: 6px;">?</span>
@@ -2196,21 +2195,21 @@ export function renderSummaryFin() {
                      value="${escapeHtml(c.label)}"
                      placeholder="Nombre de la comisión"
                      ${lockedAttr}
-                     onchange="updateComisionLabel(${idx}, this.value);">
+                     ${accionHTML('pre.finLbl', 'updateComisionLabel', idx, { on: 'change' })}>
               ${locked ? '' : `<button class="comission-del-btn" title="Eliminar comisión"
-                      onclick="deleteComision(${idx}); renderSummaryFin();">×</button>`}
+                      ${accionHTML('pre.finR', 'deleteComision', idx)}>×</button>`}
             </td>
             <td class="input-cell-narrow">
               <select class="riesgo-mode-select"
                       ${lockedSelectAttr}
-                      onchange="updateComisionMode(${idx}, this.value); renderSummaryFin();">
+                      ${accionHTML('pre.finModo', 'updateComisionMode', idx, { on: 'change' })}>
                 <option value="monto" ${c.mode === 'monto' ? 'selected' : ''}>$</option>
                 <option value="pct" ${c.mode === 'pct' ? 'selected' : ''}>%</option>
               </select>
               <input type="${c.mode === 'pct' ? 'number' : 'text'}" ${c.mode === 'pct' ? 'step="0.5"' : 'inputmode="numeric"'} min="0"
                      value="${c.mode === 'pct' ? ((c.value || 0) * 100).toFixed(1) : window.displayMoneyInputValue(c.value)}"
                      ${lockedAttr}
-                     onchange="updateComisionValue(${idx}, ${c.mode === 'pct' ? '(parseFloat(this.value)||0)/100' : 'window.parseMoneyCLP(this.value)||0'}); renderSummaryFin();">
+                     ${accionHTML('pre.finVal', 'updateComisionValue', idx, c.mode, { on: 'change' })}>
               ${c.mode === 'pct' ? '%' : ''}
             </td>
             <td class="num">${window.fmtMoney(c.cot)}</td>
@@ -2223,7 +2222,7 @@ export function renderSummaryFin() {
         ${locked ? '' : `
         <tr class="commission-add-row">
           <td colspan="${showReal ? 6 : 3}">
-            <button class="row-add-comision" onclick="addComision(); renderSummaryFin();">
+            <button class="row-add-comision" data-accion="pre.finR" data-args="[&quot;addComision&quot;]">
               + Agregar comisión
             </button>
           </td>
@@ -2518,7 +2517,7 @@ function cotVersionSwitcherHTML(project) {
     const act = v.id === cs.activoId;
     const r = v.resumen;
     const sub = r ? `${window.fmtMoney(r.valor)} · ${window.fmtPct(r.margenPct)}` : 'sin datos';
-    return `<button class="cotver-chip ${act ? 'is-active' : ''}" onclick="cotSetActiveVersion('${v.id}')" title="${escapeHtml(v.nota || v.label)}">
+    return `<button class="cotver-chip ${act ? 'is-active' : ''}" ${accionHTML('pre.d', 'cotSetActiveVersion', v.id)} title="${escapeHtml(v.nota || v.label)}">
        <span class="cotver-chip-label">${escapeHtml(v.label)}${act ? ' · activa' : ''}</span>
        <span class="cotver-chip-sub">${sub}</span>
      </button>`;
@@ -2528,14 +2527,14 @@ function cotVersionSwitcherHTML(project) {
     <div class="cotver-head">
       <div class="cot-card-title" style="margin:0;">Versiones de cotización <span class="tt" data-tip="Iteraciones de la negociación durante la etapa Venta. Cada versión es una copia completa (ofertas, precios, alcance). La anterior se preserva como historial.">?</span></div>
       <div class="cotver-actions">
-        <button class="btn btn-secondary btn-sm" onclick="cotAbrirComparador()" ${cs.versiones.length < 2 ? 'disabled title="Crea una segunda versión para comparar"' : ''}>Comparar</button>
-        <button class="btn btn-primary btn-sm" onclick="cotCrearVersion()" ${locked ? 'disabled title="El versionado es solo de la etapa Venta. El proyecto ya está aprobado."' : ''}>+ Nueva versión</button>
+        <button class="btn btn-secondary btn-sm" data-accion="pre.d" data-args="[&quot;cotAbrirComparador&quot;]" ${cs.versiones.length < 2 ? 'disabled title="Crea una segunda versión para comparar"' : ''}>Comparar</button>
+        <button class="btn btn-primary btn-sm" data-accion="pre.d" data-args="[&quot;cotCrearVersion&quot;]" ${locked ? 'disabled title="El versionado es solo de la etapa Venta. El proyecto ya está aprobado."' : ''}>+ Nueva versión</button>
       </div>
     </div>
     <div class="cotver-chips">${chips}</div>
     <div class="cot-field" style="margin-top:12px;">
       <label>Nota de esta versión <span class="tt" data-tip="Ej: 'más económica', 'sin día 2', 'reducción de alcance'. Aparece en el comparador.">?</span></label>
-      <input class="cot-input" value="${escapeHtml(activa.nota || '')}" placeholder="¿Qué cambia en esta versión respecto a la anterior?" onchange="cotSetVersionNota(this.value)">
+      <input class="cot-input" value="${escapeHtml(activa.nota || '')}" placeholder="¿Qué cambia en esta versión respecto a la anterior?" data-accion="pre.d" data-args="[&quot;cotSetVersionNota&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change">
     </div>
   </div>`;
 }
@@ -2637,7 +2636,7 @@ function cotCmpBodyHTML(project) {
 
   const selector = `<div class="cot-field" style="margin:0 0 12px;max-width:340px;">
     <label>Oferta a comparar <span class="tt" data-tip="El comparador trabaja una oferta a la vez (ej: Oferta base, Oferta Full). Si una versión no tiene esa oferta, aparece como no comparable.">?</span></label>
-    <select class="cot-input" onchange="cotCmpSelectOffer(this.value)">${names.map(n => `<option ${n === sel ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('')}</select>
+    <select class="cot-input" data-accion="pre.d" data-args="[&quot;cotCmpSelectOffer&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change">${names.map(n => `<option ${n === sel ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('')}</select>
   </div>`;
   const comparando = `<p style="margin:0 0 12px;font-size:13px;color:var(--ink-secondary);">Comparando: <strong style="color:var(--ink-primary,#222);">${escapeHtml(sel)}</strong></p>`;
 
@@ -2697,7 +2696,7 @@ function cotAbrirComparador() {
   if (ultima) cotCaptureResumen(project, ultima);   // la última, al día
   _cotCmpOffer = null;   // cotCmpBodyHTML elige la oferta base por defecto
   const body = `<div id="cotCmpBody">${cotCmpBodyHTML(project)}</div>`;
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:820px;"><div class="modal-header"><div class="modal-title">Comparador de versiones</div></div><div class="modal-body">${body}</div><div class="modal-footer"><button class="btn btn-primary" onclick="window.closeModal()">Cerrar</button></div></div></div>`;
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:820px;"><div class="modal-header"><div class="modal-title">Comparador de versiones</div></div><div class="modal-body">${body}</div><div class="modal-footer"><button class="btn btn-primary" data-accion="ui.cerrar">Cerrar</button></div></div></div>`;
 }
 
 function cotFindOferta(project, id) {
@@ -2786,8 +2785,8 @@ function renderCotizacion() {
   const ip = project.data.infoProyecto;
   document.getElementById('moduleHeaderActions').innerHTML =
     `<div style="display:flex;gap:8px;">
-       <button class="btn btn-secondary btn-sm" onclick="cotPreviewPDF()">Previsualizar PDF</button>
-       <button class="btn btn-primary btn-sm" onclick="cotAddOferta()">+ Nueva oferta</button>
+       <button class="btn btn-secondary btn-sm" data-accion="pre.d" data-args="[&quot;cotPreviewPDF&quot;]">Previsualizar PDF</button>
+       <button class="btn btn-primary btn-sm" data-accion="pre.d" data-args="[&quot;cotAddOferta&quot;]">+ Nueva oferta</button>
      </div>`;
 
   const todayISO = new Date().toISOString().slice(0, 10);
@@ -2815,13 +2814,13 @@ function cotMetaCardHTML(project, c, ip, fechaVal) {
       <div class="cot-field"><label>Producción Ejecutiva</label><div class="ro">${escapeHtml(ip.productorEjecutivo || '—')}</div></div>
       <div class="cot-field"><label>Representante del cliente <span class="tt" data-tip="Se autocompleta desde el Contacto Cliente de Info Proyecto. Puedes reemplazarlo si la carta requiere otro nombre.">?</span></label>
         <input class="cot-input" value="${escapeHtml(c.representanteCliente || ip.contactoCliente || '')}" placeholder="Nombre del contacto"
-               onchange="cotSetMeta('representanteCliente', this.value)"></div>
+               data-accion="pre.d" data-args="[&quot;cotSetMeta&quot;, &quot;representanteCliente&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change"></div>
       <div class="cot-field"><label>Fecha de cotización</label>
         <input type="date" class="cot-input" value="${escapeHtml(ip.fechaCotizacion || fechaVal)}"
-               onchange="updateInfoField('fechaCotizacion', this.value)"></div>
+               data-accion="pre.d" data-args="[&quot;updateInfoField&quot;, &quot;fechaCotizacion&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change"></div>
       <div class="cot-field"><label>Jornadas de rodaje <span class="tt" data-tip="Cantidad de días de rodaje de esta cotización. Es un dato de alcance: no es un entregable ni va en Incluye / No incluye.">?</span></label>
         <input type="number" min="0" step="1" class="cot-input" value="${escapeHtml(c.jornadasRodaje || '')}" placeholder="Ej: 2"
-               onchange="cotSetMeta('jornadasRodaje', this.value)"></div>
+               data-accion="pre.d" data-args="[&quot;cotSetMeta&quot;, &quot;jornadasRodaje&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change"></div>
       <div class="cot-field"><label>Tiempo de derechos <span class="tt" data-tip="Viene de Info Proyecto › Derechos. Se edita allá; aquí solo se muestra.">?</span></label><div class="ro">${escapeHtml((ip.derechos || {}).tiempo || '—')}</div></div>
       <div class="cot-field"><label>Plataformas</label><div class="ro">${escapeHtml((ip.derechos || {}).plataformas || '—')}</div></div>
       <div class="cot-field"><label>Países / territorio</label><div class="ro">${escapeHtml((ip.derechos || {}).territorio || '—')}</div></div>
@@ -2829,25 +2828,25 @@ function cotMetaCardHTML(project, c, ip, fechaVal) {
     <div class="cot-field" style="margin-top:14px;">
       <label>Descripción del proyecto <span class="tt" data-tip="Es única y compartida por todas las ofertas: describe el proyecto, no cada alternativa comercial. Aparece una vez en la Carta.">?</span></label>
       <div style="display:flex;gap:6px;margin-bottom:6px;">
-        <button class="btn btn-ghost btn-sm" style="font-weight:800;min-width:30px;" title="Negrita (envuelve la selección en **)" onclick="cotDescWrap('**')">B</button>
-        <button class="btn btn-ghost btn-sm" style="font-style:italic;min-width:30px;" title="Cursiva (envuelve la selección en *)" onclick="cotDescWrap('*')">I</button>
+        <button class="btn btn-ghost btn-sm" style="font-weight:800;min-width:30px;" title="Negrita (envuelve la selección en **)" data-accion="pre.d" data-args="[&quot;cotDescWrap&quot;, &quot;**&quot;]">B</button>
+        <button class="btn btn-ghost btn-sm" style="font-style:italic;min-width:30px;" title="Cursiva (envuelve la selección en *)" data-accion="pre.d" data-args="[&quot;cotDescWrap&quot;, &quot;*&quot;]">I</button>
         <span style="font-size:10.5px;color:var(--ink-faint);align-self:center;">**negrita** · *cursiva* — se aplican en el PDF</span>
       </div>
       <textarea class="cot-input" id="cotDescTa" placeholder="Describe el proyecto (concepto, alcance general)…"
                 style="min-height:160px;${c.descAlto ? 'height:' + c.descAlto + 'px;' : ''}"
                 onmouseup="cotDescGuardarAlto(this)"
-                onchange="cotSetMeta('descripcionProyecto', this.value)">${escapeHtml(c.descripcionProyecto || '')}</textarea>
+                data-accion="pre.d" data-args="[&quot;cotSetMeta&quot;, &quot;descripcionProyecto&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change">${escapeHtml(c.descripcionProyecto || '')}</textarea>
     </div>
     <p style="font-size:11.5px;color:var(--ink-faint);margin:12px 0 0;line-height:1.5;">
       Cliente, proyecto y equipo se leen de <strong>Info Proyecto</strong> (fuente única de verdad). La Carta de Cotización en PDF (V6.1) tomará todo esto automáticamente.</p>
     <div class="cot-field" style="margin-top:22px;">
       <label>Condiciones de Servicio — plantilla de la productora <span class="tt" data-tip="El texto legal/comercial del final de la carta. Es transversal: editarlo afecta TODAS las cotizaciones de la productora. Las variables {{X}} se llenan solas con los valores de cada cotización (plazos, porcentajes, montos). «## Título» abre una sección; cada línea es un punto.">?</span></label>
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin:4px 0 6px;">
-        ${['PRODUCTORA','CLIENTE','PROYECTO','ABONO_PCT','ABONO_PLAZO','SALDO_PCT','SALDO_PLAZO','IVA_NOTA','PRIMERA_ENTREGA','CORRECCIONES_PLAZO','RONDAS','VALOR_RONDA_EXTRA','VALOR_CAMBIO_MUSICA','CANCELACION_ANTES_PCT','CANCELACION_DESPUES_PCT','REPROGRAMACION_AVISO','REPROGRAMACION_PCT','VALIDEZ_DIAS'].map(v => `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px;font-family:monospace;" onclick="cotCondInsertarVar('${v}')">{{${v}}}</button>`).join('')}
-        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px;color:var(--warning);" onclick="cotCondRestaurar()">↺ Restaurar texto original</button>
+        ${['PRODUCTORA','CLIENTE','PROYECTO','ABONO_PCT','ABONO_PLAZO','SALDO_PCT','SALDO_PLAZO','IVA_NOTA','PRIMERA_ENTREGA','CORRECCIONES_PLAZO','RONDAS','VALOR_RONDA_EXTRA','VALOR_CAMBIO_MUSICA','CANCELACION_ANTES_PCT','CANCELACION_DESPUES_PCT','REPROGRAMACION_AVISO','REPROGRAMACION_PCT','VALIDEZ_DIAS'].map(v => `<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px;font-family:monospace;" ${accionHTML('pre.d', 'cotCondInsertarVar', v)}>{{${v}}}</button>`).join('')}
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px;color:var(--warning);" data-accion="pre.d" data-args="[&quot;cotCondRestaurar&quot;]">↺ Restaurar texto original</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;">
-        <textarea class="cot-input" id="cotCondTa" style="min-height:300px;font-size:11.5px;line-height:1.55;font-family:monospace;" oninput="cotCondTplSet(this.value)">${escapeHtml(cotCondTplActual())}</textarea>
+        <textarea class="cot-input" id="cotCondTa" style="min-height:300px;font-size:11.5px;line-height:1.55;font-family:monospace;" data-accion="pre.d" data-args="[&quot;cotCondTplSet&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="input">${escapeHtml(cotCondTplActual())}</textarea>
         <div id="cotCondPrev" style="border:1px solid var(--rule);border-radius:8px;padding:12px 14px;max-height:300px;overflow-y:auto;background:var(--bg-surface);"></div>
       </div>
     </div>
@@ -2869,12 +2868,12 @@ function cotCondicionesCardHTML(project, c) {
   const collapsed = cotCondCollapsed(project);
   const num = (key, label, suffix, min) => `<div class="cond-field"><label>${escapeHtml(label)}</label>
     <div class="cond-inline"><input type="number" class="cot-input num" min="${min == null ? 0 : min}" value="${k[key]}"
-      onchange="cotSetCondicion('${key}', window.readNum(this) ?? 0)"><span class="cond-suffix">${escapeHtml(suffix)}</span></div></div>`;
+      ${accionHTML('pre.cond', key, { on: 'change' })}><span class="cond-suffix">${escapeHtml(suffix)}</span></div></div>`;
   const money = (key, label) => `<div class="cond-field"><label>${escapeHtml(label)}</label>
     <div class="cond-inline"><input type="text" inputmode="numeric" class="cot-input num" value="${window.displayMoneyInputValue(k[key])}"
-      onchange="cotSetCondicionMoney(this, '${key}')"><span class="cond-suffix">CLP</span></div></div>`;
+      ${accionHTML('pre.d', 'cotSetCondicionMoney', '§el§', key, { on: 'change' })}><span class="cond-suffix">CLP</span></div></div>`;
   return `<div class="cot-card">
-    <div class="cot-card-title cot-collapse-head ${collapsed ? '' : 'open'}" onclick="cotToggleCondiciones()">
+    <div class="cot-card-title cot-collapse-head ${collapsed ? '' : 'open'}" data-accion="pre.d" data-args="[&quot;cotToggleCondiciones&quot;]">
       <span class="chev">▶</span> Condiciones del servicio
       <span class="hint">${collapsed ? 'normalmente no se tocan · clic para editar' : 'clic para minimizar'}</span>
     </div>
@@ -2896,7 +2895,7 @@ function cotCondicionesCardHTML(project, c) {
         ${num('reprogramacionAvisoDiasHabiles', 'Aviso mínimo de reprogramación', 'días hábiles')}
         <div class="cond-field"><label>Presentación de montos</label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-secondary);font-weight:400;text-transform:none;padding:6px 0;cursor:pointer;">
-            <input type="checkbox" ${k.montosMasIVA ? 'checked' : ''} onchange="cotSetCondicion('montosMasIVA', this.checked)"> Mostrar montos como “+ IVA”</label></div>
+            <input type="checkbox" ${k.montosMasIVA ? 'checked' : ''} data-accion="pre.d" data-args="[&quot;cotSetCondicion&quot;, &quot;montosMasIVA&quot;, &quot;\u00a7c\u00a7&quot;]" data-on="change"> Mostrar montos como “+ IVA”</label></div>
       </div>
       <p style="font-size:11.5px;color:var(--ink-faint);margin:14px 0 0;line-height:1.5;">
         Se comparten entre todas las ofertas del proyecto y alimentan el bloque “Condiciones del Servicio” de la Carta. El override por oferta se difiere hasta que un caso real lo pida.</p>
@@ -2916,7 +2915,7 @@ function cotOfertaCardHTML(project, o, i) {
          <label>Valor al cliente (neto, sin IVA)</label>
          <input type="text" inputmode="numeric" class="cot-input num" style="max-width:220px;"
                 value="${window.displayMoneyInputValue(o.valorCliente)}" placeholder="$0"
-                onchange="cotMoneyOferta(this,'${id}')">
+                ${accionHTML('pre.d', 'cotMoneyOferta', '§el§', id, { on: 'change' })}>
          <span style="font-size:11px;color:var(--ink-faint);margin-top:4px;">Parte del valor del Presupuesto. Ajústalo para esta oferta.</span>
        </div>`;
 
@@ -2930,10 +2929,10 @@ function cotOfertaCardHTML(project, o, i) {
   return `<div class="cot-offer" id="oferta-card-${id}">
     <div class="cot-offer-head">
       <input class="cot-offer-name" value="${escapeHtml(o.nombre || '')}" placeholder="Nombre de la oferta"
-             onchange="cotSetOfertaField('${id}','nombre',this.value)">
+             ${accionHTML('pre.d', 'cotSetOfertaField', id, 'nombre', '§v§', { on: 'change' })}>
       <div style="margin-left:auto; display:flex; gap:8px; align-items:center; flex:0 0 auto;">
-        <button class="btn btn-secondary btn-sm" onclick="cotExportPresupuestoCSV('${id}')" title="Descarga el detalle del presupuesto de esta oferta en CSV (se abre en Excel o Google Sheets).">⬇ Presupuesto (Excel)</button>
-        ${base ? '<span class="cot-base-tag">Base · Presupuesto real</span>' : `<button class="btn btn-danger btn-sm" onclick="cotDeleteOferta('${id}')">Eliminar oferta</button>`}
+        <button class="btn btn-secondary btn-sm" ${accionHTML('pre.d', 'cotExportPresupuestoCSV', id)} title="Descarga el detalle del presupuesto de esta oferta en CSV (se abre en Excel o Google Sheets).">⬇ Presupuesto (Excel)</button>
+        ${base ? '<span class="cot-base-tag">Base · Presupuesto real</span>' : `<button class="btn btn-danger btn-sm" ${accionHTML('pre.d', 'cotDeleteOferta', id)}>Eliminar oferta</button>`}
       </div>
     </div>
     <div class="cot-offer-body">
@@ -2941,7 +2940,7 @@ function cotOfertaCardHTML(project, o, i) {
         <div>
           ${valorBlock}
           ${cotBulletsHTML(id, 'incluye', 'Incluye', o.incluye, false, null,
-            `<button class="cot-pull-btn" onclick="cotRegenIncluye('${id}')" title="Reemplaza el Incluye con los ítems actuales del Presupuesto (cantidad ≥ 1). Sobrescribe ediciones manuales.">↻ Traer de Presupuesto</button>`)}
+            `<button class="cot-pull-btn" ${accionHTML('pre.d', 'cotRegenIncluye', id)} title="Reemplaza el Incluye con los ítems actuales del Presupuesto (cantidad ≥ 1). Sobrescribe ediciones manuales.">↻ Traer de Presupuesto</button>`)}
           ${cotBulletsHTML(id, 'noIncluye', 'NO incluye', o.noIncluye, true, 'Esta sección es manual: la redactas tú. Se deja así a propósito — automatizarla podría declarar como excluido algo que en realidad sí incluyes, lo que sería un error comercial.')}
           <span class="lbl" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-muted);font-weight:600;display:block;margin:18px 0 8px;">Entregables</span>
           ${cotVideosHTML(id, o.entregables.videos)}
@@ -2992,7 +2991,7 @@ function cotBulletsHTML(ofId, listKey, title, arr, isNo, tip, action) {
     <div id="blist-${ofId}-${listKey.replace(':', '-')}">
       ${arr.map((v, idx) => cotBulletRowHTML(ofId, listKey, idx, v, isNo)).join('')}
     </div>
-    <div class="row-add" style="margin-top:2px;" onclick="cotBulletAdd('${ofId}','${listKey}')">+ Agregar</div>
+    <div class="row-add" style="margin-top:2px;" ${accionHTML('pre.d', 'cotBulletAdd', ofId, listKey)}>+ Agregar</div>
   </div>`;
 }
 function cotBulletRowHTML(ofId, listKey, idx, v, isNo) {
@@ -3000,8 +2999,8 @@ function cotBulletRowHTML(ofId, listKey, idx, v, isNo) {
     <span class="cot-drag-handle" draggable="true" ondragstart="cotDragStart(event,'${ofId}','${listKey}',${idx})" ondragend="cotDragEnd(event)" title="Arrastrar para reordenar" style="cursor:grab;color:var(--ink-faint);user-select:none;padding:0 3px;font-size:13px;">⠿</span>
     <span class="dot ${isNo ? 'no' : ''}">${isNo ? '✕' : '•'}</span>
     <input class="cot-input" value="${escapeHtml(v || '')}" placeholder="…"
-           onchange="cotBulletEdit('${ofId}','${listKey}',${idx},this.value)">
-    <button class="bullet-del" title="Quitar" onclick="cotBulletDel('${ofId}','${listKey}',${idx})">×</button>
+           ${accionHTML('pre.d', 'cotBulletEdit', ofId, listKey, idx, '§v§', { on: 'change' })}>
+    <button class="bullet-del" title="Quitar" ${accionHTML('pre.d', 'cotBulletDel', ofId, listKey, idx)}>×</button>
   </div>`;
 }
 
@@ -3012,7 +3011,7 @@ function cotVideosHTML(ofId, videos) {
     <div id="vlist-${ofId}">
       ${videos.map((v, idx) => cotVideoRowHTML(ofId, idx, v)).join('')}
     </div>
-    <div class="row-add" style="margin-top:2px;" onclick="cotVideoAdd('${ofId}')">+ Agregar video</div>
+    <div class="row-add" style="margin-top:2px;" ${accionHTML('pre.d', 'cotVideoAdd', ofId)}>+ Agregar video</div>
   </div>`;
 }
 function cotVideoRowHTML(ofId, idx, v) {
@@ -3022,12 +3021,12 @@ function cotVideoRowHTML(ofId, idx, v) {
       <span class="cot-drag-handle" draggable="true" ondragstart="cotDragStart(event,'${ofId}','ent:videos',${idx})" ondragend="cotDragEnd(event)" title="Arrastrar para reordenar" style="cursor:grab;color:var(--ink-faint);user-select:none;padding:0 3px;font-size:13px;">⠿</span>
       <span class="dot">▸</span>
       <input class="cot-input" value="${escapeHtml(v.nombre || '')}" placeholder="Nombre del video (ej: Spot Madre)"
-             onchange="cotVideoName('${ofId}',${idx},this.value)">
-      <button class="bullet-del" title="Quitar video" onclick="cotVideoDel('${ofId}',${idx})">×</button>
+             ${accionHTML('pre.d', 'cotVideoName', ofId, idx, '§v§', { on: 'change' })}>
+      <button class="bullet-del" title="Quitar video" ${accionHTML('pre.d', 'cotVideoDel', ofId, idx)}>×</button>
     </div>
     <div class="cot-vars">
       ${vars.map((vv, j) => cotVarRowHTML(ofId, idx, j, vv)).join('')}
-      <div class="row-add cot-var-add" onclick="cotVarAdd('${ofId}',${idx})">+ Variable (ej: 4K, HD horizontal, HD vertical…)</div>
+      <div class="row-add cot-var-add" ${accionHTML('pre.d', 'cotVarAdd', ofId, idx)}>+ Variable (ej: 4K, HD horizontal, HD vertical…)</div>
     </div>
   </div>`;
 }
@@ -3035,8 +3034,8 @@ function cotVarRowHTML(ofId, vidIdx, j, val) {
   return `<div class="bullet-row cot-var-row">
     <span class="dot sub">└</span>
     <input class="cot-input" value="${escapeHtml(val || '')}" placeholder="Variable"
-           onchange="cotVarEdit('${ofId}',${vidIdx},${j},this.value)">
-    <button class="bullet-del" title="Quitar variable" onclick="cotVarDel('${ofId}',${vidIdx},${j})">×</button>
+           ${accionHTML('pre.d', 'cotVarEdit', ofId, vidIdx, j, '§v§', { on: 'change' })}>
+    <button class="bullet-del" title="Quitar variable" ${accionHTML('pre.d', 'cotVarDel', ofId, vidIdx, j)}>×</button>
   </div>`;
 }
 function cotRerenderVideos(ofId) {
@@ -3085,20 +3084,20 @@ function cotSnapEditorHTML(project, o) {
   for (const dept in snap.servicios) {
     serv += `<div class="cot-snap-section-name">Servicios — ${escapeHtml(dept)}</div>`
       + cotSnapTableHTML(o.id, 'servicios', dept, snap.servicios[dept], 'Rol')
-      + `<div class="row-add" style="margin:0 0 8px;" onclick="cotSnapAdd('${o.id}','servicios','${jsq(dept)}')">+ Agregar rol a ${escapeHtml(dept)}</div>`;
+      + `<div class="row-add" style="margin:0 0 8px;" ${accionHTML('pre.d', 'cotSnapAdd', o.id, 'servicios', jsq(dept))}>+ Agregar rol a ${escapeHtml(dept)}</div>`;
   }
   return `<div class="cot-card" style="margin-top:4px;">
     <div class="cot-card-title">Presupuesto alternativo · copia del real, editable en ambos sentidos</div>
     ${serv}
     <div class="cot-snap-section-name">Gastos de producción</div>
     ${cotSnapTableHTML(o.id, 'gastos', '', snap.gastos, 'Ítem')}
-    <div class="row-add" style="margin:0 0 8px;" onclick="cotSnapAdd('${o.id}','gastos','')">+ Agregar gasto</div>
+    <div class="row-add" style="margin:0 0 8px;" ${accionHTML('pre.d', 'cotSnapAdd', o.id, 'gastos', '')}>+ Agregar gasto</div>
     <div class="cot-snap-section-name">Técnica</div>
     ${cotSnapTableHTML(o.id, 'equipos', '', snap.equipos, 'Ítem')}
-    <div class="row-add" style="margin:0 0 8px;" onclick="cotSnapAdd('${o.id}','equipos','')">+ Agregar equipo</div>
+    <div class="row-add" style="margin:0 0 8px;" ${accionHTML('pre.d', 'cotSnapAdd', o.id, 'equipos', '')}>+ Agregar equipo</div>
     <div class="cot-snap-section-name">Talentos</div>
     ${cotSnapTableHTML(o.id, 'talentos', '', snap.talentos, 'Rol')}
-    <div class="row-add" style="margin:0 0 8px;" onclick="cotSnapAdd('${o.id}','talentos','')">+ Agregar talento</div>
+    <div class="row-add" style="margin:0 0 8px;" ${accionHTML('pre.d', 'cotSnapAdd', o.id, 'talentos', '')}>+ Agregar talento</div>
   </div>`;
 }
 
@@ -3114,7 +3113,7 @@ function cotSnapTableHTML(ofId, section, dept, rows, firstCol) {
 function cotSnapRowHTML(ofId, section, dept, r, idx) {
   const isServ = section === 'servicios';
   const dq = jsq(dept || '');
-  const ref = `this,'${ofId}','${section}','${dq}',${idx}`;
+  const refA = [ofId, section, dq, idx];
   const firstVal = isServ ? r.rol : r.item;
   const firstField = isServ ? 'rol' : 'item';
   const calc = calcCostoEmpresa(r.valor, r.cantidad, r.dte, section);
@@ -3122,20 +3121,20 @@ function cotSnapRowHTML(ofId, section, dept, r, idx) {
   if (r.unidad && unidades.indexOf(r.unidad) === -1) unidades.push(r.unidad);
   return `<tr>
     <td><input class="cot-input" value="${escapeHtml(firstVal || '')}" placeholder="${isServ ? 'Rol' : 'Ítem'}"
-        onchange="cotSnapEdit(${ref},'${firstField}')"></td>
-    <td><select class="cot-input" onchange="cotSnapEdit(${ref},'dte')">
+        ${accionHTML('pre.snap', ...refA, firstField, { on: 'change' })}></td>
+    <td><select class="cot-input" ${accionHTML('pre.snap', ...refA, 'dte', { on: 'change' })}>
         <option value="">— DTE —</option>
         ${DTE_OPTIONS.map(d => `<option value="${d.value}" ${r.dte === d.value ? 'selected' : ''}>${d.label}</option>`).join('')}
       </select></td>
     <td class="num"><input type="text" inputmode="numeric" class="cot-input num" value="${window.displayMoneyInputValue(r.valor)}" placeholder="—"
-        onchange="cotSnapEdit(${ref},'valor')"></td>
+        ${accionHTML('pre.snap', ...refA, 'valor', { on: 'change' })}></td>
     <td class="num"><input type="number" step="0.5" class="cot-input num" value="${r.cantidad ?? ''}" placeholder="0"
-        onchange="cotSnapEdit(${ref},'cantidad')"></td>
-    <td><select class="cot-input" onchange="cotSnapEdit(${ref},'unidad')">
+        ${accionHTML('pre.snap', ...refA, 'cantidad', { on: 'change' })}></td>
+    <td><select class="cot-input" ${accionHTML('pre.snap', ...refA, 'unidad', { on: 'change' })}>
         ${unidades.map(u => `<option value="${escapeHtml(u)}" ${r.unidad === u ? 'selected' : ''}>${escapeHtml(u)}</option>`).join('')}
       </select></td>
     <td class="num"><span class="cot-snapcost ${calc.error ? 'error' : ''}">${calc.error ? escapeHtml(calc.error) : window.fmtMoney(calc.value)}</span></td>
-    <td><button class="bullet-del" title="Quitar" onclick="cotSnapDel('${ofId}','${section}','${dq}',${idx})">×</button></td>
+    <td><button class="bullet-del" title="Quitar" ${accionHTML('pre.d', 'cotSnapDel', ofId, section, dq, idx)}>×</button></td>
   </tr>`;
 }
 
@@ -4114,8 +4113,8 @@ export const CotPreview = {
 
 /* ── Panel de controles (transversal). Cada control actualiza _cotPrevOpts,
    persiste como default de la productora y reconstruye el documento. ── */
-function _cotPrevOptBtn(label, onclick, on) {
-  return `<button onclick="${onclick}" style="flex:1;min-width:0;background:${on ? 'var(--accent,#B03A2F)' : 'var(--bg-surface-soft,#262624)'};border:1px solid ${on ? 'var(--accent,#B03A2F)' : 'var(--rule,#34342f)'};border-radius:7px;padding:7px 6px;color:${on ? '#fff' : 'var(--ink-secondary,#d3d6cb)'};font-size:11.5px;font-weight:${on ? '600' : '500'};cursor:pointer;text-align:center;">${label}</button>`;
+function _cotPrevOptBtn(label, attrs, on) {
+  return `<button ${attrs} style="flex:1;min-width:0;background:${on ? 'var(--accent,#B03A2F)' : 'var(--bg-surface-soft,#262624)'};border:1px solid ${on ? 'var(--accent,#B03A2F)' : 'var(--rule,#34342f)'};border-radius:7px;padding:7px 6px;color:${on ? '#fff' : 'var(--ink-secondary,#d3d6cb)'};font-size:11.5px;font-weight:${on ? '600' : '500'};cursor:pointer;text-align:center;">${label}</button>`;
 }
 function cotPrevPanelHTML() {
   const o = _cotPrevOpts || cotPrevSettings();
@@ -4124,27 +4123,27 @@ function cotPrevPanelHTML() {
 
   const pl = COTPREV_PLANTILLAS.map(t => {
     const on = o.plantilla === t.id;
-    return `<button onclick="cotPrevSetOpt('plantilla','${t.id}')" style="display:block;width:100%;text-align:left;margin-bottom:7px;background:${on ? 'var(--bg-elevated,#2e2e2b)' : 'var(--bg-surface-soft,#262624)'};border:1px solid ${on ? 'var(--accent,#B03A2F)' : 'var(--rule,#34342f)'};border-radius:8px;padding:9px 11px;color:var(--ink,#FDFEED);cursor:pointer;"><div style="font-size:12.5px;font-weight:600;">${t.n}</div><div style="font-size:10px;color:var(--ink-muted,#a0a399);line-height:1.35;margin-top:2px;">${t.d}</div></button>`;
+    return `<button ${accionHTML('pre.d', 'cotPrevSetOpt', 'plantilla', t.id)} style="display:block;width:100%;text-align:left;margin-bottom:7px;background:${on ? 'var(--bg-elevated,#2e2e2b)' : 'var(--bg-surface-soft,#262624)'};border:1px solid ${on ? 'var(--accent,#B03A2F)' : 'var(--rule,#34342f)'};border-radius:8px;padding:9px 11px;color:var(--ink,#FDFEED);cursor:pointer;"><div style="font-size:12.5px;font-weight:600;">${t.n}</div><div style="font-size:10px;color:var(--ink-muted,#a0a399);line-height:1.35;margin-top:2px;">${t.d}</div></button>`;
   }).join('');
 
-  const fo = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">${cotPrevFonts().map(f => _cotPrevOptBtn(escapeHtml(f.n), "cotPrevSetOpt('font','" + f.id + "')", o.font === f.id)).join('')}</div>`;
+  const fo = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">${cotPrevFonts().map(f => _cotPrevOptBtn(escapeHtml(f.n), accionHTML('pre.d', 'cotPrevSetOpt', 'font', f.id), o.font === f.id)).join('')}</div>`;
 
   const colorSw = cotPrevColores().map(hex => {
     const on = (o.acc || '').toLowerCase() === hex.toLowerCase();
-    return `<button onclick="cotPrevSetOpt('acc','${hex}')" title="${hex}" style="width:30px;height:30px;border-radius:8px;background:${hex};border:2px solid ${on ? 'var(--ink,#fff)' : 'transparent'};box-shadow:${on ? '0 0 0 2px var(--bg-surface,#222),0 0 0 4px var(--ink,#fff)' : 'none'};cursor:pointer;"></button>`;
+    return `<button ${accionHTML('pre.d', 'cotPrevSetOpt', 'acc', hex)} title="${hex}" style="width:30px;height:30px;border-radius:8px;background:${hex};border:2px solid ${on ? 'var(--ink,#fff)' : 'transparent'};box-shadow:${on ? '0 0 0 2px var(--bg-surface,#222),0 0 0 4px var(--ink,#fff)' : 'none'};cursor:pointer;"></button>`;
   }).join('');
-  const colorCtl = `<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;">${colorSw}<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-muted,#a0a399);cursor:pointer;">Otro <input type="color" value="${o.acc || '#B03A2F'}" oninput="cotPrevSetOptLive('acc',this.value)" style="width:28px;height:28px;border:none;background:none;padding:0;cursor:pointer;"></label></div>`;
+  const colorCtl = `<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;">${colorSw}<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-muted,#a0a399);cursor:pointer;">Otro <input type="color" value="${o.acc || '#B03A2F'}" data-accion="pre.d" data-args="[&quot;cotPrevSetOptLive&quot;, &quot;acc&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="input" style="width:28px;height:28px;border:none;background:none;padding:0;cursor:pointer;"></label></div>`;
 
   let logos = [];
   try { logos = (typeof _orgLogos === 'function') ? _orgLogos().filter(l => l && l.dataUrl) : []; } catch (e) { logos = []; }
   const logoCtl = logos.length
-    ? logos.map(l => { const on = o.logoId ? (o.logoId === l.id) : !!l.principal; return `<label style="display:flex;align-items:center;gap:7px;border:1px solid ${on ? 'var(--accent,#B03A2F)' : 'var(--rule,#34342f)'};border-radius:8px;padding:5px 8px;cursor:pointer;margin-bottom:6px;background:var(--bg-surface-soft,#262624);"><input type="radio" name="cotPrevLogo" ${on ? 'checked' : ''} onchange="cotPrevSetOpt('logoId','${l.id}')"><img src="${safeUrl(l.dataUrl)}" style="height:22px;max-width:64px;object-fit:contain;"><span style="font-size:11px;color:var(--ink-secondary,#d3d6cb);">${E(l.nombre || 'Logo')}</span></label>`; }).join('')
+    ? logos.map(l => { const on = o.logoId ? (o.logoId === l.id) : !!l.principal; return `<label style="display:flex;align-items:center;gap:7px;border:1px solid ${on ? 'var(--accent,#B03A2F)' : 'var(--rule,#34342f)'};border-radius:8px;padding:5px 8px;cursor:pointer;margin-bottom:6px;background:var(--bg-surface-soft,#262624);"><input type="radio" name="cotPrevLogo" ${on ? 'checked' : ''} ${accionHTML('pre.d', 'cotPrevSetOpt', 'logoId', l.id, { on: 'change' })}><img src="${safeUrl(l.dataUrl)}" style="height:22px;max-width:64px;object-fit:contain;"><span style="font-size:11px;color:var(--ink-secondary,#d3d6cb);">${E(l.nombre || 'Logo')}</span></label>`; }).join('')
     : '<div style="font-size:10.5px;color:var(--ink-faint,#71736a);line-height:1.4;">Carga el logo de la productora en Configuración → Diseño para que aparezca en los documentos.</div>';
 
-  const logoSz = `<div style="display:flex;gap:7px;">${[['s', 'Pequeño'], ['m', 'Mediano'], ['l', 'Grande']].map(z => _cotPrevOptBtn(z[1], "cotPrevSetOpt('logoSize','" + z[0] + "')", o.logoSize === z[0])).join('')}</div>`;
-  const orient = `<div style="display:flex;gap:7px;">${[['portrait', 'Vertical'], ['landscape', 'Horizontal']].map(x => _cotPrevOptBtn(x[1], "cotPrevSetOpt('orientacion','" + x[0] + "')", o.orientacion === x[0])).join('')}</div>`;
-  const formato = `<div style="display:flex;gap:7px;">${[['carta', 'Carta'], ['a4', 'A4']].map(x => _cotPrevOptBtn(x[1], "cotPrevSetOpt('formato','" + x[0] + "')", o.formato === x[0])).join('')}</div>`;
-  const marg = `<div style="display:flex;align-items:center;gap:10px;"><input type="range" min="8" max="34" value="${o.margenMm}" oninput="cotPrevSetOptLive('margenMm',+this.value);document.getElementById('cotPrevMargLbl').textContent=this.value+' mm';" style="flex:1;accent-color:var(--accent,#B03A2F);"><span id="cotPrevMargLbl" style="font-size:11.5px;color:var(--ink-secondary,#d3d6cb);min-width:44px;text-align:right;">${o.margenMm} mm</span></div>`;
+  const logoSz = `<div style="display:flex;gap:7px;">${[['s', 'Pequeño'], ['m', 'Mediano'], ['l', 'Grande']].map(z => _cotPrevOptBtn(z[1], accionHTML('pre.d', 'cotPrevSetOpt', 'logoSize', z[0]), o.logoSize === z[0])).join('')}</div>`;
+  const orient = `<div style="display:flex;gap:7px;">${[['portrait', 'Vertical'], ['landscape', 'Horizontal']].map(x => _cotPrevOptBtn(x[1], accionHTML('pre.d', 'cotPrevSetOpt', 'orientacion', x[0]), o.orientacion === x[0])).join('')}</div>`;
+  const formato = `<div style="display:flex;gap:7px;">${[['carta', 'Carta'], ['a4', 'A4']].map(x => _cotPrevOptBtn(x[1], accionHTML('pre.d', 'cotPrevSetOpt', 'formato', x[0]), o.formato === x[0])).join('')}</div>`;
+  const marg = `<div style="display:flex;align-items:center;gap:10px;"><input type="range" min="8" max="34" value="${o.margenMm}" data-accion="pre.cotMargen" data-on="input" style="flex:1;accent-color:var(--accent,#B03A2F);"><span id="cotPrevMargLbl" style="font-size:11.5px;color:var(--ink-secondary,#d3d6cb);min-width:44px;text-align:right;">${o.margenMm} mm</span></div>`;
 
   return grp('Plantilla', pl)
     + grp('Tipografía', fo, cotPrevFonts().length > COTPREV_FONTS_SISTEMA.length ? 'Poppins y Serif son del sistema; el resto es el repositorio de tu marca (Configuración → Diseño).' : 'Poppins y Serif son del sistema. Agrega las tipografías de tu marca en Configuración → Diseño.')
@@ -4178,17 +4177,17 @@ function cotPrevSetOptLive(k, v) {
 function cotPreviewPDF() {
   const project = STATE.currentProject; if (!project) return;
   _cotPrevOpts = cotPrevSettings();
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:1120px;width:96vw;padding:0;overflow:hidden;">
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" style="max-width:1120px;width:96vw;padding:0;overflow:hidden;">
     <div class="modal-header" style="padding:13px 18px;"><div class="modal-title">Previsualizar y exportar · Cotización</div></div>
     <div style="display:flex;min-height:60vh;max-height:74vh;">
       <div style="flex:1;display:flex;flex-direction:column;min-width:0;background:#2a2a27;">
         <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg-surface,#222);border-bottom:1px solid var(--rule,#34342f);flex-wrap:wrap;">
-          <button class="btn btn-sm" onclick="CotPreview.setZoom(CotPreview.zoom-10)" title="Alejar">−</button>
+          <button class="btn btn-sm" data-accion="pre.zoom" data-args="[-10]" title="Alejar">−</button>
           <span id="cotPrevZoom" style="font-size:12px;color:var(--ink-secondary,#d3d6cb);min-width:44px;text-align:center;font-variant-numeric:tabular-nums;">100%</span>
-          <button class="btn btn-sm" onclick="CotPreview.setZoom(CotPreview.zoom+10)" title="Acercar">+</button>
+          <button class="btn btn-sm" data-accion="pre.zoom" data-args="[10]" title="Acercar">+</button>
           <span style="width:1px;height:18px;background:var(--rule,#34342f);margin:0 3px;"></span>
-          <button class="btn btn-sm" id="cotPrevFitPage" onclick="CotPreview.setMode('page')">Ajustar</button>
-          <button class="btn btn-sm" id="cotPrevFitWidth" onclick="CotPreview.setMode('width')">Ancho</button>
+          <button class="btn btn-sm" id="cotPrevFitPage" data-accion="pre.modo" data-args="[&quot;page&quot;]">Ajustar</button>
+          <button class="btn btn-sm" id="cotPrevFitWidth" data-accion="pre.modo" data-args="[&quot;width&quot;]">Ancho</button>
           <span id="cotPrevPageLbl" style="font-size:11px;color:var(--ink-faint,#71736a);margin-left:6px;"></span>
           <span style="font-size:10.5px;color:var(--ink-faint,#71736a);margin-left:auto;">Pellizca el trackpad o Ctrl/⌘ + rueda para zoom</span>
         </div>
@@ -4198,7 +4197,7 @@ function cotPreviewPDF() {
       </div>
       <div id="cotPrevPanel" style="width:266px;flex-shrink:0;border-left:1px solid var(--rule,#34342f);overflow-y:auto;background:var(--bg-surface,#222);">${cotPrevPanelHTML()}</div>
     </div>
-    <div class="modal-footer" style="padding:12px 18px;justify-content:flex-end;gap:8px;flex-wrap:wrap;"><button class="btn" onclick="window.closeModal()">Cerrar</button><button class="btn btn-primary" onclick="cotPreviewGenerar()">Exportar PDF</button></div>
+    <div class="modal-footer" style="padding:12px 18px;justify-content:flex-end;gap:8px;flex-wrap:wrap;"><button class="btn" data-accion="ui.cerrar">Cerrar</button><button class="btn btn-primary" data-accion="pre.d" data-args="[&quot;cotPreviewGenerar&quot;]">Exportar PDF</button></div>
   </div></div>`;
   CotPreview.init(document.getElementById('cotPrevCanvas'), document.getElementById('cotPrevWrap'), document.getElementById('cotPrevFrame'));
   cotPrevBuildAndLoad();
@@ -4226,13 +4225,13 @@ function _cotBloqueada(k) {
   const project = STATE.currentProject; if (!project) return false;
   const c = ensureCotizacion(project);
   if (!c.exportada) return false;
-  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:480px;">'
+  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop"><div class="modal" style="max-width:480px;">'
     + '<div class="modal-header"><div class="modal-title">Esta versión ya se exportó</div></div>'
     + '<div class="modal-body"><p style="margin:0;font-size:13px;color:var(--ink-secondary);line-height:1.6;">La <strong>V.' + (c.exportNum || 1) + '</strong> de esta cotización ya fue exportada. Solo deberías modificar una versión ya exportada si no llegó a cliente.</p></div>'
     + '<div class="modal-footer" style="flex-wrap:wrap;gap:8px;justify-content:flex-end;">'
-    + '<button class="btn" onclick="window.closeModal()">Cancelar</button>'
-    + '<button class="btn btn-secondary" onclick="cotDesbloquearMisma()">Quiero modificar esta versión de todas formas</button>'
-    + '<button class="btn btn-primary" onclick="cotNuevaVersion()">Crear nueva versión</button>'
+    + '<button class="btn" data-accion="ui.cerrar">Cancelar</button>'
+    + '<button class="btn btn-secondary" data-accion="pre.d" data-args="[&quot;cotDesbloquearMisma&quot;]">Quiero modificar esta versión de todas formas</button>'
+    + '<button class="btn btn-primary" data-accion="pre.d" data-args="[&quot;cotNuevaVersion&quot;]">Crear nueva versión</button>'
     + '</div></div></div>';
   return true;
 }
@@ -4254,7 +4253,7 @@ function renderUnidadCellSelect(sectionKey, dept, idx, currentUnidad) {
   const deptStr = dept ? `'${escapeHtml(dept)}'` : 'null';
   return `
     <select class="cell-select"
-            onchange="onUnidadSelectChange(this, '${sectionKey}', ${deptStr}, ${idx})">
+            ${accionHTML('pre.d', 'onUnidadSelectChange', '§el§', sectionKey, deptStr, idx, { on: 'change' })}>
       ${UNIDAD_OPTIONS.map(u =>
         `<option value="${u}" ${currentUnidad === u ? 'selected' : ''}>${u}</option>`
       ).join('')}
@@ -4271,9 +4270,9 @@ function renderUnidadCellInput(sectionKey, dept, idx, currentUnidad) {
              value="${escapeHtml(currentUnidad)}"
              placeholder="Unidad personalizada…"
              style="font-size: 12px;"
-             oninput="onUnidadInputChange(this, '${sectionKey}', ${deptStr}, ${idx})">
+             ${accionHTML('pre.d', 'onUnidadInputChange', '§el§', sectionKey, deptStr, idx, { on: 'input' })}>
       <button class="unidad-reset" title="Volver a presets"
-              onclick="onUnidadReset(this, '${sectionKey}', ${deptStr}, ${idx})">↺</button>
+              ${accionHTML('pre.d', 'onUnidadReset', '§el§', sectionKey, deptStr, idx)}>↺</button>
     </div>
   `;
 }
@@ -4490,3 +4489,111 @@ window.cotPrevColores = cotPrevColores;
 window.cotPrevFontLink = cotPrevFontLink;
 window.cotPrevFonts = cotPrevFonts;
 window.ofertaCosteo = ofertaCosteo;
+
+// D2 · despachador pre.d + acciones compuestas
+var _PRE_FN = {
+  addComision: function () { return addComision.apply(null, arguments); },
+  addExtraIngreso: function () { return addExtraIngreso.apply(null, arguments); },
+  addRiesgo: function () { return addRiesgo.apply(null, arguments); },
+  addRow: function () { return addRow.apply(null, arguments); },
+  addServiceDept: function () { return addServiceDept.apply(null, arguments); },
+  budgetSortBy: function () { return budgetSortBy.apply(null, arguments); },
+  budgetSortClear: function () { return budgetSortClear.apply(null, arguments); },
+  closeModal: function () { return closeModal.apply(null, arguments); },
+  cotAbrirComparador: function () { return cotAbrirComparador.apply(null, arguments); },
+  cotAddOferta: function () { return cotAddOferta.apply(null, arguments); },
+  cotBulletAdd: function () { return cotBulletAdd.apply(null, arguments); },
+  cotBulletDel: function () { return cotBulletDel.apply(null, arguments); },
+  cotBulletEdit: function () { return cotBulletEdit.apply(null, arguments); },
+  cotCmpSelectOffer: function () { return cotCmpSelectOffer.apply(null, arguments); },
+  cotCondInsertarVar: function () { return cotCondInsertarVar.apply(null, arguments); },
+  cotCondRestaurar: function () { return cotCondRestaurar.apply(null, arguments); },
+  cotCondTplSet: function () { return cotCondTplSet.apply(null, arguments); },
+  cotCrearVersion: function () { return cotCrearVersion.apply(null, arguments); },
+  cotDeleteOferta: function () { return cotDeleteOferta.apply(null, arguments); },
+  cotDesbloquearMisma: function () { return cotDesbloquearMisma.apply(null, arguments); },
+  cotDescWrap: function () { return cotDescWrap.apply(null, arguments); },
+  cotExportPresupuestoCSV: function () { return cotExportPresupuestoCSV.apply(null, arguments); },
+  cotMoneyOferta: function () { return cotMoneyOferta.apply(null, arguments); },
+  cotNuevaVersion: function () { return cotNuevaVersion.apply(null, arguments); },
+  cotPrevSetOpt: function () { return cotPrevSetOpt.apply(null, arguments); },
+  cotPrevSetOptLive: function () { return cotPrevSetOptLive.apply(null, arguments); },
+  cotPreviewGenerar: function () { return cotPreviewGenerar.apply(null, arguments); },
+  cotPreviewPDF: function () { return cotPreviewPDF.apply(null, arguments); },
+  cotRegenIncluye: function () { return cotRegenIncluye.apply(null, arguments); },
+  cotSetActiveVersion: function () { return cotSetActiveVersion.apply(null, arguments); },
+  cotSetCondicion: function () { return cotSetCondicion.apply(null, arguments); },
+  cotSetCondicionMoney: function () { return cotSetCondicionMoney.apply(null, arguments); },
+  cotSetMeta: function () { return cotSetMeta.apply(null, arguments); },
+  cotSetOfertaField: function () { return cotSetOfertaField.apply(null, arguments); },
+  cotSetVersionNota: function () { return cotSetVersionNota.apply(null, arguments); },
+  cotSnapAdd: function () { return cotSnapAdd.apply(null, arguments); },
+  cotSnapDel: function () { return cotSnapDel.apply(null, arguments); },
+  cotToggleCondiciones: function () { return cotToggleCondiciones.apply(null, arguments); },
+  cotVarAdd: function () { return cotVarAdd.apply(null, arguments); },
+  cotVarDel: function () { return cotVarDel.apply(null, arguments); },
+  cotVarEdit: function () { return cotVarEdit.apply(null, arguments); },
+  cotVideoAdd: function () { return cotVideoAdd.apply(null, arguments); },
+  cotVideoDel: function () { return cotVideoDel.apply(null, arguments); },
+  cotVideoName: function () { return cotVideoName.apply(null, arguments); },
+  crewAddToBD: function () { return crewAddToBD.apply(null, arguments); },
+  deleteRow: function () { return deleteRow.apply(null, arguments); },
+  deleteServiceDept: function () { return deleteServiceDept.apply(null, arguments); },
+  exportPresupuestoExcel: function () { return exportPresupuestoExcel.apply(null, arguments); },
+  mentionBlur: function () { return mentionBlur.apply(null, arguments); },
+  mentionInput: function () { return mentionInput.apply(null, arguments); },
+  moveServiceDept: function () { return moveServiceDept.apply(null, arguments); },
+  navigateToModule: function () { return navigateToModule.apply(null, arguments); },
+  onUnidadInputChange: function () { return onUnidadInputChange.apply(null, arguments); },
+  onUnidadReset: function () { return onUnidadReset.apply(null, arguments); },
+  onUnidadSelectChange: function () { return onUnidadSelectChange.apply(null, arguments); },
+  openCalculadoraTributaria: function () { return openCalculadoraTributaria.apply(null, arguments); },
+  openCostoRealCalc: function () { return openCostoRealCalc.apply(null, arguments); },
+  openHeProyectoDefault: function () { return openHeProyectoDefault.apply(null, arguments); },
+  openHorasExtraCalc: function () { return openHorasExtraCalc.apply(null, arguments); },
+  openRowNote: function () { return openRowNote.apply(null, arguments); },
+  openVisualizacionPanel: function () { return openVisualizacionPanel.apply(null, arguments); },
+  presupSetCotVersion: function () { return presupSetCotVersion.apply(null, arguments); },
+  renameServiceDept: function () { return renameServiceDept.apply(null, arguments); },
+  rowHandleDown: function () { return rowHandleDown.apply(null, arguments); },
+  saveRowNote: function () { return saveRowNote.apply(null, arguments); },
+  setHeHoras: function () { return setHeHoras.apply(null, arguments); },
+  toggleBudgetCotizado: function () { return toggleBudgetCotizado.apply(null, arguments); },
+  toggleBudgetServiciosBreakdown: function () { return toggleBudgetServiciosBreakdown.apply(null, arguments); },
+  toggleDept: function () { return toggleDept.apply(null, arguments); },
+  updateInfoField: function () { return updateInfoField.apply(null, arguments); },
+  vizRenameInput: function () { return vizRenameInput.apply(null, arguments); },
+};
+function _preSent(x, el, ev) { return x === '§v§' ? el.value : x === '§c§' ? el.checked : x === '§el§' ? el : x === '§ev§' ? ev : x; }
+registrarAcciones('pre', {
+  d: function (a, el, ev) { var f = _PRE_FN[a[0]]; if (!f) { console.error('[pre] fn sin mapear:', a[0]); return; } f.apply(null, a.slice(1).map(function (x) { return _preSent(x, el, ev); })); },
+  snap: function (a, el) { cotSnapEdit(el, a[0], a[1], a[2], a[3], a[4]); },
+  rowMoney: function (a, el) { onMoneyInput(el, a[0], a[1], a[2], a[3]); afterRowChange(a[0], a[1], a[2]); },
+  rowName: function (a, el, ev) {
+    if (ev.type === 'focus') comboboxOpen(el);
+    else if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else { if (ev.type === 'input') comboboxFilter(el); updateRowField(a[0], a[1], a[2], 'nombre', el.value); afterRowChange(a[0], a[1], a[2]); }
+  },
+  rowCk: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], el.checked); afterRowChange(a[0], a[1], a[2]); },
+  rowF: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], el.value); },
+  rowDte: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], el.value || null); afterRowChange(a[0], a[1], a[2]); },
+  rowNum: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], readNum(el) ?? 0); afterRowChange(a[0], a[1], a[2]); },
+  rowDteSolo: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], el.value || null); },
+  rowConf: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], el.checked); afterRowConfirmToggle(a[0], a[1], a[2]); },
+  asis: function (a, el) { updateAsistentes(a[0], readNum(el) ?? 0); },
+  cond: function (a, el) { cotSetCondicion(a[0], readNum(el) ?? 0); },
+  finPct: function (a, el) { _PRE_FN[a[0]](a[1], (parseFloat(el.value) || 0) / 100); renderSummaryFin(); },
+  finMoney: function (a, el) { _PRE_FN[a[0]](a[1], parseMoneyCLP(el.value) || 0); renderSummaryFin(); },
+  finLbl: function (a, el) { _PRE_FN[a[0]](a[1], el.value); },
+  finModo: function (a, el) { _PRE_FN[a[0]](a[1], el.value); renderSummaryFin(); },
+  finVal: function (a, el) { var v = a[2] === 'pct' ? (parseFloat(el.value) || 0) / 100 : (parseMoneyCLP(el.value) || 0); _PRE_FN[a[0]](a[1], v); renderSummaryFin(); },
+  finR: function (a) { _PRE_FN[a[0]].apply(null, a.slice(1)); renderSummaryFin(); },
+  cotMargen: function (a, el) { cotPrevSetOptLive('margenMm', +el.value); document.getElementById('cotPrevMargLbl').textContent = el.value + ' mm'; },
+  colGrip: function (a, el, ev) { if (ev.type === 'mousedown') budgetColResizeDown(ev, a[0], a[1]); else budgetColResizeReset(ev, a[0], a[1]); },
+});
+
+registrarAcciones('pre', {
+  zoom: function (a) { CotPreview.setZoom(CotPreview.zoom + a[0]); },
+  modo: function (a) { CotPreview.setMode(a[0]); },
+  nota: function (a, el, ev) { if (ev.type === 'input') mentionInput(el); else mentionBlur(); },
+});
