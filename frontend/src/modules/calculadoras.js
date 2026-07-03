@@ -15,6 +15,7 @@ import { renderPresupuesto, renderServiciosBody, renderSimpleSection, updateRowF
 import { markDirty } from './persistencia-local.js';
 import { _markRowDirty } from './info-proyecto.js';
 
+import { registrarAcciones } from '../lib/delegacion.js';
 /* ─── CALCULADORA TRIBUTARIA ────────────────────────────────────────
    Recuperada del Master Sheet V2.4.1 (M2:O9 de la pestaña PRESUPUESTO).
    Convierte entre líquido y bruto según tipo de documento.
@@ -59,14 +60,14 @@ function openCalculadoraTributaria() {
         <div class="calc-row">
           <div class="field">
             <label class="field-label">Tipo de documento</label>
-            <select class="select" onchange="window._calcTipo = this.value; openCalculadoraTributaria();">
+            <select class="select" data-accion="calc.tipo" data-on="change">
               <option value="bhe" ${window._calcTipo === 'bhe' ? 'selected' : ''}>Boleta de honorarios (15.25%)</option>
               <option value="iva" ${window._calcTipo === 'iva' ? 'selected' : ''}>Factura con IVA (19%)</option>
             </select>
           </div>
           <div class="field">
             <label class="field-label">El monto ingresado es…</label>
-            <select class="select" onchange="window._calcModo = this.value; openCalculadoraTributaria();">
+            <select class="select" data-accion="calc.modo" data-on="change">
               <option value="liquido" ${window._calcModo === 'liquido' ? 'selected' : ''}>${window._calcTipo === 'bhe' ? 'Líquido (lo que recibe el proveedor)' : 'Neto (sin IVA)'}</option>
               <option value="bruto" ${window._calcModo === 'bruto' ? 'selected' : ''}>${window._calcTipo === 'bhe' ? 'Bruto (lo que paga la empresa)' : 'Bruto (con IVA)'}</option>
             </select>
@@ -76,7 +77,7 @@ function openCalculadoraTributaria() {
           <label class="field-label">Monto</label>
           <input type="text" inputmode="numeric" class="input num" id="calcMontoInput"
                  value="${window._calcMonto ? displayMoneyInputValue(window._calcMonto) : ''}" placeholder="0"
-                 oninput="calcUpdate(this.value)">
+                 data-accion="calc.monto" data-on="input">
         </div>
 
         <div class="calc-output">
@@ -104,15 +105,15 @@ function openCalculadoraTributaria() {
   };
 
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width: 540px;">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width: 540px;">
         <div class="modal-header">
           <div class="modal-title">Calculadora tributaria</div>
           <div style="font-size: 12px; color: var(--ink-muted);">Conversión entre líquido y bruto según DTE</div>
         </div>
         ${renderBody()}
         <div class="modal-footer">
-          <button class="btn btn-primary" onclick="closeModal()">Cerrar</button>
+          <button class="btn btn-primary" data-accion="ui.cerrar">Cerrar</button>
         </div>
       </div>
     </div>
@@ -209,7 +210,7 @@ function renderCostoRealCalc() {
 
   const ivaToggle = esFacturaIVA ? `
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-secondary);margin-top:8px;cursor:pointer;">
-      <input type="checkbox" ${st.incluyeIVA ? 'checked' : ''} onchange="window._crc.incluyeIVA=this.checked; renderCostoRealCalc();">
+      <input type="checkbox" ${st.incluyeIVA ? 'checked' : ''} data-accion="calc.crcIVA" data-on="change">
       El monto que ingresé incluye IVA (se descuenta para el costo real)
     </label>` : '';
 
@@ -217,8 +218,8 @@ function renderCostoRealCalc() {
 
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width: 480px;">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width: 480px;">
         <div class="modal-header">
           <div class="modal-title">Costo real · ${escapeHtml(quien)}</div>
           <div style="font-size: 12px; color: var(--ink-muted); margin-top:4px;">DTE real: <strong>${escapeHtml(_crcDteLabel(st.dte))}</strong> <span style="opacity:.7;">(fijo — se toma de la fila)</span></div>
@@ -228,7 +229,7 @@ function renderCostoRealCalc() {
             <label class="field-label">${inputLabel}</label>
             <input type="text" inputmode="numeric" class="input num" id="crcMontoInput"
                    value="${m ? displayMoneyInputValue(m) : ''}" placeholder="0"
-                   oninput="window._crc.monto = parseMoneyCLP(this.value) || 0; _crcUpdateOut();">
+                   data-accion="calc.crcMonto" data-on="input">
             ${ivaToggle}
           </div>
           <div class="calc-output" id="crcOutput">${breakdown}</div>
@@ -236,8 +237,8 @@ function renderCostoRealCalc() {
           <div class="calc-note">Se guardará el <strong>costo empresa</strong> (lo que efectivamente cuesta a la productora), no el líquido que recibe el proveedor.</div>
         </div>
         <div class="modal-footer">
-          <button class="btn" onclick="closeModal()">Cancelar</button>
-          <button class="btn btn-primary" onclick="_crcConfirm()">Usar como costo real</button>
+          <button class="btn" data-accion="ui.cerrar">Cancelar</button>
+          <button class="btn btn-primary" data-accion="calc.crcOk">Usar como costo real</button>
         </div>
       </div>
     </div>`;
@@ -438,7 +439,7 @@ function renderHorasExtraCalc() {
   // Toggle: usar el cálculo del proyecto
   const usaToggle = `
     <label class="he-usa-proyecto">
-      <input type="checkbox" ${st.usaProyecto ? 'checked' : ''} onchange="_hecSetUsaProyecto(this.checked)">
+      <input type="checkbox" ${st.usaProyecto ? 'checked' : ''} data-accion="calc.hecUsaProy" data-on="change">
       <span>Usar el cálculo por defecto del proyecto <span style="color:var(--ink-faint);font-weight:400;">(recargo ${st.projRecargo}% · valor hora = valor de la fila ÷ 10)</span></span>
     </label>`;
 
@@ -448,14 +449,14 @@ function renderHorasExtraCalc() {
       <div class="field">
         <label class="field-label">N° de horas extra</label>
         <input type="number" step="0.5" min="0" class="input num" value="${st.horas || ''}" placeholder="0"
-               oninput="window._hec.horas = parseFloat(this.value) || 0; _hecUpdateOut();">
+               data-accion="calc.hecHoras" data-on="input">
       </div>
       <div class="calc-note">Valor de la hora sugerido: <strong>${st.valorHoraDefault ? fmtMoney(st.valorHoraDefault) : '—'}</strong>${st.esJornadas ? '' : ' <span style="color:var(--warning);">(la unidad de la fila no es «Jornadas»; ingresa un valor hora propio desacoplando del proyecto)</span>'} · Recargo del proyecto: <strong>${st.projRecargo}%</strong>. Para fijar el recargo por defecto usa el ⚙ del encabezado «Horas extra».</div>`;
   } else {
     const tabs = `
       <div class="he-tabs">
-        <button type="button" class="he-tab ${st.modo === 'formula' ? 'is-on' : ''}" onclick="_hecSetModo('formula')">Fórmula propia</button>
-        <button type="button" class="he-tab ${st.modo === 'plana' ? 'is-on' : ''}" onclick="_hecSetModo('plana')">Tarifa plana</button>
+        <button type="button" class="he-tab ${st.modo === 'formula' ? 'is-on' : ''}" data-accion="calc.hecModo" data-args='["formula"]'>Fórmula propia</button>
+        <button type="button" class="he-tab ${st.modo === 'plana' ? 'is-on' : ''}" data-accion="calc.hecModo" data-args='["plana"]'>Tarifa plana</button>
       </div>`;
     let inputs;
     if (st.modo === 'formula') {
@@ -463,18 +464,18 @@ function renderHorasExtraCalc() {
         <div class="field">
           <label class="field-label">Valor de la hora <span style="color:var(--ink-faint);font-weight:400;">${st.esJornadas ? '(sugerido: valor de la fila ÷ 10)' : '(valor jornal designado)'}</span></label>
           <input type="text" inputmode="numeric" class="input num" value="${(st.valorHora !== '' && st.valorHora != null) ? displayMoneyInputValue(st.valorHora) : ''}" placeholder="${st.valorHoraDefault || 0}"
-                 oninput="window._hec.valorHora = parseMoneyCLP(this.value) || 0; _hecUpdateOut();">
+                 data-accion="calc.hecValor" data-on="input">
         </div>
         <div style="display:flex;gap:10px;">
           <div class="field" style="flex:1;">
             <label class="field-label">Recargo %</label>
             <input type="number" step="1" min="0" class="input num" value="${st.recargo}" placeholder="${st.projRecargo}"
-                   oninput="window._hec.recargo = (this.value === '' ? '' : parseFloat(this.value)); _hecUpdateOut();">
+                   data-accion="calc.hecRecargo" data-on="input">
           </div>
           <div class="field" style="flex:1;">
             <label class="field-label">N° de horas extra</label>
             <input type="number" step="0.5" min="0" class="input num" value="${st.horas || ''}" placeholder="0"
-                   oninput="window._hec.horas = parseFloat(this.value) || 0; _hecUpdateOut();">
+                   data-accion="calc.hecHoras" data-on="input">
           </div>
         </div>`;
     } else {
@@ -482,7 +483,7 @@ function renderHorasExtraCalc() {
         <div class="field">
           <label class="field-label">Monto de horas extra ${dteTieneRetencion(st.dte) ? '(líquido que recibe el proveedor)' : (esFacturaIVA ? '(monto de la factura)' : '')}</label>
           <input type="text" inputmode="numeric" class="input num" value="${(st.montoPlano !== '' && st.montoPlano != null) ? displayMoneyInputValue(st.montoPlano) : ''}" placeholder="0"
-                 oninput="window._hec.montoPlano = parseMoneyCLP(this.value) || 0; _hecUpdateOut();">
+                 data-accion="calc.hecPlano" data-on="input">
         </div>`;
     }
     cuerpo = tabs + inputs;
@@ -490,15 +491,15 @@ function renderHorasExtraCalc() {
 
   const ivaToggle = esFacturaIVA ? `
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-secondary);margin-top:8px;cursor:pointer;">
-      <input type="checkbox" ${st.incluyeIVA ? 'checked' : ''} onchange="window._hec.incluyeIVA=this.checked; _hecUpdateOut();">
+      <input type="checkbox" ${st.incluyeIVA ? 'checked' : ''} data-accion="calc.hecIVA" data-on="change">
       El monto incluye IVA (se descuenta para el costo empresa)
     </label>` : '';
 
   const sinDte = !st.dte ? `<div class="calc-note" style="color:var(--warning);">Esta fila no tiene DTE (ni real ni cotizado). El monto se usa tal cual. Para la conversión con retención o IVA, selecciona primero el DTE de la fila.</div>` : '';
 
   document.getElementById('modalRoot').innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width: 480px;">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width: 480px;">
         <div class="modal-header">
           <div class="modal-title">Horas extra · ${escapeHtml(quien)}</div>
           <div style="font-size: 12px; color: var(--ink-muted); margin-top:4px;">DTE: <strong>${escapeHtml(_crcDteLabel(st.dte))}</strong> <span style="opacity:.7;">(se toma de la fila)</span>${actual != null ? ` · HE actual: <strong>${fmtMoney(actual)}</strong>` : ''}</div>
@@ -512,9 +513,9 @@ function renderHorasExtraCalc() {
           <div class="calc-note">Se guarda el <strong>costo empresa</strong> de las horas extra (cache) más la configuración. Se suma al Costo de Producción real, aparte del costo base.</div>
         </div>
         <div class="modal-footer">
-          ${actual != null ? `<button class="btn" style="margin-right:auto;color:var(--negative);" onclick="_hecClear()">Quitar horas extra</button>` : ''}
-          <button class="btn" onclick="closeModal()">Cancelar</button>
-          <button class="btn btn-primary" onclick="_hecConfirm()">Guardar horas extra</button>
+          ${actual != null ? `<button class="btn" style="margin-right:auto;color:var(--negative);" data-accion="calc.hecClear">Quitar horas extra</button>` : ''}
+          <button class="btn" data-accion="ui.cerrar">Cancelar</button>
+          <button class="btn btn-primary" data-accion="calc.hecOk">Guardar horas extra</button>
         </div>
       </div>
     </div>`;
@@ -574,8 +575,8 @@ function renderHeProyectoDefault() {
   const st = window._hep; if (!st) return;
   const afectadas = _hepContarFilas();
   document.getElementById('modalRoot').innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width: 440px;">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width: 440px;">
         <div class="modal-header">
           <div class="modal-title">Horas extra · cálculo del proyecto</div>
           <div style="font-size: 12px; color: var(--ink-muted); margin-top:4px;">Recargo por defecto para las filas que usan el cálculo del proyecto. El valor de la hora se toma de cada fila (valor ÷ 10) y la conversión usa el DTE de la fila.</div>
@@ -584,13 +585,13 @@ function renderHeProyectoDefault() {
           <div class="field">
             <label class="field-label">Recargo por defecto %</label>
             <input type="number" step="1" min="0" class="input num" value="${st.recargo}" placeholder="150"
-                   oninput="window._hep.recargo = (this.value === '' ? 150 : parseFloat(this.value));">
+                   data-accion="calc.hepRecargo" data-on="input">
           </div>
           <div class="calc-note">Biblia §3.4.2: la hora extra es el 150% del valor de la hora por defecto. Al guardar se recalcula la HE de <strong>${afectadas}</strong> fila(s) que usan el cálculo del proyecto. Las filas con override propio no se tocan.</div>
         </div>
         <div class="modal-footer">
-          <button class="btn" onclick="closeModal()">Cancelar</button>
-          <button class="btn btn-primary" onclick="_hepConfirm()">Guardar recargo</button>
+          <button class="btn" data-accion="ui.cerrar">Cancelar</button>
+          <button class="btn btn-primary" data-accion="calc.hepOk">Guardar recargo</button>
         </div>
       </div>
     </div>`;
@@ -625,3 +626,25 @@ window.openHeProyectoDefault = openHeProyectoDefault;
 window.openHorasExtraCalc = openHorasExtraCalc;
 window.renderCostoRealCalc = renderCostoRealCalc;
 window.setHeHoras = setHeHoras;
+
+// D2 · acciones delegadas (el estado _calc*/_crc/_hec/_hep sigue en window:
+// lección #6 — lo escriben estas acciones igual que antes los inline)
+registrarAcciones('calc', {
+  tipo: function (a, el) { window._calcTipo = el.value; openCalculadoraTributaria(); },
+  modo: function (a, el) { window._calcModo = el.value; openCalculadoraTributaria(); },
+  monto: function (a, el) { calcUpdate(el.value); },
+  crcIVA: function (a, el) { window._crc.incluyeIVA = el.checked; renderCostoRealCalc(); },
+  crcMonto: function (a, el) { window._crc.monto = parseMoneyCLP(el.value) || 0; _crcUpdateOut(); },
+  crcOk: function () { _crcConfirm(); },
+  hecUsaProy: function (a, el) { _hecSetUsaProyecto(el.checked); },
+  hecHoras: function (a, el) { window._hec.horas = parseFloat(el.value) || 0; _hecUpdateOut(); },
+  hecModo: function (a) { _hecSetModo(a[0]); },
+  hecValor: function (a, el) { window._hec.valorHora = parseMoneyCLP(el.value) || 0; _hecUpdateOut(); },
+  hecRecargo: function (a, el) { window._hec.recargo = (el.value === '' ? '' : parseFloat(el.value)); _hecUpdateOut(); },
+  hecPlano: function (a, el) { window._hec.montoPlano = parseMoneyCLP(el.value) || 0; _hecUpdateOut(); },
+  hecIVA: function (a, el) { window._hec.incluyeIVA = el.checked; _hecUpdateOut(); },
+  hecClear: function () { _hecClear(); },
+  hecOk: function () { _hecConfirm(); },
+  hepRecargo: function (a, el) { window._hep.recargo = (el.value === '' ? 150 : parseFloat(el.value)); },
+  hepOk: function () { _hepConfirm(); },
+});
