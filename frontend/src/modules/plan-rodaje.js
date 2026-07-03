@@ -15,6 +15,7 @@ import { fmtFechaLarga } from './rodajes.js';
 import { marcarSenal } from './tareas.js';
 import { orgNombre } from '../lib/boot.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 var PR_DRAG_ID = null;
 let HL_DRAG = null;
 var _hlPrevMargen = 13;
@@ -238,26 +239,26 @@ function renderPlanRodaje() {
   if (!STATE.prUnidadId || !dd.unidades.find(u => u.id === STATE.prUnidadId)) STATE.prUnidadId = dd.activoUnidadId;
   const u = prCurrentUnidad(); if (!STATE.prVarId || !u.variantes.find(v => v.id === STATE.prVarId)) STATE.prVarId = u.activoVarId;
   const plan = prCurrentPlan();
-  if (actions) { const _ori = (ensurePlanRodaje(project).orientacion || 'horizontal'); actions.innerHTML = `<select class="pr-orient-sel" onchange="prSetOrientacion(this.value)" title="Orientación del PDF al exportar"><option value="horizontal" ${_ori === 'horizontal' ? 'selected' : ''}>↔ Horizontal</option><option value="vertical" ${_ori === 'vertical' ? 'selected' : ''}>↕ Vertical</option></select> <button class="btn btn-primary btn-sm" onclick="exportPlanRodajePDF()" title="Exporta la Unidad·Plan activa a PDF. Avanza la versión del plan.">Exportar PDF</button> <button class="btn btn-secondary btn-sm" onclick="prOpenCols()">Columnas</button>`; }
+  if (actions) { const _ori = (ensurePlanRodaje(project).orientacion || 'horizontal'); actions.innerHTML = `<select class="pr-orient-sel" data-accion="pr.d" data-args="[&quot;prSetOrientacion&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change" title="Orientación del PDF al exportar"><option value="horizontal" ${_ori === 'horizontal' ? 'selected' : ''}>↔ Horizontal</option><option value="vertical" ${_ori === 'vertical' ? 'selected' : ''}>↕ Vertical</option></select> <button class="btn btn-primary btn-sm" data-accion="pr.d" data-args="[&quot;exportPlanRodajePDF&quot;]" title="Exporta la Unidad·Plan activa a PDF. Avanza la versión del plan.">Exportar PDF</button> <button class="btn btn-secondary btn-sm" data-accion="pr.d" data-args="[&quot;prOpenCols&quot;]">Columnas</button>`; }
   content.innerHTML = `${prSwitcherHTML(project, dias, diaId, u, plan)}${prHeaderHTML(project, diaId)}${prTableHTML(project, plan)}${prBancoHTML(project, plan)}`;
 }
 
 function prSwitcherHTML(project, dias, diaId, u, plan) {
   const dd = project.data.planRodaje.dias[diaId];
-  const diaChips = dias.map(d => `<button class="pr-chip ${d.diaId === diaId ? 'is-active' : ''}" onclick="prSetDia('${d.diaId}')"><span class="pr-chip-id">${escapeHtml(d.diaId)}</span><span class="pr-chip-sub">${escapeHtml(_fechaCorta(d.fecha))}</span></button>`).join('');
-  const uniChips = dd.unidades.map(x => `<button class="pr-chip pr-uni-chip ${x.id === u.id ? 'is-active' : ''}" onclick="prSetUnidad('${x.id}')"><span class="pr-chip-id">${escapeHtml(x.label)}</span></button>`).join('');
-  const varChips = u.variantes.map(v => `<button class="pr-chip pr-plan-chip ${v.id === plan.id ? 'is-active' : ''}" onclick="prSetPlan('${v.id}')"><span class="pr-chip-id">${escapeHtml(v.label)}</span></button>`).join('');
+  const diaChips = dias.map(d => `<button class="pr-chip ${d.diaId === diaId ? 'is-active' : ''}" ${accionHTML('pr.d', 'prSetDia', d.diaId)}><span class="pr-chip-id">${escapeHtml(d.diaId)}</span><span class="pr-chip-sub">${escapeHtml(_fechaCorta(d.fecha))}</span></button>`).join('');
+  const uniChips = dd.unidades.map(x => `<button class="pr-chip pr-uni-chip ${x.id === u.id ? 'is-active' : ''}" ${accionHTML('pr.d', 'prSetUnidad', x.id)}><span class="pr-chip-id">${escapeHtml(x.label)}</span></button>`).join('');
+  const varChips = u.variantes.map(v => `<button class="pr-chip pr-plan-chip ${v.id === plan.id ? 'is-active' : ''}" ${accionHTML('pr.d', 'prSetPlan', v.id)}><span class="pr-chip-id">${escapeHtml(v.label)}</span></button>`).join('');
   const tipUni = 'Equipos que ruedan en SIMULTÁNEO el mismo día, cada uno con su propio plan, llamados y tiempos. Ej.: Unidad 1 graba en exterior mientras la Unidad 2 graba en estudio a la misma hora. Cada unidad es independiente.';
   const tipVar = 'Alternativas de CONTINGENCIA dentro de esta unidad. El Plan A es el principal; los Planes B, C… son respaldos por si algo cambia (ej.: si llueve, se pasa al Plan B). Solo se ejecuta uno a la vez.';
   return `<div class="cot-card pr-switcher">
     <div class="pr-sw-line"><div class="pr-switcher-label">Día de rodaje</div><div class="pr-chips">${diaChips}</div></div>
     <div class="pr-sw-line"><div class="pr-switcher-label">Unidad <span class="tt" data-tip="${escapeHtml(tipUni)}">?</span></div>
-      <div class="pr-chips">${uniChips}<button class="pr-ab-btn pr-ab-add" onclick="prAddUnidad()" title="Equipo que rueda en simultáneo">+ Unidad</button>
-      <button class="pr-tool" onclick="prRenameUnidad('${u.id}')" title="Renombrar unidad">✎</button>${dd.unidades.length > 1 ? `<button class="pr-tool pr-tool-del" onclick="prDelUnidad('${u.id}')" title="Eliminar unidad">✕</button>` : ''}</div></div>
+      <div class="pr-chips">${uniChips}<button class="pr-ab-btn pr-ab-add" data-accion="pr.d" data-args="[&quot;prAddUnidad&quot;]" title="Equipo que rueda en simultáneo">+ Unidad</button>
+      <button class="pr-tool" ${accionHTML('pr.d', 'prRenameUnidad', u.id)} title="Renombrar unidad">✎</button>${dd.unidades.length > 1 ? `<button class="pr-tool pr-tool-del" ${accionHTML('pr.d', 'prDelUnidad', u.id)} title="Eliminar unidad">✕</button>` : ''}</div></div>
     <div class="pr-sw-line"><div class="pr-switcher-label">Plan <span class="tt" data-tip="${escapeHtml(tipVar)}">?</span></div>
-      <div class="pr-chips">${varChips}<button class="pr-ab-btn pr-ab-add" onclick="prAddPlan()" title="Plan de contingencia de esta unidad">+ Plan</button>
-      <button class="pr-ab-btn" onclick="prOpenTraer()" title="Copiar el contenido de otro plan">Traer de…</button>
-      <button class="pr-tool" onclick="prRenamePlan('${plan.id}')" title="Renombrar plan">✎</button>${u.variantes.length > 1 ? `<button class="pr-tool pr-tool-del" onclick="prDelPlan('${plan.id}')" title="Eliminar plan">✕</button>` : ''}
+      <div class="pr-chips">${varChips}<button class="pr-ab-btn pr-ab-add" data-accion="pr.d" data-args="[&quot;prAddPlan&quot;]" title="Plan de contingencia de esta unidad">+ Plan</button>
+      <button class="pr-ab-btn" data-accion="pr.d" data-args="[&quot;prOpenTraer&quot;]" title="Copiar el contenido de otro plan">Traer de…</button>
+      <button class="pr-tool" ${accionHTML('pr.d', 'prRenamePlan', plan.id)} title="Renombrar plan">✎</button>${u.variantes.length > 1 ? `<button class="pr-tool pr-tool-del" ${accionHTML('pr.d', 'prDelPlan', plan.id)} title="Eliminar plan">✕</button>` : ''}
       <span class="pr-version">V.${plan.version || 1}</span><span class="pr-version-exp">${plan.lastExport ? ('exp. ' + escapeHtml(plan.lastExport.at)) : 'sin exportar'}</span></div></div>
   </div>`;
 }
@@ -267,7 +268,7 @@ function prHeaderHTML(project, diaId) {
   const hd = ((project.data.hojaLlamado || {}).dias || {})[diaId]; const ig = (hd && hd.infoGeneral) ? hd.infoGeneral : {};
   const plan = prCurrentPlan() || {};
   const ro = (label, val) => `<div class="pr-h-field"><label>${label}</label><div class="pr-h-ro">${escapeHtml(val || '—')}</div></div>`;
-  const roLlamado = (val) => `<div class="pr-h-field" style="cursor:pointer;" onclick="navigateToModule('hoja-llamado')" title="Se edita en Hoja de Llamado (fuente única). Clic para ir."><label>Llamado general <span style="font-size:9px;color:var(--accent,#B03A2F);font-weight:700;letter-spacing:.03em;">EDITAR \u2197</span></label><div class="pr-h-ro" style="color:var(--accent,#B03A2F);text-decoration:underline dotted;">${escapeHtml(val || '—')}</div></div>`;
+  const roLlamado = (val) => `<div class="pr-h-field" style="cursor:pointer;" data-accion="pr.d" data-args="[&quot;navigateToModule&quot;,&quot;hoja-llamado&quot;]" title="Se edita en Hoja de Llamado (fuente única). Clic para ir."><label>Llamado general <span style="font-size:9px;color:var(--accent,#B03A2F);font-weight:700;letter-spacing:.03em;">EDITAR \u2197</span></label><div class="pr-h-ro" style="color:var(--accent,#B03A2F);text-decoration:underline dotted;">${escapeHtml(val || '—')}</div></div>`;
   return `<div class="cot-card pr-header"><div class="pr-header-grid">
     ${ro('Cliente', ip.cliente)}${ro('Proyecto', ip.nombreProyecto || project.name)}${ro('Pieza / formato', ip.servicio)}
     ${ro('Día', `Día ${di.n} de ${di.total} · ${di.r.fecha ? prFechaLarga(di.r.fecha) : ((di.r.diaId || '') + ' · sin fecha (ponla en Rodajes)')}`)}
@@ -275,23 +276,23 @@ function prHeaderHTML(project, diaId) {
       ensureProjectLoc(project);
       const confs = projLocConfirmadas(project);
       if (!confs.length) {
-        return `<div class="pr-h-field"><label>Locación / campamento base</label><input class="cot-input" value="${escapeHtml(dd.header.locacion || '')}" placeholder="Confírmala en Locaciones" onchange="prSetHeader('locacion', this.value)"></div>`;
+        return `<div class="pr-h-field"><label>Locación / campamento base</label><input class="cot-input" value="${escapeHtml(dd.header.locacion || '')}" placeholder="Confírmala en Locaciones" data-accion="pr.d" data-args="[&quot;prSetHeader&quot;, &quot;locacion&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change"></div>`;
       }
       const cur = dd.header.locacion || '';
       const opts = `<option value="">(sin asignar)</option>` + confs.map(u => { const l = bdLocFind(u.locId) || {}; return `<option value="${escapeHtml(u.locId)}" ${cur === u.locId ? 'selected' : ''}>${escapeHtml(u.locId)} · ${escapeHtml(l.nombre || 'sin nombre')}</option>`; }).join('');
       // si el valor guardado es texto legado (no un locId), lo mostramos como opción para no perderlo
       const legacy = (cur && !bdLocFind(cur)) ? `<option value="${escapeHtml(cur)}" selected>${escapeHtml(cur)} (texto)</option>` : '';
-      return `<div class="pr-h-field"><label>Locación / campamento base</label><select class="cot-input" onchange="prSetHeader('locacion', this.value)">${opts}${legacy}</select></div>`;
+      return `<div class="pr-h-field"><label>Locación / campamento base</label><select class="cot-input" data-accion="pr.d" data-args="[&quot;prSetHeader&quot;, &quot;locacion&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change">${opts}${legacy}</select></div>`;
     })()}
-    <div class="pr-h-field"><label>Salida del sol <span class="tt" data-tip="La hora real viene de la Hoja de Llamado. El 'útil en set' lo defines aquí.">?</span></label><div class="pr-h-sol"><span class="pr-h-ro pr-h-real">${escapeHtml(ig.amanecer || '—')}</span><input class="cot-input pr-h-util" value="${escapeHtml(dd.header.solUtilAmanecer || '')}" placeholder="útil ~" onchange="prSetHeader('solUtilAmanecer', this.value)"></div></div>
-    <div class="pr-h-field"><label>Puesta del sol</label><div class="pr-h-sol"><span class="pr-h-ro pr-h-real">${escapeHtml(ig.atardecer || '—')}</span><input class="cot-input pr-h-util" value="${escapeHtml(dd.header.solUtilAtardecer || '')}" placeholder="útil ~" onchange="prSetHeader('solUtilAtardecer', this.value)"></div></div>
+    <div class="pr-h-field"><label>Salida del sol <span class="tt" data-tip="La hora real viene de la Hoja de Llamado. El 'útil en set' lo defines aquí.">?</span></label><div class="pr-h-sol"><span class="pr-h-ro pr-h-real">${escapeHtml(ig.amanecer || '—')}</span><input class="cot-input pr-h-util" value="${escapeHtml(dd.header.solUtilAmanecer || '')}" placeholder="útil ~" data-accion="pr.d" data-args="[&quot;prSetHeader&quot;, &quot;solUtilAmanecer&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change"></div></div>
+    <div class="pr-h-field"><label>Puesta del sol</label><div class="pr-h-sol"><span class="pr-h-ro pr-h-real">${escapeHtml(ig.atardecer || '—')}</span><input class="cot-input pr-h-util" value="${escapeHtml(dd.header.solUtilAtardecer || '')}" placeholder="útil ~" data-accion="pr.d" data-args="[&quot;prSetHeader&quot;, &quot;solUtilAtardecer&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change"></div></div>
     ${roLlamado(ig.llamadoGeneral)}${ro('Wrap cámara (est.)', ig.wrapCamara)}${ro('Wrap locación (est.)', ig.wrapLocacion)}
     <div class="pr-h-field"><label>Responsable del plan (AD) <span class="tt" data-tip="Quién responde por este plan. Normalmente el Asistente de Dirección. Selecciónalo de la Base de Datos y se autocompletan su teléfono y mail. Aparece en el pie del PDF.">?</span>
       <div class="combobox-wrap person-combobox">
-        <input class="input combobox-input" value="${escapeHtml(dd.header.responsable || '')}" placeholder="Escribe para buscar en la Base de Datos…" autocomplete="off" onfocus="comboboxOpen(this)" oninput="comboboxFilter(this); prSetHeader('responsable', this.value);" onblur="comboboxCloseDelayed(this)" onchange="prSetResponsable(this.value)">
+        <input class="input combobox-input" value="${escapeHtml(dd.header.responsable || '')}" placeholder="Escribe para buscar en la Base de Datos…" autocomplete="off" data-accion="pr.respCombo" data-on="focus input blur change">
         <div class="combobox-dropdown" hidden></div>
       </div></div>
-    <div class="pr-h-field"><label>Contacto responsable</label><input class="cot-input" value="${escapeHtml(dd.header.responsableContacto || '')}" placeholder="Teléfono o mail" onchange="prSetHeader('responsableContacto', this.value)"></div>
+    <div class="pr-h-field"><label>Contacto responsable</label><input class="cot-input" value="${escapeHtml(dd.header.responsableContacto || '')}" placeholder="Teléfono o mail" data-accion="pr.d" data-args="[&quot;prSetHeader&quot;, &quot;responsableContacto&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change"></div>
   </div><p class="config-hint">Cabecera alimentada de Info Proyecto, RODAJES y Hoja de Llamado. El responsable y la orientación del PDF se eligen aquí y en la barra del módulo.</p></div>`;
 }
 
@@ -299,18 +300,18 @@ function prRowToolsHTML(f, i, n) {
   const esBloque = (f.tipo === 'plano' || f.tipo === 'situacion');
   return `<span class="pr-tools">
     <button class="pr-drag" draggable="true" ondragstart="prDragStart(event,'${f.id}')" ondragend="prDragEnd(event)" title="Arrastrar para reordenar">⠿</button>
-    <button class="pr-tool" onclick="prMoveFila('${f.id}',-1)" title="Subir" ${i === 0 ? 'disabled' : ''}>⌃</button>
-    <button class="pr-tool" onclick="prMoveFila('${f.id}',1)" title="Bajar" ${i === n - 1 ? 'disabled' : ''}>⌄</button>
-    ${esBloque ? `<button class="pr-tool ${f.anchor != null ? 'is-on' : ''}" onclick="prToggleAnchor('${f.id}')" title="Clavar a hora fija (ancla)">⚓</button>` : ''}
-    ${esBloque ? `<button class="pr-tool ${f.paralelo ? 'is-on' : ''}" onclick="prToggleParalelo('${f.id}')" title="En paralelo (no mueve el reloj)">∥</button>` : ''}
-    <button class="pr-tool pr-tool-del" onclick="prDelFila('${f.id}')" title="Eliminar">✕</button></span>`;
+    <button class="pr-tool" ${accionHTML('pr.d', 'prMoveFila', f.id, -1)} title="Subir" ${i === 0 ? 'disabled' : ''}>⌃</button>
+    <button class="pr-tool" ${accionHTML('pr.d', 'prMoveFila', f.id, 1)} title="Bajar" ${i === n - 1 ? 'disabled' : ''}>⌄</button>
+    ${esBloque ? `<button class="pr-tool ${f.anchor != null ? 'is-on' : ''}" ${accionHTML('pr.d', 'prToggleAnchor', f.id)} title="Clavar a hora fija (ancla)">⚓</button>` : ''}
+    ${esBloque ? `<button class="pr-tool ${f.paralelo ? 'is-on' : ''}" ${accionHTML('pr.d', 'prToggleParalelo', f.id)} title="En paralelo (no mueve el reloj)">∥</button>` : ''}
+    <button class="pr-tool pr-tool-del" ${accionHTML('pr.d', 'prDelFila', f.id)} title="Eliminar">✕</button></span>`;
 }
 function prImgAttachHTML(id, imgKey, arr) {
   arr = arr || [];
-  const thumbs = arr.map((src, k) => `<span class="pr-thumb"><img src="${safeUrl(src)}" alt=""><button class="pr-thumb-x" onclick="prDelImagen('${id}','${imgKey}',${k})" title="Quitar">✕</button></span>`).join('');
-  return `<div class="pr-imgrow" ondragover="prImgDragOver(event)" ondragleave="prImgDragLeave(event)" ondrop="prDropImagen(event,'${id}','${imgKey}')">${thumbs}${arr.length < 6 ? `<label class="pr-img-add" title="Agregar o arrastrar imagen aquí (se comprime sola)">+<input type="file" accept="image/*" multiple style="display:none" onchange="prAddImagen('${id}','${imgKey}',this)"></label>` : ''}</div>`;
+  const thumbs = arr.map((src, k) => `<span class="pr-thumb"><img src="${safeUrl(src)}" alt=""><button class="pr-thumb-x" ${accionHTML('pr.d', 'prDelImagen', id, imgKey, k)} title="Quitar">✕</button></span>`).join('');
+  return `<div class="pr-imgrow" ondragover="prImgDragOver(event)" ondragleave="prImgDragLeave(event)" ondrop="prDropImagen(event,'${id}','${imgKey}')">${thumbs}${arr.length < 6 ? `<label class="pr-img-add" title="Agregar o arrastrar imagen aquí (se comprime sola)">+<input type="file" accept="image/*" multiple style="display:none" ${accionHTML('pr.d', 'prAddImagen', id, imgKey, '§el§', { on: 'change' })}></label>` : ''}</div>`;
 }
-function prTextareaHTML(id, key, value, ph) { return `<textarea class="pr-ta" rows="2" placeholder="${ph || ''}" onchange="prSetFilaField('${id}','${key}',this.value)">${escapeHtml(value || '')}</textarea>`; }
+function prTextareaHTML(id, key, value, ph) { return `<textarea class="pr-ta" rows="2" placeholder="${ph || ''}" ${accionHTML('pr.d', 'prSetFilaField', id, key, '§v§', { on: 'change' })}>${escapeHtml(value || '')}</textarea>`; }
 function prCellHTML(f, c) {
   if (c.role === 'check') return `<td class="pr-cell pr-cell-check"><span class="pr-checkbox" title="Casilla para marcar a mano en la hoja"></span></td>`;
   const imgKey = 'img_' + c.key;
@@ -321,25 +322,25 @@ function prCellHTML(f, c) {
 function prTimeCellHTML(f, c, t, isStart) {
   if (c.key === 'inicio') {
     const cls = 'pr-cell-time pr-cell-inicio' + (t.collision ? ' pr-collision' : (t.gap > 0 ? ' pr-gap' : '')) + (f.paralelo ? ' pr-paral-time' : '');
-    if (f.anchor != null && !f.paralelo) return `<td class="${cls}"><span class="pr-anchor-tag">⚓</span><input class="pr-anchor-in" value="${escapeHtml(f.anchor || '')}" placeholder="HH:MM" onchange="prSetAnchor('${f.id}', this.value)"></td>`;
+    if (f.anchor != null && !f.paralelo) return `<td class="${cls}"><span class="pr-anchor-tag">⚓</span><input class="pr-anchor-in" value="${escapeHtml(f.anchor || '')}" placeholder="HH:MM" ${accionHTML('pr.d', 'prSetAnchor', f.id, '§v§', { on: 'change' })}></td>`;
     // V8.3.4: solo el primer inicio es editable (recuadro rojo tipeable, igual que duración).
-    if (isStart) return `<td class="${cls}"><input class="pr-dur-in" value="${t.inicio != null ? escapeHtml(prFmtClock(t.inicio)) : ''}" placeholder="HH:MM" onclick="event.stopPropagation()" onchange="prSetHoraInicio(this.value)"></td>`;
+    if (isStart) return `<td class="${cls}"><input class="pr-dur-in" value="${t.inicio != null ? escapeHtml(prFmtClock(t.inicio)) : ''}" placeholder="HH:MM" data-accion="pr.d" data-args="[&quot;prSetHoraInicio&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="change"></td>`;
     return `<td class="${cls}">${t.inicio != null ? prFmtClock(t.inicio) : '—'}</td>`;
   }
-  if (c.key === 'dur') return `<td class="pr-cell-dur"><input class="pr-dur-in" value="${escapeHtml(f.dur || '')}" placeholder="0:00" onchange="prSetDur('${f.id}', this.value)"></td>`;
+  if (c.key === 'dur') return `<td class="pr-cell-dur"><input class="pr-dur-in" value="${escapeHtml(f.dur || '')}" placeholder="0:00" ${accionHTML('pr.d', 'prSetDur', f.id, '§v§', { on: 'change' })}></td>`;
   return `<td class="pr-cell-time ${f.paralelo ? 'pr-paral-time' : ''}">${t.termino != null ? prFmtClock(t.termino) : '—'}</td>`;
 }
 function prRowHTML(f, i, cols, t, n, isStart) {
   const ncols = cols.length;
   const sel = (f.id === STATE.prSelFila) ? ' pr-selected' : '';
-  const attrs = `data-fid="${f.id}" onclick="prSelectFila('${f.id}')" ondragover="prDragOver(event,'${f.id}')" ondragleave="prDragLeave(event)" ondrop="prDrop(event,'${f.id}')"`;
-  if (f.tipo === 'seccion') return `<tr class="pr-row pr-row-seccion${sel}" ${attrs}><td colspan="${ncols}"><input class="pr-seccion-in" value="${escapeHtml(f.accion || '')}" placeholder="NOMBRE DEL BLOQUE · LOCACIÓN" onchange="prSetFilaField('${f.id}','accion',this.value)"></td><td class="pr-cell-tools">${prRowToolsHTML(f, i, n)}</td></tr>`;
+  const attrs = `data-fid="${f.id}" ${accionHTML('pr.d', 'prSelectFila', f.id)} ondragover="prDragOver(event,'${f.id}')" ondragleave="prDragLeave(event)" ondrop="prDrop(event,'${f.id}')"`;
+  if (f.tipo === 'seccion') return `<tr class="pr-row pr-row-seccion${sel}" ${attrs}><td colspan="${ncols}"><input class="pr-seccion-in" value="${escapeHtml(f.accion || '')}" placeholder="NOMBRE DEL BLOQUE · LOCACIÓN" ${accionHTML('pr.d', 'prSetFilaField', f.id, 'accion', '§v§', { on: 'change' })}></td><td class="pr-cell-tools">${prRowToolsHTML(f, i, n)}</td></tr>`;
   if (f.tipo === 'marcador') {
     const clock = t.inicio != null ? prFmtClock(t.inicio) : '—';
     const tcls = t.collision ? 'pr-collision' : (t.gap > 0 ? 'pr-gap' : '');
     return `<tr class="pr-row pr-row-marcador ${tcls}${sel}" ${attrs}><td class="pr-cell-time pr-cell-clock">${clock}</td>
-      <td colspan="${ncols - 1}" class="pr-marcador-band"><input class="pr-marcador-in" value="${escapeHtml(f.accion || '')}" placeholder="LLAMADO GENERAL · LLEGADA CLIENTE · WRAP…" onchange="prSetFilaField('${f.id}','accion',this.value)">
-        <span class="pr-marcador-anchor"><button class="pr-tool ${f.anchor != null ? 'is-on' : ''}" onclick="prToggleAnchor('${f.id}')" title="Hora fija">⚓</button>${f.anchor != null ? `<input class="pr-anchor-in" value="${escapeHtml(f.anchor || '')}" placeholder="07:00" onchange="prSetAnchor('${f.id}', this.value)">` : ''}</span></td>
+      <td colspan="${ncols - 1}" class="pr-marcador-band"><input class="pr-marcador-in" value="${escapeHtml(f.accion || '')}" placeholder="LLAMADO GENERAL · LLEGADA CLIENTE · WRAP…" ${accionHTML('pr.d', 'prSetFilaField', f.id, 'accion', '§v§', { on: 'change' })}>
+        <span class="pr-marcador-anchor"><button class="pr-tool ${f.anchor != null ? 'is-on' : ''}" ${accionHTML('pr.d', 'prToggleAnchor', f.id)} title="Hora fija">⚓</button>${f.anchor != null ? `<input class="pr-anchor-in" value="${escapeHtml(f.anchor || '')}" placeholder="07:00" ${accionHTML('pr.d', 'prSetAnchor', f.id, '§v§', { on: 'change' })}>` : ''}</span></td>
       <td class="pr-cell-tools">${prRowToolsHTML(f, i, n)}</td></tr>`;
   }
   const esBanda = (f.tipo === 'situacion' || f.paralelo);
@@ -348,7 +349,7 @@ function prRowHTML(f, i, cols, t, n, isStart) {
   cols.forEach(c => {
     if (c.role === 'time') { parts.push(prTimeCellHTML(f, c, t, isStart)); return; }
     if (c.role === 'check') { parts.push(`<td class="pr-cell pr-cell-check"><span class="pr-checkbox" title="Casilla para marcar a mano en la hoja"></span></td>`); return; }
-    if (esBanda) { if (!bandDone) { const tag = f.paralelo ? `<span class="pr-paral-tag">EN PARALELO</span>` : ''; parts.push(`<td colspan="${contentCount}" class="pr-band-cell ${f.paralelo ? 'pr-band-paral' : 'pr-band-sit'}">${tag}<textarea class="pr-ta pr-band-ta" rows="2" placeholder="${f.paralelo ? 'Qué ocurre en paralelo (maquillaje, foto fija…)' : 'Comida, montaje, traslado, prep, pack up…'}" onchange="prSetFilaField('${f.id}','accion',this.value)">${escapeHtml(f.accion || '')}</textarea></td>`); bandDone = true; } return; }
+    if (esBanda) { if (!bandDone) { const tag = f.paralelo ? `<span class="pr-paral-tag">EN PARALELO</span>` : ''; parts.push(`<td colspan="${contentCount}" class="pr-band-cell ${f.paralelo ? 'pr-band-paral' : 'pr-band-sit'}">${tag}<textarea class="pr-ta pr-band-ta" rows="2" placeholder="${f.paralelo ? 'Qué ocurre en paralelo (maquillaje, foto fija…)' : 'Comida, montaje, traslado, prep, pack up…'}" ${accionHTML('pr.d', 'prSetFilaField', f.id, 'accion', '§v§', { on: 'change' })}>${escapeHtml(f.accion || '')}</textarea></td>`); bandDone = true; } return; }
     parts.push(prCellHTML(f, c));
   });
   const cls = esBanda ? (f.paralelo ? 'pr-row-paral' : 'pr-row-sit') : 'pr-row-plano';
@@ -373,10 +374,10 @@ function prTableHTML(project, plan) {
   return `<div class="cot-card pr-table-card">${bChoque}${bHueco}
     <div class="pr-toolbar">
       <div class="pr-add-group"><span class="pr-add-label">Agregar fila${STATE.prSelFila ? ' (bajo la seleccionada)' : ''}:</span>
-        <button class="btn btn-ghost btn-sm" onclick="prAddFila('plano')">+ Plano</button>
-        <button class="btn btn-ghost btn-sm" onclick="prAddFila('situacion')">+ Situación</button>
-        <button class="btn btn-ghost btn-sm" onclick="prAddFila('marcador')">+ Marcador</button>
-        <button class="btn btn-ghost btn-sm" onclick="prAddFila('seccion')">+ Sección</button></div>
+        <button class="btn btn-ghost btn-sm" data-accion="pr.d" data-args="[&quot;prAddFila&quot;, &quot;plano&quot;]">+ Plano</button>
+        <button class="btn btn-ghost btn-sm" data-accion="pr.d" data-args="[&quot;prAddFila&quot;, &quot;situacion&quot;]">+ Situación</button>
+        <button class="btn btn-ghost btn-sm" data-accion="pr.d" data-args="[&quot;prAddFila&quot;, &quot;marcador&quot;]">+ Marcador</button>
+        <button class="btn btn-ghost btn-sm" data-accion="pr.d" data-args="[&quot;prAddFila&quot;, &quot;seccion&quot;]">+ Sección</button></div>
       <div class="pr-total">Total rodaje <strong>${span != null ? prFmtDur(span) : '—'}</strong> <span class="tt" data-tip="Duración del día: del inicio del primer bloque al término del último (carril principal). No suma los paralelos aparte.">?</span></div>
     </div>
     <div class="pr-table-wrap"><table class="pr-table"><thead>${head}</thead><tbody>${body}${dropEnd}</tbody></table></div>
@@ -385,12 +386,12 @@ function prTableHTML(project, plan) {
 }
 function prBancoHTML(project, plan) {
   const rows = plan.banco.map((f) => `<tr class="pr-banco-row">
-    <td class="pr-banco-cod"><textarea class="pr-ta pr-cell-narrow" rows="2" placeholder="B1" onchange="prSetFilaField('${f.id}','escPlano',this.value)">${escapeHtml(f.escPlano || '')}</textarea></td>
+    <td class="pr-banco-cod"><textarea class="pr-ta pr-cell-narrow" rows="2" placeholder="B1" ${accionHTML('pr.d', 'prSetFilaField', f.id, 'escPlano', '§v§', { on: 'change' })}>${escapeHtml(f.escPlano || '')}</textarea></td>
     <td>${prTextareaHTML(f.id, 'accion', f.accion, 'Plano si queda tiempo')}</td>
     <td class="pr-cell-mixto">${prTextareaHTML(f.id, 'ref', f.ref, '')}${prImgAttachHTML(f.id, 'img_ref', f.img_ref)}</td>
     <td>${prTextareaHTML(f.id, 'prod', f.prod, 'Nota')}</td>
-    <td class="pr-cell-tools"><button class="pr-tool pr-tool-del" onclick="prDelBanco('${f.id}')" title="Eliminar">✕</button></td></tr>`).join('');
-  return `<div class="cot-card pr-banco-card"><div class="pr-toolbar"><div class="cot-card-title" style="margin:0;">Banco de planos <span class="tt" data-tip="Planos 'si queda tiempo'. Fuera de la línea de tiempo y NO suman al total del día.">?</span></div><button class="btn btn-ghost btn-sm" onclick="prAddBanco()">+ Plano al banco</button></div>
+    <td class="pr-cell-tools"><button class="pr-tool pr-tool-del" ${accionHTML('pr.d', 'prDelBanco', f.id)} title="Eliminar">✕</button></td></tr>`).join('');
+  return `<div class="cot-card pr-banco-card"><div class="pr-toolbar"><div class="cot-card-title" style="margin:0;">Banco de planos <span class="tt" data-tip="Planos 'si queda tiempo'. Fuera de la línea de tiempo y NO suman al total del día.">?</span></div><button class="btn btn-ghost btn-sm" data-accion="pr.d" data-args="[&quot;prAddBanco&quot;]">+ Plano al banco</button></div>
     ${plan.banco.length ? `<div class="pr-table-wrap"><table class="pr-table pr-banco-table"><thead><tr><th class="pr-th">Cód.</th><th class="pr-th">Acción</th><th class="pr-th">Ref</th><th class="pr-th">Nota</th><th class="pr-th"></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="config-hint">Sin planos en el banco. Úsalo para tomas opcionales que no entran en el horario.</p>'}
   </div>`;
 }
@@ -398,10 +399,10 @@ function prBancoHTML(project, plan) {
 /* ── Panel de columnas ── */
 function prOpenCols() {
   const c = ensurePlanRodaje(STATE.currentProject).columnas;
-  const tipoSel = (col, idx) => `<select class="pr-col-tipo" onchange="prSetColTipo(${idx}, this.value)"><option value="texto" ${col.tipo === 'texto' ? 'selected' : ''}>Texto</option><option value="imagen" ${col.tipo === 'imagen' ? 'selected' : ''}>Imagen</option><option value="mixto" ${col.tipo === 'mixto' ? 'selected' : ''}>Texto + Imagen</option><option value="check" ${col.tipo === 'check' ? 'selected' : ''}>Casilla ✓</option></select>`;
-  const extraRows = c.extra.map((col, idx) => `<div class="pr-colcfg ${col.on ? '' : 'is-off'}"><button class="pr-tool" onclick="prMoveCol(${idx},-1)" title="Subir" ${idx === 0 ? 'disabled' : ''}>⌃</button><button class="pr-tool" onclick="prMoveCol(${idx},1)" title="Bajar" ${idx === c.extra.length - 1 ? 'disabled' : ''}>⌄</button><input class="pr-col-name" value="${escapeHtml(col.label)}" onchange="prSetColLabel(${idx}, this.value)">${tipoSel(col, idx)}<label class="pr-col-on"><input type="checkbox" ${col.on ? 'checked' : ''} onchange="prToggleColOn(${idx})"> visible</label><button class="pr-tool pr-tool-del" onclick="prDelColumna(${idx})" title="Eliminar columna">✕</button></div>`).join('');
-  const estructura = `<div class="pr-col-group"><div class="pr-col-group-t">Estructura <span class="pr-col-lock">orden y nombre fijos</span></div><div class="pr-struct-list"><span class="pr-struct-pill is-locked">Inicio</span><span class="pr-struct-pill is-locked">Duración</span><label class="pr-struct-pill"><input type="checkbox" ${c.termino !== false ? 'checked' : ''} onchange="prToggleStruct('termino')"> Término</label><label class="pr-struct-pill"><input type="checkbox" ${c.escPlano !== false ? 'checked' : ''} onchange="prToggleStruct('escPlano')"> Esc / Plano</label><span class="pr-struct-pill is-locked">Acción / Situación</span></div><p class="pr-col-note">Siempre van primero y en este orden. Lo de abajo es libre.</p></div>`;
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:640px;"><div class="modal-header"><div class="modal-title">Columnas del plan</div></div><div class="modal-body">${estructura}<div class="pr-col-group"><div class="pr-col-group-t">Columnas configurables</div><div class="pr-colcfg-list">${extraRows}</div><button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="prAddColumna()">+ Agregar columna personalizada</button></div></div><div class="modal-footer"><button class="btn" onclick="prResetCols()">Volver al preset por defecto</button><button class="btn btn-primary" onclick="closeModal()">Listo</button></div></div></div>`;
+  const tipoSel = (col, idx) => `<select class="pr-col-tipo" ${accionHTML('pr.d', 'prSetColTipo', idx, '§v§', { on: 'change' })}><option value="texto" ${col.tipo === 'texto' ? 'selected' : ''}>Texto</option><option value="imagen" ${col.tipo === 'imagen' ? 'selected' : ''}>Imagen</option><option value="mixto" ${col.tipo === 'mixto' ? 'selected' : ''}>Texto + Imagen</option><option value="check" ${col.tipo === 'check' ? 'selected' : ''}>Casilla ✓</option></select>`;
+  const extraRows = c.extra.map((col, idx) => `<div class="pr-colcfg ${col.on ? '' : 'is-off'}"><button class="pr-tool" ${accionHTML('pr.d', 'prMoveCol', idx, -1)} title="Subir" ${idx === 0 ? 'disabled' : ''}>⌃</button><button class="pr-tool" ${accionHTML('pr.d', 'prMoveCol', idx, 1)} title="Bajar" ${idx === c.extra.length - 1 ? 'disabled' : ''}>⌄</button><input class="pr-col-name" value="${escapeHtml(col.label)}" ${accionHTML('pr.d', 'prSetColLabel', idx, '§v§', { on: 'change' })}>${tipoSel(col, idx)}<label class="pr-col-on"><input type="checkbox" ${col.on ? 'checked' : ''} ${accionHTML('pr.d', 'prToggleColOn', idx, { on: 'change' })}> visible</label><button class="pr-tool pr-tool-del" ${accionHTML('pr.d', 'prDelColumna', idx)} title="Eliminar columna">✕</button></div>`).join('');
+  const estructura = `<div class="pr-col-group"><div class="pr-col-group-t">Estructura <span class="pr-col-lock">orden y nombre fijos</span></div><div class="pr-struct-list"><span class="pr-struct-pill is-locked">Inicio</span><span class="pr-struct-pill is-locked">Duración</span><label class="pr-struct-pill"><input type="checkbox" ${c.termino !== false ? 'checked' : ''} data-accion="pr.d" data-args="[&quot;prToggleStruct&quot;, &quot;termino&quot;]" data-on="change"> Término</label><label class="pr-struct-pill"><input type="checkbox" ${c.escPlano !== false ? 'checked' : ''} data-accion="pr.d" data-args="[&quot;prToggleStruct&quot;, &quot;escPlano&quot;]" data-on="change"> Esc / Plano</label><span class="pr-struct-pill is-locked">Acción / Situación</span></div><p class="pr-col-note">Siempre van primero y en este orden. Lo de abajo es libre.</p></div>`;
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:640px;"><div class="modal-header"><div class="modal-title">Columnas del plan</div></div><div class="modal-body">${estructura}<div class="pr-col-group"><div class="pr-col-group-t">Columnas configurables</div><div class="pr-colcfg-list">${extraRows}</div><button class="btn btn-ghost btn-sm" style="margin-top:10px;" data-accion="pr.d" data-args="[&quot;prAddColumna&quot;]">+ Agregar columna personalizada</button></div></div><div class="modal-footer"><button class="btn" data-accion="pr.d" data-args="[&quot;prResetCols&quot;]">Volver al preset por defecto</button><button class="btn btn-primary" data-accion="pr.d" data-args="[&quot;closeModal&quot;]">Listo</button></div></div></div>`;
 }
 function prReopenCols() { renderPlanRodaje(); setTimeout(prOpenCols, 0); }
 function prToggleStruct(key) { const c = ensurePlanRodaje(STATE.currentProject).columnas; c[key] = !(c[key] !== false); markDirty(); prReopenCols(); }
@@ -442,9 +443,9 @@ function prDelPlan(id) { const u = prCurrentUnidad(); if (u.variantes.length <= 
 function prOpenTraer() {
   const dd = prEnsureDia(STATE.currentProject, STATE.prDiaSel); const cur = prCurrentPlan();
   const ops = [];
-  dd.unidades.forEach(u => u.variantes.forEach(v => { if (v.id === cur.id) return; ops.push(`<button class="pr-traer-op" onclick="prTraerDe('${u.id}','${v.id}')"><span class="pr-traer-op-lbl">${escapeHtml(u.label)} · ${escapeHtml(v.label)}</span><span class="pr-traer-op-sub">${v.filas.length} fila(s)</span></button>`); }));
+  dd.unidades.forEach(u => u.variantes.forEach(v => { if (v.id === cur.id) return; ops.push(`<button class="pr-traer-op" ${accionHTML('pr.d', 'prTraerDe', u.id, v.id)}><span class="pr-traer-op-lbl">${escapeHtml(u.label)} · ${escapeHtml(v.label)}</span><span class="pr-traer-op-sub">${v.filas.length} fila(s)</span></button>`); }));
   const body = ops.length ? `<p class="pr-col-note">Copia las filas y el banco del plan elegido sobre <strong>${escapeHtml(cur.label)}</strong>. Lo que tengas ahora se reemplaza (puedes deshacer con Cmd+Z).</p><div class="pr-traer-list">${ops.join('')}</div>` : '<p class="config-hint">No hay otros planes en este día desde los cuales copiar.</p>';
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:520px;"><div class="modal-header"><div class="modal-title">Traer contenido de otro plan</div></div><div class="modal-body">${body}</div><div class="modal-footer"><button class="btn" onclick="closeModal()">Cancelar</button></div></div></div>`;
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:520px;"><div class="modal-header"><div class="modal-title">Traer contenido de otro plan</div></div><div class="modal-body">${body}</div><div class="modal-footer"><button class="btn" data-accion="pr.d" data-args="[&quot;closeModal&quot;]">Cancelar</button></div></div></div>`;
 }
 function prTraerDe(unidadId, varId) {
   const dd = prEnsureDia(STATE.currentProject, STATE.prDiaSel); const u = dd.unidades.find(x => x.id === unidadId); const src = u && u.variantes.find(v => v.id === varId); const cur = prCurrentPlan();
@@ -594,7 +595,7 @@ function renderHojaLlamado() {
         <span class="alert-icon">ℹ</span>
         <div>
           No hay días de rodaje activos todavía. Ve al módulo <strong>Rodajes</strong>, agrega al menos un día y márcalo como <strong>activo</strong> para poder construir la Hoja de Llamado.
-          <div style="margin-top: 10px;"><button class="btn btn-primary btn-sm" onclick="navigateToModule('rodajes')">Ir a Rodajes</button></div>
+          <div style="margin-top: 10px;"><button class="btn btn-primary btn-sm" data-accion="pr.d" data-args="[&quot;navigateToModule&quot;,&quot;rodajes&quot;]">Ir a Rodajes</button></div>
         </div>
       </div>
     `;
@@ -630,7 +631,7 @@ function renderHojaLlamado() {
           <label>${label}</label>
           <input type="text" inputmode="numeric" class="time24" maxlength="5" placeholder="HH:MM"
                  value="${escapeHtml(ig[field] || '')}"
-                 onchange="this.value=normalizeTime24(this.value); updateHojaInfoGeneral('${sel}', '${field}', this.value);">
+                 ${accionHTML('pr.hojaInfoT', sel, field, { on: 'change' })}>
         </div>
       `;
     }
@@ -638,7 +639,7 @@ function renderHojaLlamado() {
       <div class="hl-ig-cell">
         <label>${label}</label>
         <input type="text" value="${escapeHtml(ig[field] || '')}" placeholder="—"
-               onchange="updateHojaInfoGeneral('${sel}', '${field}', this.value);">
+               ${accionHTML('pr.d', 'updateHojaInfoGeneral', sel, field, '§v§', { on: 'change' })}>
       </div>
     `;
   };
@@ -648,7 +649,7 @@ function renderHojaLlamado() {
     <div class="hl-controls">
       <div class="hl-day-select">
         <label>Día de rodaje</label>
-        <select onchange="selectHojaDia(this.value)">
+        <select data-accion="pr.d" data-args="[&quot;selectHojaDia&quot;,&quot;§v§&quot;]" data-on="change">
           ${diasActivos.map(r => `
             <option value="${escapeHtml(r.diaId)}" ${r.diaId === sel ? 'selected' : ''}>
               ${escapeHtml(r.diaId)}${r.fecha ? ' · ' + escapeHtml(fmtFechaLarga(r.fecha)) : ' · (sin fecha)'}
@@ -661,8 +662,8 @@ function renderHojaLlamado() {
           <span class="hl-version-badge">${verLabel}</span>
           <span class="hl-export-stamp">${exportInfo}</span>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="hojaPreviewPDF()" data-tip="Abre el previsualizador. Al exportar desde ahí se genera el PDF y AVANZA la versión automáticamente: cada export es una versión oficial distribuible.">Exportar PDF</button>
-        <button class="btn btn-secondary btn-sm" onclick="ntfOpenFromHoja()" data-tip="Abre Notificaciones › Enviar con la plantilla «Envío de Hoja de Llamado» y los destinatarios ya cargados. El PDF adjunto real llega con el backend.">Exportar y Enviar</button>
+        <button class="btn btn-primary btn-sm" data-accion="pr.d" data-args="[&quot;hojaPreviewPDF&quot;]" data-tip="Abre el previsualizador. Al exportar desde ahí se genera el PDF y AVANZA la versión automáticamente: cada export es una versión oficial distribuible.">Exportar PDF</button>
+        <button class="btn btn-secondary btn-sm" data-accion="pr.d" data-args="[&quot;ntfOpenFromHoja&quot;]" data-tip="Abre Notificaciones › Enviar con la plantilla «Envío de Hoja de Llamado» y los destinatarios ya cargados. El PDF adjunto real llega con el backend.">Exportar y Enviar</button>
       </div>
     </div>
 
@@ -714,7 +715,7 @@ function renderHojaLlamado() {
       <!-- LOCACIONES (V8.2: gestionadas en el módulo Locaciones) -->
       <div class="hl-block">
         <div class="hl-block-title">Locaciones
-          <button class="hl-add-inline" onclick="navigateToModule('locaciones')">Gestionar en Locaciones →</button>
+          <button class="hl-add-inline" data-accion="pr.d" data-args="[&quot;navigateToModule&quot;,&quot;locaciones&quot;]">Gestionar en Locaciones →</button>
         </div>
         ${(() => {
           const confs = projLocConfirmadas(project);
@@ -752,13 +753,13 @@ function renderHojaLlamado() {
                   return `
                   <tr class="${presente ? '' : 'crew-no-citado'}" ondragover="hlDragOver(event)" ondragleave="hlDragLeave(event)" ondrop="hlDrop(event,'crew',${_vi})">
                     <td class="hl-drag-cell"><button class="hl-drag" draggable="true" ondragstart="hlDragStart(event,'crew',${_vi})" ondragend="hlDragEnd(event)" title="Arrastrar para reordenar">⠿</button></td>
-                    <td class="ctr"><input type="checkbox" ${presente ? 'checked' : ''} title="Citar a esta persona este día" onchange="toggleCrewPresente('${sel}','${nm}', this.checked);"></td>
-                    <td><div class="hl-ovwrap"><input class="cell-input" value="${escapeHtml(_hlOvVal(ov.rol, rolOrig))}" placeholder="${escapeHtml(rolOrig || 'Rol')}" ${presente ? '' : 'disabled'} onchange="updateCrewOverride('${sel}','${nm}','rol', this.value);">${rolEd ? `<button class="hl-revert" data-tip="Restablecer al valor del Presupuesto${rolOrig ? ' («' + escapeHtml(rolOrig) + '»)' : ''}" onclick="revertCrewOverride('${sel}','${nm}','rol')">↺</button>` : ''}</div></td>
-                    <td><div class="hl-ovwrap"><input class="cell-input hl-name-input" value="${escapeHtml(_hlOvVal(ov.nombre, nomOrig))}" placeholder="${escapeHtml(nomOrig)}" ${presente ? '' : 'disabled'} onchange="updateCrewOverride('${sel}','${nm}','nombre', this.value);">${bd ? '' : '<span class="cell-name-warn" data-tip="No está en la BD: escribe el número a mano en la columna Número.">●</span>'}${nomEd ? `<button class="hl-revert" data-tip="Restablecer al valor del Presupuesto${nomOrig ? ' («' + escapeHtml(nomOrig) + '»)' : ''}" onclick="revertCrewOverride('${sel}','${nm}','nombre')">↺</button>` : ''}</div></td>
-                    <td><div class="hl-ovwrap"><input class="cell-input" value="${escapeHtml(_hlOvVal(ov.numero, numOrig))}" placeholder="${escapeHtml(numOrig || '+56 9…')}" ${presente ? '' : 'disabled'} onchange="updateCrewOverride('${sel}','${nm}','numero', this.value);">${numEd ? `<button class="hl-revert" data-tip="Restablecer al valor de la Base de Datos${numOrig ? ' («' + escapeHtml(numOrig) + '»)' : ''}" onclick="revertCrewOverride('${sel}','${nm}','numero')">↺</button>` : ''}</div></td>
-                    <td><input type="text" inputmode="numeric" class="cell-input time24" maxlength="5" value="${escapeHtml(ov.call || '')}" placeholder="${escapeHtml(ig.llamadoGeneral || 'HH:MM')}" ${presente ? '' : 'disabled'} onchange="this.value=normalizeTime24(this.value); updateCrewOverride('${sel}','${nm}','call', this.value);"></td>
-                    <td><select class="cell-select" ${presente ? '' : 'disabled'} onchange="updateCrewOverride('${sel}','${nm}','locacionId', this.value);">${locacionOptions(project, ov.locacionId)}</select></td>
-                    <td><input class="cell-input" value="${escapeHtml(ov.notas || '')}" placeholder="—" ${presente ? '' : 'disabled'} onchange="updateCrewOverride('${sel}','${nm}','notas', this.value);"></td>
+                    <td class="ctr"><input type="checkbox" ${presente ? 'checked' : ''} title="Citar a esta persona este día" ${accionHTML('pr.d', 'toggleCrewPresente', sel, nm, '§c§', { on: 'change' })}></td>
+                    <td><div class="hl-ovwrap"><input class="cell-input" value="${escapeHtml(_hlOvVal(ov.rol, rolOrig))}" placeholder="${escapeHtml(rolOrig || 'Rol')}" ${presente ? '' : 'disabled'} ${accionHTML('pr.d', 'updateCrewOverride', sel, nm, 'rol', '§v§', { on: 'change' })}>${rolEd ? `<button class="hl-revert" data-tip="Restablecer al valor del Presupuesto${rolOrig ? ' («' + escapeHtml(rolOrig) + '»)' : ''}" ${accionHTML('pr.d', 'revertCrewOverride', sel, nm, 'rol')}>↺</button>` : ''}</div></td>
+                    <td><div class="hl-ovwrap"><input class="cell-input hl-name-input" value="${escapeHtml(_hlOvVal(ov.nombre, nomOrig))}" placeholder="${escapeHtml(nomOrig)}" ${presente ? '' : 'disabled'} ${accionHTML('pr.d', 'updateCrewOverride', sel, nm, 'nombre', '§v§', { on: 'change' })}>${bd ? '' : '<span class="cell-name-warn" data-tip="No está en la BD: escribe el número a mano en la columna Número.">●</span>'}${nomEd ? `<button class="hl-revert" data-tip="Restablecer al valor del Presupuesto${nomOrig ? ' («' + escapeHtml(nomOrig) + '»)' : ''}" ${accionHTML('pr.d', 'revertCrewOverride', sel, nm, 'nombre')}>↺</button>` : ''}</div></td>
+                    <td><div class="hl-ovwrap"><input class="cell-input" value="${escapeHtml(_hlOvVal(ov.numero, numOrig))}" placeholder="${escapeHtml(numOrig || '+56 9…')}" ${presente ? '' : 'disabled'} ${accionHTML('pr.d', 'updateCrewOverride', sel, nm, 'numero', '§v§', { on: 'change' })}>${numEd ? `<button class="hl-revert" data-tip="Restablecer al valor de la Base de Datos${numOrig ? ' («' + escapeHtml(numOrig) + '»)' : ''}" ${accionHTML('pr.d', 'revertCrewOverride', sel, nm, 'numero')}>↺</button>` : ''}</div></td>
+                    <td><input type="text" inputmode="numeric" class="cell-input time24" maxlength="5" value="${escapeHtml(ov.call || '')}" placeholder="${escapeHtml(ig.llamadoGeneral || 'HH:MM')}" ${presente ? '' : 'disabled'} ${accionHTML('pr.ovCall', sel, nm, { on: 'change' })}></td>
+                    <td><select class="cell-select" ${presente ? '' : 'disabled'} ${accionHTML('pr.d', 'updateCrewOverride', sel, nm, 'locacionId', '§v§', { on: 'change' })}>${locacionOptions(project, ov.locacionId)}</select></td>
+                    <td><input class="cell-input" value="${escapeHtml(ov.notas || '')}" placeholder="—" ${presente ? '' : 'disabled'} ${accionHTML('pr.d', 'updateCrewOverride', sel, nm, 'notas', '§v§', { on: 'change' })}></td>
                   </tr>`;
                 }).join('')}
               </tbody>
@@ -771,7 +772,7 @@ function renderHojaLlamado() {
       <!-- CITACIONES EXTERNAS (manual) -->
       <div class="hl-block">
         <div class="hl-block-title">Citaciones · Externas
-          <button class="hl-add-inline" onclick="addCitacionExterna('${sel}')">+ Agregar persona externa</button>
+          <button class="hl-add-inline" ${accionHTML('pr.d', 'addCitacionExterna', sel)}>+ Agregar persona externa</button>
         </div>
         ${dia.citacionesExternas.length === 0 ? `
           <div class="hl-empty">Personas fuera del crew contratado: cliente, agencia, visitas, invitados. Se ingresan a mano (no afectan el Presupuesto).</div>
@@ -785,13 +786,13 @@ function renderHojaLlamado() {
                 ${dia.citacionesExternas.map((e, idx) => `
                   <tr ondragover="hlDragOver(event)" ondragleave="hlDragLeave(event)" ondrop="hlDrop(event,'ext',${idx})">
                     <td class="hl-drag-cell"><button class="hl-drag" draggable="true" ondragstart="hlDragStart(event,'ext',${idx})" ondragend="hlDragEnd(event)" title="Arrastrar para reordenar">⠿</button></td>
-                    <td><input class="cell-input" value="${escapeHtml(e.rol || '')}" placeholder="Cargo / Rol" onchange="updateCitExterna('${sel}', ${idx}, 'rol', this.value);"></td>
-                    <td><input class="cell-input" value="${escapeHtml(e.nombre || '')}" placeholder="Nombre" onchange="updateCitExterna('${sel}', ${idx}, 'nombre', this.value);"></td>
-                    <td><input class="cell-input" value="${escapeHtml(e.numero || '')}" placeholder="+56 9…" onchange="updateCitExterna('${sel}', ${idx}, 'numero', this.value);"></td>
-                    <td><input type="text" inputmode="numeric" class="cell-input time24" maxlength="5" value="${escapeHtml(e.call || '')}" placeholder="HH:MM" onchange="this.value=normalizeTime24(this.value); updateCitExterna('${sel}', ${idx}, 'call', this.value);"></td>
-                    <td><select class="cell-select" onchange="updateCitExterna('${sel}', ${idx}, 'locacionId', this.value);">${locacionOptions(project, e.locacionId)}</select></td>
-                    <td><input class="cell-input" value="${escapeHtml(e.notas || '')}" placeholder="—" onchange="updateCitExterna('${sel}', ${idx}, 'notas', this.value);"></td>
-                    <td><button class="row-delete" title="Eliminar" onclick="deleteCitExterna('${sel}', ${idx})">×</button></td>
+                    <td><input class="cell-input" value="${escapeHtml(e.rol || '')}" placeholder="Cargo / Rol" ${accionHTML('pr.d', 'updateCitExterna', sel, idx, 'rol', '§v§', { on: 'change' })}></td>
+                    <td><input class="cell-input" value="${escapeHtml(e.nombre || '')}" placeholder="Nombre" ${accionHTML('pr.d', 'updateCitExterna', sel, idx, 'nombre', '§v§', { on: 'change' })}></td>
+                    <td><input class="cell-input" value="${escapeHtml(e.numero || '')}" placeholder="+56 9…" ${accionHTML('pr.d', 'updateCitExterna', sel, idx, 'numero', '§v§', { on: 'change' })}></td>
+                    <td><input type="text" inputmode="numeric" class="cell-input time24" maxlength="5" value="${escapeHtml(e.call || '')}" placeholder="HH:MM" ${accionHTML('pr.citCall', sel, idx, { on: 'change' })}></td>
+                    <td><select class="cell-select" ${accionHTML('pr.d', 'updateCitExterna', sel, idx, 'locacionId', '§v§', { on: 'change' })}>${locacionOptions(project, e.locacionId)}</select></td>
+                    <td><input class="cell-input" value="${escapeHtml(e.notas || '')}" placeholder="—" ${accionHTML('pr.d', 'updateCitExterna', sel, idx, 'notas', '§v§', { on: 'change' })}></td>
+                    <td><button class="row-delete" title="Eliminar" ${accionHTML('pr.d', 'deleteCitExterna', sel, idx)}>×</button></td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -1141,17 +1142,17 @@ function _callSheetSignature(project, diaId) {
 function hojaPreviewPDF() {
   const project = STATE.currentProject; if (!project) return;
   const sel = STATE.ui.hojaDiaSel; if (!sel) return;
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" onclick="event.stopPropagation()" style="max-width:1000px;width:96vw;padding:0;overflow:hidden;">
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" style="max-width:1000px;width:96vw;padding:0;overflow:hidden;">
     <div class="modal-header" style="padding:13px 18px;"><div class="modal-title">Previsualizar y exportar · Hoja de Llamado</div></div>
     <div style="display:flex;min-height:60vh;max-height:74vh;">
       <div style="flex:1;display:flex;flex-direction:column;min-width:0;background:#2a2a27;">
         <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg-surface,#222);border-bottom:1px solid var(--rule,#34342f);flex-wrap:wrap;">
-          <button class="btn btn-sm" onclick="CotPreview.setZoom(CotPreview.zoom-10)" title="Alejar">−</button>
+          <button class="btn btn-sm" data-accion="pr.zoom" data-args="[-10]" title="Alejar">−</button>
           <span id="cotPrevZoom" style="font-size:12px;color:var(--ink-secondary,#d3d6cb);min-width:44px;text-align:center;font-variant-numeric:tabular-nums;">100%</span>
-          <button class="btn btn-sm" onclick="CotPreview.setZoom(CotPreview.zoom+10)" title="Acercar">+</button>
+          <button class="btn btn-sm" data-accion="pr.zoom" data-args="[10]" title="Acercar">+</button>
           <span style="width:1px;height:18px;background:var(--rule,#34342f);margin:0 3px;"></span>
-          <button class="btn btn-sm" id="cotPrevFitPage" onclick="CotPreview.setMode('page')">Ajustar</button>
-          <button class="btn btn-sm" id="cotPrevFitWidth" onclick="CotPreview.setMode('width')">Ancho</button>
+          <button class="btn btn-sm" id="cotPrevFitPage" data-accion="pr.modo" data-args="[&quot;page&quot;]">Ajustar</button>
+          <button class="btn btn-sm" id="cotPrevFitWidth" data-accion="pr.modo" data-args="[&quot;width&quot;]">Ancho</button>
           <span style="font-size:10.5px;color:var(--ink-faint,#71736a);margin-left:auto;">Pellizca el trackpad o Ctrl/⌘ + rueda para zoom</span>
         </div>
         <div id="cotPrevCanvas" style="flex:1;overflow:auto;background:#2a2a27;padding:24px;">
@@ -1160,7 +1161,7 @@ function hojaPreviewPDF() {
       </div>
       <div id="hlPrevPanel" style="width:266px;flex-shrink:0;border-left:1px solid var(--rule,#34342f);overflow-y:auto;background:var(--bg-surface,#222);">${_hlPrevPanelHTML()}</div>
     </div>
-    <div class="modal-footer" style="padding:12px 18px;justify-content:flex-end;gap:8px;"><button class="btn" onclick="closeModal()">Cerrar</button><button class="btn btn-primary" onclick="hojaPreviewGenerar()">Exportar PDF</button></div>
+    <div class="modal-footer" style="padding:12px 18px;justify-content:flex-end;gap:8px;"><button class="btn" data-accion="pr.d" data-args="[&quot;closeModal&quot;]">Cerrar</button><button class="btn btn-primary" data-accion="pr.d" data-args="[&quot;hojaPreviewGenerar&quot;]">Exportar PDF</button></div>
   </div></div>`;
   CotPreview.init(document.getElementById('cotPrevCanvas'), document.getElementById('cotPrevWrap'), document.getElementById('cotPrevFrame'));
   CotPreview.load(buildHojaLlamadoPrintHTML(project, sel, _hlPrevMargen), 794, 1123);
@@ -1171,7 +1172,7 @@ function hojaPreviewPDF() {
    previsualizador-pdf-universal-pendiente). */
 function _hlPrevPanelHTML() {
   const grp = (title, inner, hint) => `<div style="padding:14px 16px;border-bottom:1px solid var(--rule,#34342f);"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint,#71736a);font-weight:700;margin:0 0 10px;">${title}</div>${inner}${hint ? '<div style="font-size:10.5px;color:var(--ink-faint,#71736a);margin-top:8px;line-height:1.4;">' + hint + '</div>' : ''}</div>`;
-  const marg = `<div style="display:flex;align-items:center;gap:10px;"><input type="range" min="6" max="30" value="${_hlPrevMargen}" oninput="hlPrevSetMargen(+this.value)" style="flex:1;accent-color:var(--accent,#B03A2F);"><span id="hlPrevMargLbl" style="font-size:11.5px;color:var(--ink-secondary,#d3d6cb);min-width:44px;text-align:right;">${_hlPrevMargen} mm</span></div>`;
+  const marg = `<div style="display:flex;align-items:center;gap:10px;"><input type="range" min="6" max="30" value="${_hlPrevMargen}" data-accion="pr.margen" data-on="input" style="flex:1;accent-color:var(--accent,#B03A2F);"><span id="hlPrevMargLbl" style="font-size:11.5px;color:var(--ink-secondary,#d3d6cb);min-width:44px;text-align:right;">${_hlPrevMargen} mm</span></div>`;
   const soon = '<div style="font-size:11px;color:var(--ink-faint,#71736a);line-height:1.5;">Próximamente. Por ahora se toma del estilo estándar del documento.</div>';
   return grp('Márgenes', marg, 'Cambia el margen del documento; se refleja en el preview y en el PDF.')
     + grp('Color de énfasis', soon)
@@ -1208,7 +1209,7 @@ function exportHojaLlamadoPDF() {
 }
 function _hlExportConfirm(faltan) {
   const items = faltan.map(f => `<li style="margin:4px 0;"><strong>${escapeHtml(f)}</strong></li>`).join('');
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:470px;"><div class="modal-header"><div class="modal-title">Faltan datos de la Hoja de Llamado</div></div><div class="modal-body"><p style="margin:0 0 10px;">Antes de exportar conviene completar:</p><ul style="margin:0 0 6px 18px;padding:0;">${items}</ul><p style="margin:10px 0 0;color:var(--ink-faint);font-size:12.5px;">Puedes corregirlos primero o exportar igual (no es obligatorio).</p></div><div class="modal-footer"><button class="btn" onclick="closeModal()">Corregir</button><button class="btn btn-primary" onclick="closeModal(); _hlDoExportPDF();">Exportar de todas formas</button></div></div></div>`;
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:470px;"><div class="modal-header"><div class="modal-title">Faltan datos de la Hoja de Llamado</div></div><div class="modal-body"><p style="margin:0 0 10px;">Antes de exportar conviene completar:</p><ul style="margin:0 0 6px 18px;padding:0;">${items}</ul><p style="margin:10px 0 0;color:var(--ink-faint);font-size:12.5px;">Puedes corregirlos primero o exportar igual (no es obligatorio).</p></div><div class="modal-footer"><button class="btn" data-accion="pr.d" data-args="[&quot;closeModal&quot;]">Corregir</button><button class="btn btn-primary" data-accion="pr.exportIgual" data-args="[&quot;hl&quot;]">Exportar de todas formas</button></div></div></div>`;
 }
 function _hlDoExportPDF() {
   const sel = STATE.ui.hojaDiaSel;
@@ -1383,7 +1384,7 @@ function exportPlanRodajePDF() {
 }
 function _prExportConfirm(faltan) {
   const items = faltan.map(f => `<li style="margin:4px 0;"><strong>${escapeHtml(f)}</strong></li>`).join('');
-  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:470px;"><div class="modal-header"><div class="modal-title">Faltan datos del plan</div></div><div class="modal-body"><p style="margin:0 0 10px;">Antes de exportar conviene completar:</p><ul style="margin:0 0 6px 18px;padding:0;">${items}</ul><p style="margin:10px 0 0;color:var(--ink-faint);font-size:12.5px;">Puedes corregirlos primero o exportar igual (no es obligatorio).</p></div><div class="modal-footer"><button class="btn" onclick="closeModal()">Corregir</button><button class="btn btn-primary" onclick="closeModal(); _prDoExportPDF();">Exportar de todas formas</button></div></div></div>`;
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:470px;"><div class="modal-header"><div class="modal-title">Faltan datos del plan</div></div><div class="modal-body"><p style="margin:0 0 10px;">Antes de exportar conviene completar:</p><ul style="margin:0 0 6px 18px;padding:0;">${items}</ul><p style="margin:10px 0 0;color:var(--ink-faint);font-size:12.5px;">Puedes corregirlos primero o exportar igual (no es obligatorio).</p></div><div class="modal-footer"><button class="btn" data-accion="pr.d" data-args="[&quot;closeModal&quot;]">Corregir</button><button class="btn btn-primary" data-accion="pr.exportIgual" data-args="[&quot;pr&quot;]">Exportar de todas formas</button></div></div></div>`;
 }
 function _prDoExportPDF() {
   const project = STATE.currentProject; const plan = prCurrentPlan(); if (!project || !plan) return;
@@ -1487,3 +1488,74 @@ window.prParseHM = prParseHM;
 
 // ── Bridge auditoría pre-B (botón «Exportar de todas formas» del modal HL) ──
 window._hlDoExportPDF = _hlDoExportPDF;
+
+// D2 · despachador pr.d con centinelas de runtime (§v§=el.value, §c§=el.checked)
+var _PR_FN = {
+  addCitacionExterna: addCitacionExterna,
+  closeModal: closeModal,
+  deleteCitExterna: deleteCitExterna,
+  exportPlanRodajePDF: exportPlanRodajePDF,
+  hojaPreviewGenerar: hojaPreviewGenerar,
+  hojaPreviewPDF: hojaPreviewPDF,
+  navigateToModule: navigateToModule,
+  ntfOpenFromHoja: ntfOpenFromHoja,
+  prAddBanco: prAddBanco,
+  prAddColumna: prAddColumna,
+  prAddFila: prAddFila,
+  prAddImagen: prAddImagen,
+  prAddPlan: prAddPlan,
+  prAddUnidad: prAddUnidad,
+  prDelBanco: prDelBanco,
+  prDelColumna: prDelColumna,
+  prDelFila: prDelFila,
+  prDelImagen: prDelImagen,
+  prDelPlan: prDelPlan,
+  prDelUnidad: prDelUnidad,
+  prMoveCol: prMoveCol,
+  prMoveFila: prMoveFila,
+  prOpenCols: prOpenCols,
+  prOpenTraer: prOpenTraer,
+  prRenamePlan: prRenamePlan,
+  prRenameUnidad: prRenameUnidad,
+  prResetCols: prResetCols,
+  prSelectFila: prSelectFila,
+  prSetAnchor: prSetAnchor,
+  prSetColLabel: prSetColLabel,
+  prSetColTipo: prSetColTipo,
+  prSetDia: prSetDia,
+  prSetDur: prSetDur,
+  prSetFilaField: prSetFilaField,
+  prSetHeader: prSetHeader,
+  prSetHoraInicio: prSetHoraInicio,
+  prSetOrientacion: prSetOrientacion,
+  prSetPlan: prSetPlan,
+  prSetUnidad: prSetUnidad,
+  prToggleAnchor: prToggleAnchor,
+  prToggleColOn: prToggleColOn,
+  prToggleParalelo: prToggleParalelo,
+  prToggleStruct: prToggleStruct,
+  prTraerDe: prTraerDe,
+  revertCrewOverride: revertCrewOverride,
+  selectHojaDia: selectHojaDia,
+  toggleCrewPresente: toggleCrewPresente,
+  updateCitExterna: updateCitExterna,
+  updateCrewOverride: updateCrewOverride,
+  updateHojaInfoGeneral: updateHojaInfoGeneral,
+};
+function _prSent(x, el, ev) { return x === '§v§' ? el.value : x === '§c§' ? el.checked : x === '§el§' ? el : x === '§ev§' ? ev : x; }
+registrarAcciones('pr', {
+  d: function (a, el, ev) { var f = _PR_FN[a[0]]; if (!f) { console.error('[pr] fn sin mapear:', a[0]); return; } f.apply(null, a.slice(1).map(function (x) { return _prSent(x, el, ev); })); },
+  respCombo: function (a, el, ev) {
+    if (ev.type === 'focus') comboboxOpen(el);
+    else if (ev.type === 'input') { comboboxFilter(el); prSetHeader('responsable', el.value); }
+    else if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else prSetResponsable(el.value);
+  },
+  hojaInfoT: function (a, el) { el.value = normalizeTime24(el.value); updateHojaInfoGeneral(a[0], a[1], el.value); },
+  ovCall: function (a, el) { el.value = normalizeTime24(el.value); updateCrewOverride(a[0], a[1], 'call', el.value); },
+  citCall: function (a, el) { el.value = normalizeTime24(el.value); updateCitExterna(a[0], a[1], 'call', el.value); },
+  zoom: function (a) { CotPreview.setZoom(CotPreview.zoom + a[0]); },
+  modo: function (a) { CotPreview.setMode(a[0]); },
+  exportIgual: function (a) { closeModal(); if (a[0] === 'hl') _hlDoExportPDF(); else _prDoExportPDF(); },
+  margen: function (a, el) { hlPrevSetMargen(+el.value); },
+});
