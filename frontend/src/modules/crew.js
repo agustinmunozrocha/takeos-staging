@@ -1,5 +1,16 @@
 // Crew del proyecto: render, externos y exports PDF (lista/catering/transporte) — extraído de index.html (Etapa C2)
 
+// D1b · imports reales. getCrewForExport NO se exporta: plan-rodaje:1110 lo
+// consume vía window (cerrar el ciclo ESM sin necesidad = prohibido).
+// window._transportPeople/_transportSel: estado propio en window, no tocar.
+// 2º paso del hoist de boot: →33 (cruza tareas/cargos/invitaciones, inertes).
+import { escapeHtml, showToast } from '../lib/helpers.js';
+import { STATE, BD_PERSONAS } from '../lib/state.js';
+import { closeModal } from '../lib/ui.js';
+import { getConfirmedCrew, printViaIframe } from './plan-rodaje.js';
+import { markDirty } from './persistencia-local.js';
+import { orgNombre } from '../lib/boot.js';
+
 function renderCrew() {
   const project = STATE.currentProject;
   if (!project) return;

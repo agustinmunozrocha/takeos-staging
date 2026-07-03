@@ -196,7 +196,7 @@ function _renderEspacioSeguro(email){
   catch(e){ _bootCoverHide(); }
 }
 // DAL LECTORES: _SOURCE flags (ahora window, lib/state.js), DAL_KNOWN_*, _dal*Map, dalLoadTanda1, dalApplyTanda1, dalBootContactos, dalBootPersonasExternos, dalBulkFrozen, dalLoad/Apply/BootLocaciones, dalLoad/Apply/BootLegal → movido a src/modules/dal.js (Etapa B1)
-function orgNombre() {
+export function orgNombre() {
   var e = (typeof EMPRESA_PERFIL !== 'undefined' && EMPRESA_PERFIL) ? EMPRESA_PERFIL : {};
   return String(e.nombreFicticio || e.razonSocial || '').trim();
 }

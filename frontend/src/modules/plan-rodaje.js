@@ -514,7 +514,7 @@ function prDelImagen(id, imgKey, k) { const f = prFindFila(id); if (f && Array.i
 function prAddBanco() { const plan = prCurrentPlan(); if (!plan) return; plan.banco.push({ id: prNewId(), tipo: 'plano', escPlano: '', accion: '', ref: '', prod: '' }); markDirty(); renderPlanRodaje(); }
 function prDelBanco(id) { const plan = prCurrentPlan(); if (!plan) return; plan.banco = plan.banco.filter(f => f.id !== id); markDirty(); renderPlanRodaje(); }
 
-function getConfirmedCrew(project) {
+export function getConfirmedCrew(project) {
   const d = project.data;
   const out = [];
   const seen = new Set();
@@ -1057,7 +1057,7 @@ function buildHojaLlamadoPrintHTML(project, sel, margenMm) {
   </body></html>`;
 }
 
-function printViaIframe(html, docTitle) {
+export function printViaIframe(html, docTitle) {
   const old = document.getElementById('printFrame');
   if (old) old.remove();
   const frame = document.createElement('iframe');
