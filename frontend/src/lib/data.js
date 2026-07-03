@@ -29,12 +29,6 @@ export const BANCOS_CHILE = [
   { nombre: 'Global66', codigo: '738' }, { nombre: 'Mercado Pago', codigo: '875' }
 ];
 
-
-
-
-
-
-
 export const DTE_OPTIONS = [
   { value: 'boleta',           label: 'Boleta de honorarios' },
   { value: 'factura',          label: 'Factura' },
@@ -67,18 +61,9 @@ export const UNIDAD_OPTIONS = ['Tarifa Plana', 'Jornadas', 'Horas', 'Personas', 
 
 // Fórmulas tributarias puras (viajaron con su data DTE; consumidas por el
 // clásico calcCostoEmpresa y por notificaciones/gastos/legal):
-window.dteTieneRetencion  = dteTieneRetencion;
-window.factorRetencionDte = factorRetencionDte;
-window.montoNetoDesde     = montoNetoDesde;
-window.montoBrutoDesde    = montoBrutoDesde;
 
 // ── Window bridges — DEBEN preceder a DEMO_PROJECTS: su inicializador llama
 // al builder CLÁSICO, que lee window.DEFAULT_* (lección del bug del 2-jul) ──
-window.LOC_ORIENTACIONES     = LOC_ORIENTACIONES;     // locaciones.js (tras dedup)
-window.REGIONES_CHILE        = REGIONES_CHILE;        // perfil-onboarding.js la lee a pelo
-window.BANCOS_CHILE          = BANCOS_CHILE;          // dal.js:95 a pelo
-window.DTE_OPTIONS           = DTE_OPTIONS;           // bd.js y presupuesto-cotizacion.js a pelo
-window.UNIDAD_OPTIONS        = UNIDAD_OPTIONS;        // presupuesto-cotizacion.js (tras dedup)
 
 // D4b · catálogos compartidos movidos a lib/catalogos.js (hoja); re-export para compat
 import { DEFAULT_DEPARTAMENTOS, DEFAULT_EQUIPOS, DEFAULT_GASTOS, DEFAULT_TALENTOS, COTIZACION_CONDICIONES_DEFAULTS, LOC_ESTADO_RANK, ROLES_OPERATIVOS } from './catalogos.js';

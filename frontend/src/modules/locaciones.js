@@ -9,7 +9,7 @@ import { BD_LOC, BD_PERSONAS, STATE, ORG_ID, LOCATIONS_SOURCE } from '../lib/sta
 import { ensureProjectLoc, normLocName } from '../lib/modelo.js';
 import { LOC_ESTADOS, LOC_ORIENTACIONES } from '../lib/data.js';
 import { normalizeTime24 } from '../lib/calc.js';
-import { _locThumbAsync, closeModal, positionComboboxDropdown, regionSelectHTML, comboboxCloseDelayed, comboboxOpen } from '../lib/ui.js';
+import { _locThumbAsync, closeModal, positionComboboxDropdown, regionSelectHTML, comboboxCloseDelayed, comboboxOpen, comboboxFilter, showModal } from '../lib/ui.js';
 import { CotPreview } from './presupuesto-cotizacion.js';
 import { openPersonaByName } from './bd.js';
 import { _normKey } from './bd-excel.js';
@@ -18,16 +18,16 @@ import { autosaveNow, markDirty } from './persistencia-local.js';
 import { fmtFechaLarga } from './rodajes.js';
 import { orgNombre } from '../lib/boot.js';
 
-
 // LOC_ORIENTACIONES: ahora en lib/data.js (window) — dedup B3
 // REGIONES_CHILE local eliminada (estaba muerta) — dedup B3
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
-import { gancho, define } from '../lib/ganchos.js';
-export function bdLocFind(locId) { return window.BD_LOC.find(l => l.locId === locId) || null; }
+import { gancho, define, valor } from '../lib/ganchos.js';
+import { sb } from '../lib/supabase.js';
+export function bdLocFind(locId) { return BD_LOC.find(l => l.locId === locId) || null; }
 export function projLocList(project) { const d = project && project.data; if (!d) return []; if (!Array.isArray(d.locaciones)) d.locaciones = []; return d.locaciones; }
 function projLocFind(project, locId) { return projLocList(project).find(u => u.locId === locId) || null; }
-export function nextLocIdBD() { let m = 0; window.BD_LOC.forEach(l => { const x = /LOC-(\d+)/.exec(l.locId || ''); if (x) m = Math.max(m, +x[1]); }); return 'LOC-' + String(m + 1).padStart(2, '0'); }
+export function nextLocIdBD() { let m = 0; BD_LOC.forEach(l => { const x = /LOC-(\d+)/.exec(l.locId || ''); if (x) m = Math.max(m, +x[1]); }); return 'LOC-' + String(m + 1).padStart(2, '0'); }
 export function locNombre(locId) { const l = bdLocFind(locId); return l ? (l.nombre || 'sin nombre') : (locId || '—'); }
 /* V8.3.1 — normaliza una locación de la BD al esquema nuevo (idempotente):
    migra `dueno` → `contactos[]`, agrega direccion2/region/orientacion. */
@@ -51,7 +51,7 @@ export function projLocConfirmadas(project) { return projLocList(project).filter
 export function locacionOptions(project, selectedId) {
   // V8.2: las opciones salen de las locaciones CONFIRMADAS del proyecto
   // (módulo Locaciones), no de una lista propia de la Hoja de Llamado.
-  window.ensureProjectLoc(project);
+  ensureProjectLoc(project);
   const confs = projLocConfirmadas(project);
   if (confs.length === 0) {
     return `<option value="" selected>Llamado General</option>`;
@@ -67,7 +67,7 @@ export function locacionOptions(project, selectedId) {
 /* ════════════════════════════════════════════════════════════════════
    V8.2 · MÓDULO LOCACIONES
    Repositorio (fichas + fotos + estados) y Plan de Scouting (motor de
-   tiempos del Plan de Rodaje). Fuente de verdad: window.BD_LOC (canónico) +
+   tiempos del Plan de Rodaje). Fuente de verdad: BD_LOC (canónico) +
    project.data.locaciones (uso). Hoja de Llamado y Plan de Rodaje
    consumen las locaciones Confirmadas de este módulo.
    ════════════════════════════════════════════════════════════════════ */
@@ -175,8 +175,8 @@ const LOC_CSS = `<style>
 
 export function renderLocaciones() {
   const project = STATE.currentProject; if (!project) return;
-  window.ensureProjectLoc(project);
-  window.BD_LOC.forEach(ensureLocShape);
+  ensureProjectLoc(project);
+  BD_LOC.forEach(ensureLocShape);
   const st = _locState();
   const content = document.getElementById('moduleContent');
   const subtabs = `<div class="loc-subtabs">
@@ -201,7 +201,7 @@ function locRepoHTML(project) {
     <div class="loc-kpi-cell"><div class="loc-kpi-label">Fotos</div><div class="loc-kpi-val">${fotos}</div><div class="loc-kpi-sub">comprimidas en repo</div></div>
   </div>`;
   const filtros = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-    <div class="loc-filters">${['todas', 'confirmada', 'candidata', 'descartada'].map(f => `<button class="loc-chip ${st.filtro === f ? 'on' : ''}" ${accionHTML('loc.filtro', f)}>${f === 'todas' ? 'Todas' : window.LOC_ESTADOS[f]}</button>`).join('')}</div>
+    <div class="loc-filters">${['todas', 'confirmada', 'candidata', 'descartada'].map(f => `<button class="loc-chip ${st.filtro === f ? 'on' : ''}" ${accionHTML('loc.filtro', f)}>${f === 'todas' ? 'Todas' : LOC_ESTADOS[f]}</button>`).join('')}</div>
     <button class="btn btn-primary btn-sm" data-accion="loc.add">+ Agregar locación</button>
   </div>`;
   let grid;
@@ -231,7 +231,7 @@ function locCardHTML(uso) {
     <div class="loc-card-body">
       <div class="loc-card-name">${escapeHtml(l.nombre || 'sin nombre')}</div>
       <div class="loc-card-place">${escapeHtml([l.comuna, l.ciudad].filter(Boolean).join(', ') || '—')}</div>
-      <div class="loc-card-badges"><span class="loc-est ${uso.estado}">${window.LOC_ESTADOS[uso.estado]}</span>${orient}<span class="loc-tag">${escapeHtml(l.locId)}</span></div>
+      <div class="loc-card-badges"><span class="loc-est ${uso.estado}">${LOC_ESTADOS[uso.estado]}</span>${orient}<span class="loc-tag">${escapeHtml(l.locId)}</span></div>
     </div>
   </div>`;
 }
@@ -265,7 +265,7 @@ export function openLocDetail(locId) {
       ${i === 0 ? `<span style="position:absolute;left:5px;top:5px;font-size:9.5px;font-weight:700;background:rgba(0,0,0,.62);color:#ffd86b;border-radius:999px;padding:2px 8px;pointer-events:none;">★ Portada</span>` : ''}
     </div>`).join('');
   try { setTimeout(function(){ _resolveLocFotoUrls(locId); }, 0); } catch (e) {}
-  const estadoChips = uso ? Object.keys(window.LOC_ESTADOS).map(s => `<button class="loc-chip ${uso.estado === s ? 'on' : ''}" ${accionHTML('loc.estado', locId, s)}>${window.LOC_ESTADOS[s]}</button>`).join('') : '';
+  const estadoChips = uso ? Object.keys(LOC_ESTADOS).map(s => `<button class="loc-chip ${uso.estado === s ? 'on' : ''}" ${accionHTML('loc.estado', locId, s)}>${LOC_ESTADOS[s]}</button>`).join('') : '';
   document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop"><div class="modal" style="max-width:760px;width:94vw;max-height:88vh;overflow:auto;">
     <div class="modal-header"><div class="modal-title">${e(l.nombre || 'Locación')} · ${e(l.locId)}</div><button class="go-x" data-accion="ui.cerrar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">×</button></div>
     <div class="modal-body">
@@ -319,15 +319,15 @@ export function openLocDetail(locId) {
   </div></div>`;
 }
 
-function locSetEstado(locId, estado) { const u = projLocFind(STATE.currentProject, locId); if (!u) return; u.estado = estado; window.markDirty(); renderLocaciones(); openLocDetail(locId); showToast({ kind: 'info', title: 'Estado actualizado', body: 'Locación marcada como ' + window.LOC_ESTADOS[estado].toLowerCase() + '.' }); }
-function locSetBD(locId, field, value) { const l = bdLocFind(locId); if (!l) return; l[field] = value; window.markDirty(); window.autosaveNow(); _dalLocacionSaveSoon(locId); }
-function locAddContacto(locId) { const l = bdLocFind(locId); if (!l) return; if (!Array.isArray(l.contactos)) l.contactos = []; l.contactos.push({ nombre: '', mail: '', tel: '', obs: '', relacion: '' }); window.markDirty(); window.autosaveNow(); _dalLocacionSaveSoon(locId); openLocDetail(locId); }
-function locSetContacto(locId, i, field, value) { const l = bdLocFind(locId); if (!l || !Array.isArray(l.contactos) || !l.contactos[i]) return; l.contactos[i][field] = value; window.markDirty(); window.autosaveNow(); _dalLocacionSaveSoon(locId); }
-function locDelContacto(locId, i) { const l = bdLocFind(locId); if (!l || !Array.isArray(l.contactos)) return; l.contactos.splice(i, 1); window.markDirty(); window.autosaveNow(); _dalLocacionSaveSoon(locId); openLocDetail(locId); }
-function locSetProj(locId, field, value) { const u = projLocFind(STATE.currentProject, locId); if (!u) return; u[field] = (field === 'costo') ? (parseInt(String(value).replace(/\D/g, ''), 10) || 0) : value; window.markDirty(); window.autosaveNow(); }
+function locSetEstado(locId, estado) { const u = projLocFind(STATE.currentProject, locId); if (!u) return; u.estado = estado; markDirty(); renderLocaciones(); openLocDetail(locId); showToast({ kind: 'info', title: 'Estado actualizado', body: 'Locación marcada como ' + LOC_ESTADOS[estado].toLowerCase() + '.' }); }
+function locSetBD(locId, field, value) { const l = bdLocFind(locId); if (!l) return; l[field] = value; markDirty(); autosaveNow(); _dalLocacionSaveSoon(locId); }
+function locAddContacto(locId) { const l = bdLocFind(locId); if (!l) return; if (!Array.isArray(l.contactos)) l.contactos = []; l.contactos.push({ nombre: '', mail: '', tel: '', obs: '', relacion: '' }); markDirty(); autosaveNow(); _dalLocacionSaveSoon(locId); openLocDetail(locId); }
+function locSetContacto(locId, i, field, value) { const l = bdLocFind(locId); if (!l || !Array.isArray(l.contactos) || !l.contactos[i]) return; l.contactos[i][field] = value; markDirty(); autosaveNow(); _dalLocacionSaveSoon(locId); }
+function locDelContacto(locId, i) { const l = bdLocFind(locId); if (!l || !Array.isArray(l.contactos)) return; l.contactos.splice(i, 1); markDirty(); autosaveNow(); _dalLocacionSaveSoon(locId); openLocDetail(locId); }
+function locSetProj(locId, field, value) { const u = projLocFind(STATE.currentProject, locId); if (!u) return; u[field] = (field === 'costo') ? (parseInt(String(value).replace(/\D/g, ''), 10) || 0) : value; markDirty(); autosaveNow(); }
 function locRemoveFromProject(locId) {
   const project = STATE.currentProject;
-  window.showModal({
+  showModal({
     title: 'Quitar locación del proyecto', body: 'La locación dejará de usarse en este proyecto. Sus datos y fotos se conservan en la Base de Datos de Locaciones. ¿Continuar?',
     confirmLabel: 'Quitar', cancelLabel: 'Cancelar', danger: true,
     onConfirm: () => {
@@ -339,7 +339,7 @@ function locRemoveFromProject(locId) {
         Object.keys(dd.crewOverrides || {}).forEach(nm => { if (dd.crewOverrides[nm].locacionId === locId) dd.crewOverrides[nm].locacionId = ''; });
         (dd.citacionesExternas || []).forEach(c => { if (c.locacionId === locId) c.locacionId = ''; });
       });
-      window.markDirty(); window.closeModal(); renderLocaciones();
+      markDirty(); closeModal(); renderLocaciones();
       showToast({ kind: 'info', title: 'Locación quitada', body: 'Sigue disponible en la BD de Locaciones.' });
     }
   });
@@ -359,27 +359,27 @@ function _dataUrlToBlob(dataUrl) {
 }
 function _locFotoStoragePath(locId, name) {
   const safe = String(name || 'foto').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60);
-  return window.ORG_ID + '/' + locId + '/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '-' + safe;
+  return ORG_ID + '/' + locId + '/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '-' + safe;
 }
 async function _uploadLocFoto(locId, dataUrl, name) {
-  if (!window.sb || window.LOCATIONS_SOURCE !== 'supabase' || !window.sb.storage) return null;
+  if (!sb || LOCATIONS_SOURCE !== 'supabase' || !sb.storage) return null;
   try {
     const blob = _dataUrlToBlob(dataUrl);
     const path = _locFotoStoragePath(locId, name);
-    const { error } = await window.sb.storage.from(STORAGE_BUCKET_FOTOS).upload(path, blob, { contentType: blob.type, upsert: false });
+    const { error } = await sb.storage.from(STORAGE_BUCKET_FOTOS).upload(path, blob, { contentType: blob.type, upsert: false });
     if (error) throw error;
     return { path: path, nombre_original: name || '' };
   } catch (e) { console.warn('[storage] subida de foto no disponible; se guarda local', e); return null; }
 }
 /* Pinta las fotos {path} con URL firmada, post-render (las {url} base64 ya se ven). */
 async function _resolveLocFotoUrls(locId) {
-  if (!window.sb || !window.sb.storage) return;
+  if (!sb || !sb.storage) return;
   const l = bdLocFind(locId); if (!l || !Array.isArray(l.fotos)) return;
   for (let i = 0; i < l.fotos.length; i++) {
     const fto = l.fotos[i]; if (!fto || !fto.path) continue;
     try {
       let url = fto._signedUrl;
-      if (!url) { const { data, error } = await window.sb.storage.from(STORAGE_BUCKET_FOTOS).createSignedUrl(fto.path, 3600); if (error) throw error; url = data && data.signedUrl; fto._signedUrl = url; }
+      if (!url) { const { data, error } = await sb.storage.from(STORAGE_BUCKET_FOTOS).createSignedUrl(fto.path, 3600); if (error) throw error; url = data && data.signedUrl; fto._signedUrl = url; }
       if (url) { const img = document.getElementById('lf_' + locId + '_' + i); if (img) img.src = url; }
     } catch (e) { /* deja el placeholder */ }
   }
@@ -397,7 +397,7 @@ async function locAddFotos(locId, inputEl) {
       else { l.fotos.push({ url: url }); local++; }
     } catch (e) { /* omitir archivo problemático */ }
   }
-  window.markDirty(); window.autosaveNow();
+  markDirty(); autosaveNow();
   if (nube) { try { _dalLocacionSaveSoon(locId); } catch (e) {} }   // sincroniza las RUTAS (no el binario)
   const msg = (nube && local) ? (nube + ' a la nube y ' + local + ' local(es)') : nube ? (nube + ' foto(s) en la nube') : (local + ' foto(s) (local, este navegador)');
   showToast({ kind: 'success', title: 'Fotos agregadas', body: msg + '.' });
@@ -416,7 +416,7 @@ function locFotoDrop(ev, locId, destino) {
   const l = bdLocFind(locId); if (!l || !Array.isArray(l.fotos)) return;
   const f = l.fotos.splice(origen, 1)[0];
   l.fotos.splice(destino, 0, f);
-  window.markDirty(); window.autosaveNow();
+  markDirty(); autosaveNow();
   try { _dalLocacionSaveSoon(locId); } catch (e) {}
   openLocDetail(locId);
 }
@@ -426,8 +426,8 @@ async function locDescargarFotos(locId) {
   for (let i = 0; i < l.fotos.length; i++) {
     const f = l.fotos[i];
     let url = f.url || f._signedUrl;
-    if (!url && f.path && window.sb && window.sb.storage) {
-      try { const { data } = await window.sb.storage.from(STORAGE_BUCKET_FOTOS).createSignedUrl(f.path, 600); url = data && data.signedUrl; } catch (e) {}
+    if (!url && f.path && sb && sb.storage) {
+      try { const { data } = await sb.storage.from(STORAGE_BUCKET_FOTOS).createSignedUrl(f.path, 600); url = data && data.signedUrl; } catch (e) {}
     }
     if (!url) continue;
     try {
@@ -444,8 +444,8 @@ async function locDescargarFotos(locId) {
 function locDelFoto(locId, i) {
   const l = bdLocFind(locId); if (!l || !Array.isArray(l.fotos)) return;
   const f = l.fotos[i];
-  if (f && f.path && window.sb && window.sb.storage) { try { window.sb.storage.from(STORAGE_BUCKET_FOTOS).remove([f.path]); } catch (e) {} }
-  l.fotos.splice(i, 1); window.markDirty(); window.autosaveNow();
+  if (f && f.path && sb && sb.storage) { try { sb.storage.from(STORAGE_BUCKET_FOTOS).remove([f.path]); } catch (e) {} }
+  l.fotos.splice(i, 1); markDirty(); autosaveNow();
   if (f && f.path) { try { _dalLocacionSaveSoon(locId); } catch (e) {} }
   openLocDetail(locId);
 }
@@ -460,8 +460,8 @@ function locLightbox(locId, i) {
 function _locLbSrc(locId, i) {
   const l = bdLocFind(locId); if (!l || !l.fotos[i]) return _LOC_FOTO_PLACEHOLDER;
   const f = l.fotos[i];
-  if (!(f.url || f._signedUrl) && f.path && window.sb && window.sb.storage) {
-    window.sb.storage.from(STORAGE_BUCKET_FOTOS).createSignedUrl(f.path, 3600).then(function (r) {
+  if (!(f.url || f._signedUrl) && f.path && sb && sb.storage) {
+    sb.storage.from(STORAGE_BUCKET_FOTOS).createSignedUrl(f.path, 3600).then(function (r) {
       if (r && r.data && r.data.signedUrl) { f._signedUrl = r.data.signedUrl; const img = document.getElementById('locLbImg'); if (img && _LOC_LB && _LOC_LB.i === i) img.src = r.data.signedUrl; }
     }).catch(function () {});
   }
@@ -499,7 +499,7 @@ function _locLbKey(ev) {
 
 function openLocAdd() {
   const project = STATE.currentProject;
-  const libres = window.BD_LOC.filter(l => !projLocFind(project, l.locId));
+  const libres = BD_LOC.filter(l => !projLocFind(project, l.locId));
   const e = escapeHtml;
   document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:520px;">
     <div class="modal-header"><div class="modal-title">Agregar locación</div><button class="go-x" data-accion="ui.cerrar" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-mut);">×</button></div>
@@ -535,23 +535,23 @@ function saveLocAdd() {
   if (STATE.loc._addMode === 'bd') {
     const id = v('la_bd'); if (!id) { showToast({ kind: 'warning', title: 'Sin locaciones libres', body: 'No hay locaciones en la BD que no estén ya en este proyecto.' }); return; }
     project.data.locaciones.push({ locId: id, estado: 'candidata', costo: 0, contratacion: '', notasProy: '' });
-    window.markDirty(); window.closeModal(); renderLocaciones(); showToast({ kind: 'success', title: 'Locación traída de la BD', body: locNombre(id) + ' agregada como candidata.' });
+    markDirty(); closeModal(); renderLocaciones(); showToast({ kind: 'success', title: 'Locación traída de la BD', body: locNombre(id) + ' agregada como candidata.' });
     return;
   }
   // V8.3.3: si ya existe una locación con el mismo nombre en la BD, se reutiliza
   // (no se crea un duplicado). Su estado evoluciona sobre el registro existente.
   const _nm = normLocName(v('la_nombre'));
-  const _dup = _nm ? window.BD_LOC.find(l => normLocName(l.nombre) === _nm) : null;
+  const _dup = _nm ? BD_LOC.find(l => normLocName(l.nombre) === _nm) : null;
   if (_dup) {
     if (!projLocFind(project, _dup.locId)) project.data.locaciones.push({ locId: _dup.locId, estado: 'candidata', costo: 0, contratacion: '', notasProy: '' });
-    window.markDirty(); window.closeModal(); renderLocaciones(); openLocDetail(_dup.locId);
+    markDirty(); closeModal(); renderLocaciones(); openLocDetail(_dup.locId);
     showToast({ kind: 'info', title: 'Ya existía en la BD', body: _dup.locId + ' · ' + (_dup.nombre || '') + ' — se reutilizó en vez de crear un duplicado.' });
     return;
   }
   const id = nextLocIdBD();
-  window.BD_LOC.push({ locId: id, nombre: v('la_nombre') || '(sin nombre)', direccion: v('la_dir'), direccion2: v('la_dir2'), comuna: v('la_comuna'), ciudad: v('la_ciudad') || 'Santiago', region: v('la_region'), maps: '', orientacion: '—', contactos: [], notas: '', fotos: [] });
+  BD_LOC.push({ locId: id, nombre: v('la_nombre') || '(sin nombre)', direccion: v('la_dir'), direccion2: v('la_dir2'), comuna: v('la_comuna'), ciudad: v('la_ciudad') || 'Santiago', region: v('la_region'), maps: '', orientacion: '—', contactos: [], notas: '', fotos: [] });
   project.data.locaciones.push({ locId: id, estado: 'candidata', costo: 0, contratacion: '', notasProy: '' });
-  window.markDirty(); window.autosaveNow(); _dalLocacionSaveSoon(id); window.closeModal(); renderLocaciones(); openLocDetail(id);
+  markDirty(); autosaveNow(); _dalLocacionSaveSoon(id); closeModal(); renderLocaciones(); openLocDetail(id);
   showToast({ kind: 'success', title: 'Locación creada', body: id + ' agregada a la BD y al proyecto.' });
 }
 
@@ -564,8 +564,8 @@ function locScoutTimes(project) {
   const filas = s.filas.map(f => ({ tipo: f.tipo, dur: f.tipo === 'traslado' ? f.dur : null, anchor: null }));
   return gancho('prComputeTimes')(filas, gancho('prParseHM')(s.inicio));
 }
-function locScoutSet(field, value) { const s = locEnsureScout(STATE.currentProject); s[field] = (field === 'inicio') ? (window.normalizeTime24 ? window.normalizeTime24(value) : value) : value; window.markDirty(); if (field === 'inicio') renderLocaciones(); }
-function locScoutSetFila(i, field, value, reflow) { const s = locEnsureScout(STATE.currentProject); if (!s.filas[i]) return; s.filas[i][field] = (field === 'dur') ? window.prNormalizeDur(value) : value; window.markDirty(); if (reflow) renderLocaciones(); }
+function locScoutSet(field, value) { const s = locEnsureScout(STATE.currentProject); s[field] = (field === 'inicio') ? (normalizeTime24 ? normalizeTime24(value) : value) : value; markDirty(); if (field === 'inicio') renderLocaciones(); }
+function locScoutSetFila(i, field, value, reflow) { const s = locEnsureScout(STATE.currentProject); if (!s.filas[i]) return; s.filas[i][field] = (field === 'dur') ? gancho('prNormalizeDur')(value) : value; markDirty(); if (reflow) renderLocaciones(); }
 /* V11.24 (Pasada 5): traslados automáticos. Al agregar una parada después de
    otra se inserta solo el traslado conector, así nunca quedan dos paradas ni dos
    traslados seguidos y el plan siempre empieza en parada. */
@@ -574,7 +574,7 @@ function locScoutAddParada() {
   if (s.filas.length > 0) s.filas.push({ tipo: 'traslado', dur: '0:20' });
   const first = projLocList(STATE.currentProject)[0];
   s.filas.push({ tipo: 'parada', locId: first ? first.locId : '', nombreLibre: '', maps: '', revisar: '', resp: '', respTel: '' });
-  window.markDirty(); renderLocaciones();
+  markDirty(); renderLocaciones();
 }
 /* Borrar una parada se lleva su traslado conector (el anterior; si es la primera,
    el siguiente). El traslado no se borra por separado: mantiene la alternancia. */
@@ -584,17 +584,17 @@ function locScoutDelParada(i) {
   if (i > 0 && s.filas[i - 1] && s.filas[i - 1].tipo === 'traslado') s.filas.splice(i - 1, 2);
   else if (s.filas[i + 1] && s.filas[i + 1].tipo === 'traslado') s.filas.splice(i, 2);
   else s.filas.splice(i, 1);
-  window.markDirty(); renderLocaciones();
+  markDirty(); renderLocaciones();
 }
 /* El campo Locación admite una locación del proyecto (se vincula por locId) o
    texto libre (nombreLibre, sin dirección/contacto derivados). */
 function locScoutSetParadaLoc(i, value) {
   const s = locEnsureScout(STATE.currentProject); const f = s.filas[i]; if (!f) return;
   const v = String(value == null ? '' : value).trim();
-  const match = window.BD_LOC.find(l => window._normKey(l.nombre || '') === window._normKey(v));
+  const match = BD_LOC.find(l => _normKey(l.nombre || '') === _normKey(v));
   if (match) { f.locId = match.locId; f.nombreLibre = ''; }
   else { f.locId = ''; f.nombreLibre = v; }
-  window.markDirty(); renderLocaciones();
+  markDirty(); renderLocaciones();
 }
 /* V11.24 (Pasada 6): link de Google Maps por parada (corrección) y de la ruta
    entera. "Buscar en Maps" abre Maps con el texto de la parada para que el
@@ -609,7 +609,7 @@ function locScoutBuscarMaps(i) {
 function locScoutSetParadaMaps(i, value) {
   const s = locEnsureScout(STATE.currentProject); const f = s.filas[i]; if (!f) return;
   f.maps = String(value == null ? '' : value).trim();
-  window.markDirty(); renderLocaciones();
+  markDirty(); renderLocaciones();
 }
 function locScoutRutaEntera() {
   const s = locEnsureScout(STATE.currentProject);
@@ -640,7 +640,7 @@ function locScoutMoverParada(fromIdx, toIdx) {
   const nuevas = [];
   paradas.forEach((p, k) => { if (k > 0) nuevas.push(traslados[k - 1] || { tipo: 'traslado', dur: '0:20' }); nuevas.push(p); });
   s.filas = nuevas;
-  window.markDirty(); renderLocaciones();
+  markDirty(); renderLocaciones();
 }
 /* Bola naranja: agrega la parada libre (texto a mano) a la BD de locaciones y al
    proyecto, y la deja vinculada. Igual que "+ Agregar a la BD" de personas. */
@@ -650,23 +650,23 @@ function locScoutAddLocBD(pIdx) {
   const nombre = (f.nombreLibre || '').trim();
   if (!nombre) { showToast({ kind: 'warning', title: 'Sin nombre', body: 'Escribe el nombre de la parada antes de agregarla a la BD.' }); return; }
   const id = nextLocIdBD();
-  window.BD_LOC.push({ locId: id, nombre: nombre, direccion: '', direccion2: '', comuna: '', ciudad: 'Santiago', region: '', maps: f.maps || '', orientacion: '—', contactos: [], notas: '', fotos: [] });
+  BD_LOC.push({ locId: id, nombre: nombre, direccion: '', direccion2: '', comuna: '', ciudad: 'Santiago', region: '', maps: f.maps || '', orientacion: '—', contactos: [], notas: '', fotos: [] });
   const d = STATE.currentProject.data;
   if (!Array.isArray(d.locaciones)) d.locaciones = [];
   d.locaciones.push({ locId: id, estado: 'candidata', costo: 0, contratacion: '', notasProy: '' });
   f.locId = id; f.nombreLibre = '';
-  window.markDirty(); window.autosaveNow();
+  markDirty(); autosaveNow();
   try { if (typeof dalGuardarLocacion === 'function') dalGuardarLocacion(bdLocFind(id)); } catch (e) {}
   showToast({ kind: 'success', title: 'Locación creada', body: `<strong>${escapeHtml(nombre)}</strong> se agregó a la BD y al proyecto. Complétala en el módulo Locaciones.` });
   renderLocaciones();
 }
-/* Combobox de locaciones, igual al de personas: typeahead sobre window.BD_LOC. */
+/* Combobox de locaciones, igual al de personas: typeahead sobre BD_LOC. */
 function comboboxFilterLocScout(inputEl) {
   const wrap = inputEl.closest('.combobox-wrap'); if (!wrap) return;
   const dropdown = wrap.querySelector('.combobox-dropdown'); if (!dropdown) return;
-  const q = window._normKey(inputEl.value || '');
-  const locs = window.BD_LOC.slice().sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || '')));
-  const matched = q ? locs.filter(l => window._normKey(l.nombre || '').includes(q) || window._normKey(l.direccion || '').includes(q)) : locs;
+  const q = _normKey(inputEl.value || '');
+  const locs = BD_LOC.slice().sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || '')));
+  const matched = q ? locs.filter(l => _normKey(l.nombre || '').includes(q) || _normKey(l.direccion || '').includes(q)) : locs;
   if (matched.length === 0) {
     dropdown.innerHTML = `<div class="combobox-empty" style="font-size:11.5px;color:var(--ink-faint);padding:7px 9px;line-height:1.4;">Sin coincidencias. Escríbela libre y usa la bola naranja para agregarla a la BD.</div>`;
   } else {
@@ -677,11 +677,11 @@ function comboboxFilterLocScout(inputEl) {
   if (wrap.classList.contains('cbx-anchored')) { dropdown.style.left = ''; dropdown.style.top = ''; dropdown.style.width = ''; }
   else { positionComboboxDropdown(inputEl, dropdown); }
 }
-function locScoutAddQuien() { const s = locEnsureScout(STATE.currentProject); s.quienes.push(''); window.markDirty(); renderLocaciones(); }
-function locScoutSetQuien(i, value) { const s = locEnsureScout(STATE.currentProject); s.quienes[i] = value; window.markDirty(); }
-function locScoutDelQuien(i) { const s = locEnsureScout(STATE.currentProject); s.quienes.splice(i, 1); window.markDirty(); renderLocaciones(); }
+function locScoutAddQuien() { const s = locEnsureScout(STATE.currentProject); s.quienes.push(''); markDirty(); renderLocaciones(); }
+function locScoutSetQuien(i, value) { const s = locEnsureScout(STATE.currentProject); s.quienes[i] = value; markDirty(); }
+function locScoutDelQuien(i) { const s = locEnsureScout(STATE.currentProject); s.quienes.splice(i, 1); markDirty(); renderLocaciones(); }
 /* V11.x · desde la pelota ámbar del contacto: abre la ficha (o el alta) en la BD. */
-function locScoutAddContactoBD(enc) { try { window.openPersonaByName(decodeURIComponent(enc)); } catch (e) {} }
+function locScoutAddContactoBD(enc) { try { openPersonaByName(decodeURIComponent(enc)); } catch (e) {} }
 
 function locScoutingHTML(project) {
   const s = locEnsureScout(project);
@@ -789,13 +789,13 @@ function scoutBuildPDFHTML(project) {
   <body><h1>Plan de Scouting</h1><div class="sub">${e(ip.cliente || '')}${ip.nombreProyecto ? ' · ' + e(ip.nombreProyecto) : ''}</div>
   <div class="meta">Fecha: <b>${e(s.fecha ? fmtFechaLarga(s.fecha) : '—')}</b> · Inicio: <b>${e(s.inicio || '—')}</b> · Término aprox.: <b>${e(fin)}</b><br>Quiénes van: <b>${e((s.quienes || []).filter(Boolean).join(', ') || '—')}</b>${_rutaUrl ? `<br>Ruta completa: <a href="${_rutaUrl}" style="color:#1a5fb4;">abrir en Google Maps</a>` : ''}</div>
   <table><thead><tr><th>Hora</th><th>Dur.</th><th>Locación</th><th>Contacto</th><th>Notas</th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="foot"><span>${e(window.orgNombre())}${window.orgNombre() ? ' · ' : ''}Plan de Scouting</span><span>${e(new Date().toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span></div>
+  <div class="foot"><span>${e(orgNombre())}${orgNombre() ? ' · ' : ''}Plan de Scouting</span><span>${e(new Date().toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span></div>
   </body></html>`;
   return html;
 }
-/* V11.24 (corrección) · Exportar = previsualizador: reutiliza el motor window.CotPreview
+/* V11.24 (corrección) · Exportar = previsualizador: reutiliza el motor CotPreview
    y el shell de cotPreviewPDF(), alimentado por el builder propio del Scouting, y
-   exporta con window.printViaIframe (mismo patrón que cotPreviewGenerar). */
+   exporta con gancho('printViaIframe')(mismo patrón que cotPreviewGenerar). */
 function scoutPreviewPDF() {
   const project = STATE.currentProject; if (!project) return;
   const s = locEnsureScout(project);
@@ -820,86 +820,32 @@ function scoutPreviewPDF() {
     </div>
     <div class="modal-footer" style="padding:12px 18px;justify-content:flex-end;gap:8px;"><button class="btn" data-accion="ui.cerrar">Cerrar</button><button class="btn btn-primary" data-accion="loc.scoutPDFGen">Exportar PDF</button></div>
   </div></div>`;
-  window.CotPreview.init(document.getElementById('cotPrevCanvas'), document.getElementById('cotPrevWrap'), document.getElementById('cotPrevFrame'));
-  window.CotPreview.load(scoutBuildPDFHTML(project), 794, 1123);
-  window.CotPreview.setMode('page');
+  CotPreview.init(document.getElementById('cotPrevCanvas'), document.getElementById('cotPrevWrap'), document.getElementById('cotPrevFrame'));
+  CotPreview.load(scoutBuildPDFHTML(project), 794, 1123);
+  CotPreview.setMode('page');
 }
 function scoutPreviewGenerar() {
   const project = STATE.currentProject; if (!project) return;
   const ip = project.data.infoProyecto || {};
   const html = scoutBuildPDFHTML(project);
   const fname = `Plan de Scouting - ${ip.nombreProyecto || project.name || 'Proyecto'}${ip.cliente ? ' - ' + ip.cliente : ''}`;
-  window.closeModal();
-  window.printViaIframe(html, fname);
+  closeModal();
+  gancho('printViaIframe')(html, fname);
   showToast({ kind: 'success', title: 'Plan listo para PDF', body: 'Se abrió el diálogo de impresión. Elige <strong>"Guardar como PDF"</strong>.' });
 }
 
 // ── Puentes a window ─────────────────────────────────────────────────────────
 // Helpers de utilidad — usados por Legal, Hoja de Llamado, Plan de Rodaje, BD
-window.bdLocFind             = bdLocFind;
-window.projLocList           = projLocList;
-window.projLocFind           = projLocFind;
-window.nextLocIdBD           = nextLocIdBD;
+
 window.locNombre             = locNombre;
-window.ensureLocShape        = ensureLocShape;
-window.locPrimaryContact     = locPrimaryContact;
-window.locFullAddress        = locFullAddress;
-window.projLocConfirmadas    = projLocConfirmadas;
-window.locacionOptions       = locacionOptions;
+
 // Módulo Locaciones — entry points y utilidades
-window.renderLocaciones      = renderLocaciones;
-window.openLocDetail         = openLocDetail;
-window.locSetSub             = locSetSub;
-window.locSetFiltro          = locSetFiltro;
-window._locState             = _locState;
-window.locMoney              = locMoney;
-window.locEnsureScout        = locEnsureScout;
+
 // Gestión de fichas de locación
-window.locSetEstado          = locSetEstado;
-window.locSetBD              = locSetBD;
-window.locSetContacto        = locSetContacto;
-window.locSetProj            = locSetProj;
-window.locAddContacto        = locAddContacto;
-window.locDelContacto        = locDelContacto;
-window.locRemoveFromProject  = locRemoveFromProject;
-window.locAddMode            = locAddMode;
-window.locAddFotos           = locAddFotos;
-window.locDelFoto            = locDelFoto;
-window.locDescargarFotos     = locDescargarFotos;
-window.locFotoDragStart      = locFotoDragStart;
-window.locFotoDragEnd        = locFotoDragEnd;
-window.locFotoDragOver       = locFotoDragOver;
-window.locFotoDragLeave      = locFotoDragLeave;
-window.locFotoDrop           = locFotoDrop;
-window.locLightbox           = locLightbox;
-window.openLocAdd            = openLocAdd;
-window.saveLocAdd            = saveLocAdd;
+
 // Scouting
-window.locScoutTimes         = locScoutTimes;
-window.locScoutSet           = locScoutSet;
-window.locScoutSetFila       = locScoutSetFila;
-window.locScoutAddParada     = locScoutAddParada;
-window.locScoutDelParada     = locScoutDelParada;
-window.locScoutSetParadaLoc  = locScoutSetParadaLoc;
-window.locScoutBuscarMaps    = locScoutBuscarMaps;
-window.locScoutRutaEntera    = locScoutRutaEntera;
-window.locScoutDragStart     = locScoutDragStart;
-window.locScoutDragEnd       = locScoutDragEnd;
-window.locScoutDragOver      = locScoutDragOver;
-window.locScoutDragLeave     = locScoutDragLeave;
-window.locScoutDrop          = locScoutDrop;
-window.locScoutMoverParada   = locScoutMoverParada;
-window.locScoutAddLocBD      = locScoutAddLocBD;
-window.locScoutAddQuien      = locScoutAddQuien;
-window.locScoutSetQuien      = locScoutSetQuien;
-window.locScoutDelQuien      = locScoutDelQuien;
-window.locScoutingHTML       = locScoutingHTML;
-window.scoutBuildPDFHTML     = scoutBuildPDFHTML;
-window.scoutPreviewPDF       = scoutPreviewPDF;
-window.scoutPreviewGenerar   = scoutPreviewGenerar;
 
 // ── Bridges auditoría pre-B (onclick en HTML generado por el propio módulo) ──
-window._locLbMove  = _locLbMove;
 
 // D2 · acciones delegadas
 registrarAcciones('loc', {
@@ -917,14 +863,14 @@ registrarAcciones('loc', {
   fotosZip: function (a) { locDescargarFotos(a[0]); },
   proj: function (a, el) { locSetProj(a[0], a[1], el.value); },
   quitarProy: function (a) { locRemoveFromProject(a[0]); },
-  archivar: function (a) { window.archivarLocacionModal(a[0]); },
+  archivar: function (a) { gancho('archivarLocacionModal')(a[0]); },
   lbCerrar: function () { _locLbClose(); },
   lbMover: function (a) { _locLbMove(a[0]); },
   addModo: function (a) { locAddMode(a[0]); },
   guardarAdd: function () { saveLocAdd(); },
   scoutQuien: function (a, el, ev) {
     if (ev.type === 'focus') comboboxOpen(el);
-    else if (ev.type === 'input') window.comboboxFilter(el);
+    else if (ev.type === 'input') comboboxFilter(el);
     else if (ev.type === 'blur') comboboxCloseDelayed(el);
     else locScoutSetQuien(a[0], el.value);
   },
@@ -945,15 +891,15 @@ registrarAcciones('loc', {
   scoutParadaMaps: function (a, el) { locScoutSetParadaMaps(a[0], el.value); },
   scoutResp: function (a, el, ev) {
     if (ev.type === 'focus') comboboxOpen(el);
-    else if (ev.type === 'input') window.comboboxFilter(el);
+    else if (ev.type === 'input') comboboxFilter(el);
     else if (ev.type === 'blur') comboboxCloseDelayed(el);
     else locScoutSetFila(a[0], 'resp', el.value, true);
   },
   scoutRuta: function () { locScoutRutaEntera(); },
   scoutPDF: function () { scoutPreviewPDF(); },
   scoutPDFGen: function () { scoutPreviewGenerar(); },
-  prevZoom: function (a) { window.CotPreview.setZoom(window.CotPreview.zoom + a[0]); },
-  prevModo: function (a) { window.CotPreview.setMode(a[0]); },
+  prevZoom: function (a) { CotPreview.setZoom(CotPreview.zoom + a[0]); },
+  prevModo: function (a) { CotPreview.setMode(a[0]); },
 });
 
 // D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)

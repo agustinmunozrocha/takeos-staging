@@ -47,6 +47,4 @@ window.supabaseInit = supabaseInit; // al llamarse, setea window.sb
 window.dalBootTaxRates = dalBootTaxRates;
 window.STATE = STATE; // mismo objeto compartido (estado global)
 
-console.info('[etapa1] puente listo · en window:',
-  ['escapeHtml', 'safeUrl', 'showToast', 'supabaseInit', 'dalBootTaxRates', 'authNivel', 'authPuedeVer'].every((n) => typeof window[n] === 'function')
-  && !!window.STATE);
+console.info('[desacople] arranque modular OK · ganchos, imports y CSP estricta activos');

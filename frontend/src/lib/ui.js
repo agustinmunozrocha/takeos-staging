@@ -9,11 +9,12 @@ import { _puedeEditarResponsables } from './auth.js';
 
 import { registrarAcciones, accionHTML } from './delegacion.js';
 import { gancho } from './ganchos.js';
+let _modalOnCancel;   // D4c: estado propio del módulo (antes window._modalOnCancel, era de los handlers inline)
+let _modalOnConfirm;   // D4c: estado propio del módulo (antes window._modalOnConfirm, era de los handlers inline)
 /* ─── PERSON SELECT (sustituye datalist+input bugeado) ──────────────
    Bug original: el datalist+input no permitía cambiar ni borrar a una
    persona ya seleccionada. UX rota.
    Solución: select nativo + botón "×" explícito. Más simple, sin bug. */
-
 
 /* ─── TOAST SYSTEM ─────────────────────────────────────────────────── */
 
@@ -41,15 +42,15 @@ export function showModal({ title, body, confirmLabel = 'Confirmar', cancelLabel
       </div>
     </div>
   `;
-  window._modalOnConfirm = onConfirm || (() => {});
-  window._modalOnCancel = onCancel || (() => {});
+  _modalOnConfirm = onConfirm || (() => {});
+  _modalOnCancel = onCancel || (() => {});
 }
 
 function _modalConfirm() {
   // V9.1.2: ejecutar el onConfirm ANTES de cerrar, para que pueda leer los <input> del modal.
   // Si devuelve false (validación fallida) el modal se mantiene abierto; y si el onConfirm
   // abrió otro modal encima, no lo borramos.
-  const fn = window._modalOnConfirm;
+  const fn = _modalOnConfirm;
   const root = document.getElementById('modalRoot');
   const before = root ? root.firstElementChild : null;
   const keepOpen = fn ? (fn() === false) : false;
@@ -58,7 +59,7 @@ function _modalConfirm() {
 }
 
 function _modalCancel() {
-  const fn = window._modalOnCancel;
+  const fn = _modalOnCancel;
   closeModal();
   if (fn) fn();
 }
@@ -342,16 +343,6 @@ export function updateThemeButton(theme) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window.closeModal = closeModal;
-window.comboboxAddToBD = comboboxAddToBD;
-window.comboboxCloseDelayed = comboboxCloseDelayed;
-window.comboboxFilter = comboboxFilter;
-window.comboboxOpen = comboboxOpen;
-window.comboboxSelect = comboboxSelect;
-window.getStoredTheme = getStoredTheme;
-window.showModal = showModal;
-window.toggleTheme = toggleTheme;
-window.updateThemeButton = updateThemeButton;
 
 // ═══ Helpers de formularios BD + responsables por sección + confetti/slugify/demo (Etapa C6) ═══
 export function regionSelectHTML(current, opts) {
@@ -517,7 +508,7 @@ function sectionTareasBtnHTML(key) {
   return '<button type="button" class="module-tareas-btn" ' + accionHTML('ui.tareas', key) + ' data-tip="Tareas de esta sección — asigna trabajo a tu equipo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Tareas' + (n ? '<span class="module-tareas-badge">' + n + '</span>' : '') + '</button>';
 }
 export function sectionResponsableHTML(key) {
-  const m = MODULES[key];
+  const m = valor('MODULES')[key];
   if (m && m.scope === 'project' && !STATE.currentProject) return '';
   if (!STATE.currentProject) return '';
   const role = SECTION_RESP_DEFAULT[key];
@@ -527,7 +518,6 @@ export function sectionResponsableHTML(key) {
 }
 
 // prDragStart, prDragEnd, prDragOver, prDragLeave, prDrop, prImgDragOver, prImgDragLeave, prDropImagen, prAddImagen, prAddImagenFiles, prDelImagen, prAddBanco, prDelBanco → movido a src/modules/plan-rodaje.js (Etapa A2)
-
 
 // DISPATCHER: renderModule → movido a src/lib/nav.js (Etapa C5)
 
@@ -591,7 +581,6 @@ export function sectionResponsableHTML(key) {
 /* V5.5 (Nota 1): alternar visibilidad del detalle cotizado en el Presupuesto. */
 /* BLOQUE PRINCIPAL presupuesto+cotización: toggleBudgetCotizado → cotDesbloquearMisma → movido a src/modules/presupuesto-cotizacion.js (Etapa 2) */
 
-
 /* ════════════════════════════════════════════════════════════════════
    V6.6 — MÓDULO NOTIFICACIONES (V1)
    Flujo: correos de Producción / DTE personalizados vía mail-merge.
@@ -615,7 +604,6 @@ export function sectionResponsableHTML(key) {
 // HOJA DE LLAMADO: renderHojaLlamado, hl*, getConfirmedCrew, ensureHojaDia, nextLocId, buildHojaLlamadoPrintHTML, printViaIframe, hojaPreviewPDF, exportHojaLlamadoPDF, HL_DRAG, _hlPrevMargen → movido a src/modules/plan-rodaje.js (Etapa A2)
 // PR PDF: _prPdfTimeCell, _prPdfContentCell, _prPdfRow, buildPlanRodajePrintHTML, exportPlanRodajePDF, _prExportConfirm, _prDoExportPDF, prSetOrientacion → movido a src/modules/plan-rodaje.js (Etapa A2)
 
-
 /* ════════════════════════════════════════════════════════════════════
    ════════════════════════════════════════════════════════════════════
    V5.1 ADD-ONS: UI helpers + widgets nuevos
@@ -633,9 +621,7 @@ export function sectionResponsableHTML(key) {
 
 // BUSCADOR GLOBAL: GSEARCH_*, _gsNorm, _gsearchResults, globalSearchInput, globalSearchKey, _gsearchHide, _gsearchGo → movido a src/modules/buscador.js (Etapa A5)
 
-
 // PERFIL DE PRODUCTORA: openEmpresaPerfil, saveEmpresaPerfil, _emp* (equipo/roles/invitaciones/logos/colores/tipos), _inv*, _orgLogos, orgLogo → movido a src/modules/config.js (Etapa A6)
-
 
 /* ─── CONFETI ──────────────────────────────────────────────────────── */
 
@@ -691,7 +677,7 @@ export function fireConfetti() {
 
 // CALCULADORAS: _calc* (ahora window), openCalculadoraTributaria, calcUpdate, _crc*, renderCostoRealCalc, he*/hec*/hep*, openHorasExtraCalc, openHeProyectoDefault → movido a src/modules/calculadoras.js (Etapa C1)
 
-// BD PERSONAS GLOBAL: openGlobalBDPersonas, PF_ROLES, openAddPersonaQuick, crewAddToBD, requestEditPersona, openPersonaForm, togglePfTalento, submitPersonaForm → movido a src/modules/bd.js (Etapa A3)
+// BD PERSONAS GLOBAL: openGlobalBDPersonas, PF_ROLES, openAddPersonaQuick, gancho('crewAddToBD'), requestEditPersona, gancho('openPersonaForm'), togglePfTalento, submitPersonaForm → movido a src/modules/bd.js (Etapa A3)
 
 /* ─── SLUGIFY (deuda V5.0 → resuelta) ───────────────────────────────
    IDs HTML con tildes y espacios eran frágiles. Esta función genera
@@ -791,7 +777,6 @@ document.querySelectorAll('.view-toggle button').forEach(btn => {
    botón de login: porque la autenticación acaba de ocurrir. */
 
 // ── Bridges C6 (barrido final) ──
-window.THEME_KEY = THEME_KEY;
 
 // D2 · namespace 'ui': acciones universales (cerrar/backdrop, movidas desde
 // delegacion.js para no cerrar el ciclo delegacion⇄ui) + las propias.

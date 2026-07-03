@@ -13,7 +13,7 @@
 // (_firstVisibleModule: no arrastrar boot a 16 por 1 símbolo). VETADOS:
 // currentUser, _TIENE_EMPRESA (window mutables).
 import { escapeHtml, showToast } from '../lib/helpers.js';
-import { PROJECTS, STATE, TRASH, ORG_ID, PROJECTS_SOURCE, TAKEOS_PERFIL } from '../lib/state.js';
+import { PROJECTS, STATE, TRASH, ORG_ID, PROJECTS_SOURCE, TAKEOS_PERFIL, _TIENE_EMPRESA } from '../lib/state.js';
 import { buildProjectData } from '../lib/modelo.js';
 import { _authBlockWriteToast, authNivel, authPuedeVer } from '../lib/auth.js';
 import { formatCLP } from '../lib/calc.js';
@@ -28,7 +28,10 @@ import { captureUndoBaseline, markDirty } from './persistencia-local.js';
 // ── Constantes ──────────────────────────────────────────────────────────────
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
-import { gancho, define } from '../lib/ganchos.js';
+import { gancho, define, valor } from '../lib/ganchos.js';
+import { sb } from '../lib/supabase.js';
+let _delExpected;   // D4c: estado propio del módulo (antes window._delExpected, era de los handlers inline)
+let _npDraft;   // D4c: estado propio del módulo (antes window._npDraft, era de los handlers inline)
 export const STATES = {
   'venta':         { name: 'Venta',          color: 'var(--state-sale)',   order: 1 },
   'preproduccion': { name: 'Preproducción',  color: 'var(--state-prep)',   order: 2 },
@@ -44,14 +47,14 @@ const _LV_KEY = 'takeos_last_view';
 // ── Atención / alertas ──────────────────────────────────────────────────────
 
 export function projectAttentionCount(project, user) {
-  const u = user || window.currentUser();
-  const t = (window.ensureTareas(project)).filter(x => x.estado !== 'completada' && x.asignadoA === u).length;
-  return t + window.userSenales(project, u).length;
+  const u = user || gancho('currentUser')();
+  const t = (gancho('ensureTareas')(project)).filter(x => x.estado !== 'completada' && x.asignadoA === u).length;
+  return t + gancho('userSenales')(project, u).length;
 }
 
 export function projectsNeedingAttention(user) {
-  const u = user || window.currentUser(); let n = 0;
-  window.PROJECTS.forEach(p => { if (projectAttentionCount(p, u) > 0) n++; });
+  const u = user || gancho('currentUser')(); let n = 0;
+  PROJECTS.forEach(p => { if (projectAttentionCount(p, u) > 0) n++; });
   return n;
 }
 
@@ -60,7 +63,7 @@ export function projectsNeedingAttention(user) {
 export function _lastViewSave() {
   try {
     sessionStorage.setItem(_LV_KEY, JSON.stringify({
-      org: window.ORG_ID,
+      org: ORG_ID,
       view: STATE.currentView,
       projectId: (STATE.currentProject && STATE.currentProject.id) || null,
       module: STATE.currentModule || null
@@ -75,18 +78,18 @@ export function _lastViewLeer() {
 // ── Monto neto del cliente ──────────────────────────────────────────────────
 
 export function projectClientNet(p) {
-  try { const sfin = window.calcSummaryFin(p); if (sfin.presupClienteEfectivo > 0) return sfin.presupClienteEfectivo; } catch (e) {}
+  try { const sfin = calcSummaryFin(p); if (sfin.presupClienteEfectivo > 0) return sfin.presupClienteEfectivo; } catch (e) {}
   return p.amount || 0;
 }
 
 // ── Render ──────────────────────────────────────────────────────────────────
 
 export function renderMetrics() {
-  const active = window.PROJECTS.filter(p => !['cerrado', 'rechazado'].includes(p.state));
-  const closedMay = window.PROJECTS.filter(p => p.state === 'cerrado');
+  const active = PROJECTS.filter(p => !['cerrado', 'rechazado'].includes(p.state));
+  const closedMay = PROJECTS.filter(p => p.state === 'cerrado');
   document.getElementById('metric-active').textContent = active.length;
   document.getElementById('metric-closed-month').textContent = closedMay.length;
-  document.getElementById('metric-alerts').textContent = projectsNeedingAttention(window.currentUser());
+  document.getElementById('metric-alerts').textContent = projectsNeedingAttention(gancho('currentUser')());
 }
 
 export function renderProjectCard(p) {
@@ -97,7 +100,7 @@ export function renderProjectCard(p) {
           <div class="project-client">${p.client}</div>
           <div class="project-name">${p.name}</div>
         </div>
-        ${projectAttentionCount(p, window.currentUser()) > 0 ? `<div class="project-mine" title="Requieren tu atención (tareas + señales)">${projectAttentionCount(p, window.currentUser())}</div>` : ''}${p.alerts > 0 ? `<div class="project-alert">${p.alerts}</div>` : ''}
+        ${projectAttentionCount(p, gancho('currentUser')()) > 0 ? `<div class="project-mine" title="Requieren tu atención (tareas + señales)">${projectAttentionCount(p, gancho('currentUser')())}</div>` : ''}${p.alerts > 0 ? `<div class="project-alert">${p.alerts}</div>` : ''}
       </div>
       <div class="project-meta">
         <div class="project-meta-row">
@@ -110,7 +113,7 @@ export function renderProjectCard(p) {
         </div>
         <div class="project-meta-row">
           <span class="project-meta-label">Monto</span>
-          <span class="project-amount">${window.formatCLP(projectClientNet(p))}</span>
+          <span class="project-amount">${formatCLP(projectClientNet(p))}</span>
         </div>
       </div>
     </div>
@@ -124,7 +127,7 @@ export function renderKanban() {
   Object.entries(STATES)
     .sort((a, b) => a[1].order - b[1].order)
     .forEach(([key, state]) => {
-      const projects = window.PROJECTS.filter(p => p.state === key);
+      const projects = PROJECTS.filter(p => p.state === key);
       const col = document.createElement('div');
       col.className = 'column';
       col.innerHTML = `
@@ -149,13 +152,13 @@ export function renderKanban() {
       navigateToProject(card.dataset.projectId);
     });
   });
-  try { window.renderMisTareas(); } catch (e) {}
+  try { gancho('renderMisTareas')(); } catch (e) {}
 }
 
 // ── Navegación ───────────────────────────────────────────────────────────────
 
 export function navigateToControlRoom() {
-  try { if (!window._TIENE_EMPRESA || (typeof window.TAKEOS_PERFIL !== 'undefined' && window.TAKEOS_PERFIL && window.TAKEOS_PERFIL.tipo === 'externo')) { window.irAlPanelPersonal(); return; } } catch (e) {}
+  try { if (!_TIENE_EMPRESA || (typeof TAKEOS_PERFIL !== 'undefined' && TAKEOS_PERFIL && TAKEOS_PERFIL.tipo === 'externo')) { gancho('irAlPanelPersonal')(); return; } } catch (e) {}
   STATE.currentView = 'control-room';
   STATE.currentProject = null;
   document.getElementById('controlRoomView').classList.remove('hidden');
@@ -172,7 +175,7 @@ export function navigateToControlRoom() {
 }
 
 export function navigateToProject(projectId) {
-  const project = window.PROJECTS.find(p => p.id === projectId);
+  const project = PROJECTS.find(p => p.id === projectId);
   if (!project) return;
 
   STATE.currentView = 'project';
@@ -185,7 +188,7 @@ export function navigateToProject(projectId) {
   if (bd) bd.classList.add('hidden');
   const bm = document.getElementById('bdGlobalMain'); if (bm) bm.innerHTML = '';
 
-  const _esExterno = typeof window.TAKEOS_PERFIL !== 'undefined' && window.TAKEOS_PERFIL && window.TAKEOS_PERFIL.tipo === 'externo';
+  const _esExterno = typeof TAKEOS_PERFIL !== 'undefined' && TAKEOS_PERFIL && TAKEOS_PERFIL.tipo === 'externo';
 
   document.getElementById('breadcrumb').innerHTML = _esExterno
     ? `<span class="breadcrumb-link" data-accion="kanban.panel">Mis proyectos</span>
@@ -213,19 +216,19 @@ export function navigateToProject(projectId) {
     ${_esExterno ? `<div style="margin-top:10px;padding:8px 10px;border-radius:6px;background:var(--bg-surface-soft,rgba(120,113,108,.08));border:1px solid var(--rule);font-size:11px;color:var(--ink-faint);line-height:1.5;">Colaboras como externo · solo ves este proyecto.</div>` : ''}
   `;
 
-  var _modIni = (typeof window.authPuedeVer === 'function' && !window.authPuedeVer('info-proyecto'))
-    ? (window._firstVisibleModule() || 'info-proyecto') : 'info-proyecto';
-  window.navigateToModule(_modIni);
-  window.captureUndoBaseline();
+  var _modIni = (typeof authPuedeVer === 'function' && !authPuedeVer('info-proyecto'))
+    ? (gancho('_firstVisibleModule')() || 'info-proyecto') : 'info-proyecto';
+  navigateToModule(_modIni);
+  captureUndoBaseline();
   window.scrollTo(0, 0);
 }
 
 // ── Crear proyecto ───────────────────────────────────────────────────────────
 
 export function newProject() {
-  if (window.authNivel('crear_proyecto') !== 'E') { window._authBlockWriteToast(); return; }
-  window._npDraft = { nombre: '', cliente: '', pe: '' };
-  window.showModal({
+  if (authNivel('crear_proyecto') !== 'E') { _authBlockWriteToast(); return; }
+  _npDraft = { nombre: '', cliente: '', pe: '' };
+  showModal({
     title: 'Nuevo proyecto',
     body: `
       <div style="display:flex; flex-direction:column; gap:12px;">
@@ -246,7 +249,7 @@ export function newProject() {
     confirmLabel: 'Crear proyecto',
     cancelLabel: 'Cancelar',
     onConfirm: () => {
-      const d = window._npDraft || {};
+      const d = _npDraft || {};
       const nombre = (d.nombre || '').trim();
       const cliente = (d.cliente || '').trim();
       const pe = (d.pe || '').trim();
@@ -255,13 +258,13 @@ export function newProject() {
         return;
       }
       const id = 'P-' + Date.now();
-      window.PROJECTS.push({
+      PROJECTS.push({
         id, client: cliente, name: nombre, state: 'venta',
         pe: pe || '—', amount: 0, currency: 'CLP',
         alerts: 0, lastActivity: 'Recién creado', date: '—',
-        data: window.buildProjectData({ infoProyecto: { cliente, nombreProyecto: nombre, productorEjecutivo: pe, fechaCotizacion: new Date().toISOString().slice(0, 10) } })
+        data: buildProjectData({ infoProyecto: { cliente, nombreProyecto: nombre, productorEjecutivo: pe, fechaCotizacion: new Date().toISOString().slice(0, 10) } })
       });
-      window.markDirty();
+      markDirty();
       renderMetrics();
       renderKanban();
       showToast({ kind: 'success', title: 'Proyecto creado', body: `“${escapeHtml(nombre)}” creado en Venta. Ábrelo para empezar a cotizar.` });
@@ -274,14 +277,14 @@ export function newProject() {
 // ── Eliminar proyecto ────────────────────────────────────────────────────────
 
 export function deleteProjectFlow(id) {
-  if (window.authNivel('eliminar_proyecto') !== 'E') { window._authBlockWriteToast(); return; }
-  const proj = window.PROJECTS.find(p => p.id === id);
+  if (authNivel('eliminar_proyecto') !== 'E') { _authBlockWriteToast(); return; }
+  const proj = PROJECTS.find(p => p.id === id);
   if (!proj) return;
   if (!STATE.adminMode) {
     showToast({ kind: 'warning', title: 'Solo administrador', body: 'Activa el Modo administrador para eliminar proyectos.' });
     return;
   }
-  window._delExpected = proj.name;
+  _delExpected = proj.name;
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
     <div class="modal-backdrop" data-accion="ui.backdrop">
@@ -305,18 +308,18 @@ export function deleteProjectFlow(id) {
 }
 
 export async function confirmDeleteProject(id) {
-  const i = window.PROJECTS.findIndex(p => p.id === id);
-  if (i === -1) { window.closeModal(); return; }
-  const proj = window.PROJECTS[i];
+  const i = PROJECTS.findIndex(p => p.id === id);
+  if (i === -1) { closeModal(); return; }
+  const proj = PROJECTS[i];
   const name = proj.name;
-  if (window.sb && window.PROJECTS_SOURCE === 'supabase' && window.DAL_KNOWN_PROJECT_IDS.has(id)) {
+  if (sb && PROJECTS_SOURCE === 'supabase' && DAL_KNOWN_PROJECT_IDS.has(id)) {
     const btn = document.getElementById('delConfirmBtn');
     if (btn) { btn.disabled = true; btn.textContent = 'Eliminando…'; }
     try {
       const now = new Date().toISOString();
-      const { error } = await window.sb.from('projects')
+      const { error } = await sb.from('projects')
         .update({ deleted_at: now, updated_at: now })
-        .eq('id', id).eq('organization_id', window.ORG_ID);
+        .eq('id', id).eq('organization_id', ORG_ID);
       if (error) throw error;
     } catch (e) {
       console.error('[delete] no se pudo marcar deleted_at en Supabase:', e);
@@ -328,11 +331,11 @@ export async function confirmDeleteProject(id) {
   }
   proj._deletedAt = new Date().toISOString();
   proj._deletedState = proj.state;
-  window.TRASH.unshift(proj);
-  window.PROJECTS.splice(i, 1);
-  window.closeModal();
+  TRASH.unshift(proj);
+  PROJECTS.splice(i, 1);
+  closeModal();
   STATE.currentProject = null;
-  window.markDirty();
+  markDirty();
   navigateToControlRoom();
   renderMetrics();
   renderKanban();
@@ -341,28 +344,15 @@ export async function confirmDeleteProject(id) {
 
 // ── Puentes a window (el monolito clásico los busca como globales) ───────────
 
-window.STATES                  = STATES;
-window.renderMetrics           = renderMetrics;
-window.renderKanban            = renderKanban;
-window.renderProjectCard       = renderProjectCard;
-window.navigateToControlRoom   = navigateToControlRoom;
-window.navigateToProject       = navigateToProject;
-window.projectClientNet        = projectClientNet;
-window.projectAttentionCount   = projectAttentionCount;
-window.projectsNeedingAttention = projectsNeedingAttention;
 window.newProject              = newProject;
-window.deleteProjectFlow       = deleteProjectFlow;
-window.confirmDeleteProject    = confirmDeleteProject;
-window._lastViewSave           = _lastViewSave;
-window._lastViewLeer           = _lastViewLeer;
 
 // D2 · acciones delegadas (panel/exportar llaman vía window: aristas diferidas de D1)
 registrarAcciones('kanban', {
   panel: function () { gancho('irAlPanelPersonal')(); },
   controlRoom: function () { navigateToControlRoom(); },
   exportar: function (a) { gancho('exportSingleProject')(a[0]); },
-  npDraft: function (a, el) { window._npDraft[a[0]] = el.value; },
-  delCheck: function (a, el) { document.getElementById('delConfirmBtn').disabled = (el.value.trim() !== window._delExpected); },
+  npDraft: function (a, el) { _npDraft[a[0]] = el.value; },
+  delCheck: function (a, el) { document.getElementById('delConfirmBtn').disabled = (el.value.trim() !== _delExpected); },
   delConfirm: function (a) { confirmDeleteProject(a[0]); },
 });
 

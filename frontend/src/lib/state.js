@@ -1,7 +1,7 @@
 // Estado global compartido de TakeOS — Etapa 1.
 //
 // STATE es un OBJETO que se comparte por REFERENCIA: el codigo clasico y los
-// modulos apuntan al mismo objeto (window.STATE), asi que leer y mutar
+// modulos apuntan al mismo objeto (STATE), asi que leer y mutar
 // STATE.x (propiedades) propaga solo. Nunca se reasigna STATE entero (es
 // const), por eso basta con compartir la referencia via el puente en main.js.
 export const STATE = {
@@ -38,11 +38,11 @@ export const STATE = {
 // defaults al cargar el modulo. (Si en el futuro un modulo los escribe, debe
 // hacerlo via window.X por el modo estricto.)
 export let ORG_ID = '640ab1e0-011c-43fe-a5aa-5a636005f56f';   // organización activa (default: Primate Films)
-window.ORG_ID = ORG_ID;
-export let USER_NOMBRE = ''; window.USER_NOMBRE = '';
-export let USER_APELLIDO = ''; window.USER_APELLIDO = '';
-export let TAKEOS_PERFIL = null; window.TAKEOS_PERFIL = null;      // { codigo, nombre, tipo, profileId, contactId }
-export let TAKEOS_ACCESO = null; window.TAKEOS_ACCESO = null;      // { modulo: 'E'|'L'|'none' } o null (no cargado => lectura fail-closed)
+
+export let USER_NOMBRE = '';
+export let USER_APELLIDO = '';
+export let TAKEOS_PERFIL = null;
+export let TAKEOS_ACCESO = null;
 
 // Identidad/sesion activa (scalars). Los escriben los cargadores
 // (dalResolveIdentidad / dalLoadPermisos) y setCurrentUser desde el monolito
@@ -51,23 +51,20 @@ export let TAKEOS_ACCESO = null; window.TAKEOS_ACCESO = null;      // { modulo: 
 // se extraeran limpio en Etapa 2. Aqui dejamos el ESTADO coherente en state.js.
 window.DAL_SESSION_UID = null;
 window.DAL_SESSION_EMAIL = '';
-export let USUARIO_ACTUAL = ('USUARIO_ACTUAL' in window) ? window.USUARIO_ACTUAL : ''; window.USUARIO_ACTUAL = USUARIO_ACTUAL; // guard: una IIFE clásica lo restaura desde localStorage en parse-time, ANTES de este eval — no pisarlo (auditoría de cierre 2-jul)
+export let USUARIO_ACTUAL = ('USUARIO_ACTUAL' in window) ? USUARIO_ACTUAL : '';
 
 // Flags de origen de datos del DAL (Etapa B1). 'pending' → 'supabase' tras la
 // primera lectura exitosa (fail-safe: sin lectura confirmada NO se escribe).
 // Los ESCRIBE dal.js (via window.X); los LEEN dal.js, el monolito y varios
 // modulos (gastos/kanban/notificaciones desnudo o window.; legal desnudo).
-export let CONTACTS_SOURCE  = 'pending'; window.CONTACTS_SOURCE  = 'pending';
-export let LOCATIONS_SOURCE = 'pending'; window.LOCATIONS_SOURCE = 'pending';
-export let LEGAL_SOURCE     = 'pending'; window.LEGAL_SOURCE     = 'pending';
-export let PERFIL_SOURCE    = 'pending'; window.PERFIL_SOURCE    = 'pending';
-export let PROJECTS_SOURCE  = 'pending'; window.PROJECTS_SOURCE  = 'pending';
-// Tope de colaboradores por plan (cache por org). Lo escribe dal.js
+export let CONTACTS_SOURCE  = 'pending';
+export let LOCATIONS_SOURCE = 'pending';
+export let LEGAL_SOURCE     = 'pending';
+export let PERFIL_SOURCE    = 'pending';
+export let PROJECTS_SOURCE  = 'pending';
 // (dalCargarTopeColaboradores); lo lee la UI de cargos del monolito.
-export let _TOPE_COLAB = null; window._TOPE_COLAB = null;
-export let _TOPE_COLAB_ORG = null; window._TOPE_COLAB_ORG = null;
-
-// ═══ Stores compartidos del monolito — llegaron en Etapa C6 (vaciado final del <script>) ═══
+export let _TOPE_COLAB = null;
+export let _TOPE_COLAB_ORG = null;
 /* ════════════════════════════════════════════════════════════════════
    ESTADO GLOBAL
    ════════════════════════════════════════════════════════════════════
@@ -155,7 +152,6 @@ export const BD_LEGAL = [];
 export const BD_LEGAL_TPL = [];   // V8.4: plantillas legales personalizadas (las oficiales viven en LEGAL_TPL, en código)
 // nextLegalId, legalDocsForProject → movidos a src/modules/legal.js (Etapa A1)
 
-
 // ROLES_OPERATIVOS → movido a src/lib/data.js (Etapa B3)
 
 export const PROJECTS = []; window.PROJECTS = PROJECTS; // puente para src/modules/kanban.js
@@ -181,7 +177,7 @@ export let EMPRESA_PERFIL = {
 /* V5.11 (Nota 1): undo básico de un nivel por acción. */
 // UNDO_STACK, UNDO_BASELINE, UNDO_MAX, REDO_STACK → movido a src/modules/persistencia-local.js (Etapa B2)
 
-/* STATE -> movido a src/lib/state.js (Etapa 1); mismo objeto compartido en window.STATE via src/main.js */
+/* STATE -> movido a src/lib/state.js (Etapa 1); mismo objeto compartido en STATE via src/main.js */
 
 /* ════════════════════════════════════════════════════════════════════
    CONSTANTES TRIBUTARIAS (Chile)
@@ -225,30 +221,26 @@ export let EMPRESA_PERFIL = {
 export let _TIENE_EMPRESA = false; // D3a: binding canónico; espejo window abajo
 export const TAKEOS_VERSION = 'V11.14.0';   // Versión actual del cliente TakeOS. El historial de cambios vive en los changelogs (.md), no aquí.
 // Bridges C6 (BD_LEGAL/TPL eran léxicas: los módulos las leen a pelo → ahora resuelven vía window)
-window.BD_LEGAL = BD_LEGAL;
-window.BD_LEGAL_TPL = BD_LEGAL_TPL;
-window.TAKEOS_VERSION = TAKEOS_VERSION;
 
 // ── Bridges C6 (barrido final) ──
 window.STATE = STATE;
-window._TIENE_EMPRESA = _TIENE_EMPRESA;
 
 /* ═══ D3a · SETTERS del estado global — la ÚNICA vía de escritura. Actualizan
    el binding vivo (los imports ven el cambio) Y el espejo window (los lectores
    window.X explícitos aún no migrados). ═══ */
-export function setOrgId(v) { ORG_ID = v; window.ORG_ID = v; }
-export function setUserNombre(v) { USER_NOMBRE = v; window.USER_NOMBRE = v; }
-export function setUserApellido(v) { USER_APELLIDO = v; window.USER_APELLIDO = v; }
-export function setTakeosPerfil(v) { TAKEOS_PERFIL = v; window.TAKEOS_PERFIL = v; }
-export function setTakeosAcceso(v) { TAKEOS_ACCESO = v; window.TAKEOS_ACCESO = v; }
-export function setUsuarioActual(v) { USUARIO_ACTUAL = v; window.USUARIO_ACTUAL = v; }
+export function setOrgId(v) { ORG_ID = v; }
+export function setUserNombre(v) { USER_NOMBRE = v; }
+export function setUserApellido(v) { USER_APELLIDO = v; }
+export function setTakeosPerfil(v) { TAKEOS_PERFIL = v; }
+export function setTakeosAcceso(v) { TAKEOS_ACCESO = v; }
+export function setUsuarioActual(v) { USUARIO_ACTUAL = v; }
 export function setSource(cual, v) {
-  if (cual === 'contacts') { CONTACTS_SOURCE = v; window.CONTACTS_SOURCE = v; }
-  else if (cual === 'locations') { LOCATIONS_SOURCE = v; window.LOCATIONS_SOURCE = v; }
-  else if (cual === 'legal') { LEGAL_SOURCE = v; window.LEGAL_SOURCE = v; }
-  else if (cual === 'perfil') { PERFIL_SOURCE = v; window.PERFIL_SOURCE = v; }
-  else if (cual === 'projects') { PROJECTS_SOURCE = v; window.PROJECTS_SOURCE = v; }
+  if (cual === 'contacts') { CONTACTS_SOURCE = v; }
+  else if (cual === 'locations') { LOCATIONS_SOURCE = v; }
+  else if (cual === 'legal') { LEGAL_SOURCE = v; }
+  else if (cual === 'perfil') { PERFIL_SOURCE = v; }
+  else if (cual === 'projects') { PROJECTS_SOURCE = v; }
 }
-export function setTieneEmpresa(v) { _TIENE_EMPRESA = v; window._TIENE_EMPRESA = v; }
-export function setTopeColab(v) { _TOPE_COLAB = v; window._TOPE_COLAB = v; }
-export function setTopeColabOrg(v) { _TOPE_COLAB_ORG = v; window._TOPE_COLAB_ORG = v; }
+export function setTieneEmpresa(v) { _TIENE_EMPRESA = v; }
+export function setTopeColab(v) { _TOPE_COLAB = v; }
+export function setTopeColabOrg(v) { _TOPE_COLAB_ORG = v; }

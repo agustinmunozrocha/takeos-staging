@@ -1862,7 +1862,6 @@ export function dalResetOrg() {
     clearTimeout(_dalProyFlushTimer); _dalProyFlushTimer = null;
   } catch (e) { console.error('[dal] reset de org', e); }
 }
-window.dalResetOrg = dalResetOrg;
 export function dalTouchProyecto(project) {
   if (PROJECTS_SOURCE !== 'supabase' || !project || !project.id) return;
   if (project._autosaveSuspendedByConflict) return;   // Pasada 1 · autosave suspendido por conflicto (hasta recargar)
@@ -1893,15 +1892,6 @@ export async function dalFlushProyectos() {
 /* Banner visible dentro del modulo Base de Datos (claridad sobre comodidad). */
 
 // ── Window bridges DAL (3 barridos: consumo externo, auto-consumo, nombre-string) ──
-window.dalBootProyectos = dalBootProyectos;
-window.dalCargarTopeColaboradores = dalCargarTopeColaboradores;
-window.dalGuardarContacto = dalGuardarContacto;
-window.dalGuardarEmpresa = dalGuardarEmpresa;
-window.dalGuardarLegalDoc = dalGuardarLegalDoc;
-window.dalLoadPermisos = dalLoadPermisos;
-window.dalResolveIdentidad = dalResolveIdentidad;
-window.dalTouchProyecto = dalTouchProyecto;
-window.dalFlushProyectos = dalFlushProyectos;   // D0 · rescate pre-reset en el cambio de org (boot.js/_setOrgActiva)
 
 // D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
 define('_dalEmpresaSaveSoon', _dalEmpresaSaveSoon);

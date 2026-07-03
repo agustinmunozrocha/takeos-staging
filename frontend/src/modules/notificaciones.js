@@ -31,14 +31,16 @@ import { escapeHtml, showToast } from '../lib/helpers.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { IVA } from '../lib/rates.js';
+import { define } from '../lib/ganchos.js';
+let _notifCfg;   // D4c: estado propio del módulo (antes window._notifCfg, era de los handlers inline)
 let NOTIF = [];
 let _NOTIF_TIMER = null;
 let _NOTIF_OUTSIDE = false;
 
 async function notifCargar() {
-  if (!window.sb || window.PROJECTS_SOURCE !== 'supabase') return;
+  if (!sb || PROJECTS_SOURCE !== 'supabase') return;
   try {
-    const { data, error } = await window.sb.from('user_notifications').select('*').order('created_at', { ascending: false }).limit(50);
+    const { data, error } = await sb.from('user_notifications').select('*').order('created_at', { ascending: false }).limit(50);
     if (error) throw error;
     NOTIF = data || [];
     notifPintarBadge();
@@ -94,18 +96,18 @@ export async function notifMarcarTodas() {
   const now = new Date().toISOString();
   NOTIF.forEach(function (n) { if (!n.read_at) n.read_at = now; });
   notifPintarBadge(); notifRenderPanel();
-  try { if (window.sb) await window.sb.rpc('marcar_notificaciones_leidas', { p_ids: ids }); } catch (e) {}
+  try { if (sb) await sb.rpc('marcar_notificaciones_leidas', { p_ids: ids }); } catch (e) {}
 }
 function notifAbrir(projectId) {
   const p = document.getElementById('notifPanel'); if (p) p.style.display = 'none';
-  if (window.PROJECTS.find(function (x) { return x.id === projectId; })) window.navigateToProject(projectId);
+  if (PROJECTS.find(function (x) { return x.id === projectId; })) navigateToProject(projectId);
 }
 async function notifAbrirRebind(requestId) {
   const p = document.getElementById('notifPanel'); if (p) p.style.display = 'none';
-  if (!window.sb) return;
+  if (!sb) return;
   let req = null;
   try {
-    const r = await window.sb.from('invitation_rebind_requests').select('*').eq('id', requestId).maybeSingle();
+    const r = await sb.from('invitation_rebind_requests').select('*').eq('id', requestId).maybeSingle();
     if (r.error) throw r.error;
     req = r.data;
   } catch (e) {
@@ -147,18 +149,18 @@ function _rebindAprobar(reqId) {
   _rebindResolver(reqId, true, correo);
 }
 async function _rebindResolver(reqId, aprobar, correo) {
-  if (!window.sb) return;
+  if (!sb) return;
   const btns = document.querySelectorAll('.modal-footer .btn');
   Array.prototype.forEach.call(btns, function (b) { b.disabled = true; });
   try {
-    const r = await window.sb.rpc('resolver_rebind', { p_request_id: reqId, p_aprobar: !!aprobar, p_correo_elegido: aprobar ? (correo || null) : null });
+    const r = await sb.rpc('resolver_rebind', { p_request_id: reqId, p_aprobar: !!aprobar, p_correo_elegido: aprobar ? (correo || null) : null });
     if (r.error) throw r.error;
     const res = (r.data && typeof r.data === 'object') ? r.data : {};
-    window.closeModal();
+    closeModal();
     if (aprobar) showToast({ kind: 'success', title: 'Acceso aprobado', body: 'La persona quedó dentro del proyecto con el correo ' + escapeHtml(res.correo_elegido || correo || '') + '.', duration: 8000 });
     else showToast({ kind: 'info', title: 'Solicitud rechazada', body: 'Se canceló la invitación y se liberó el cupo del cargo.', duration: 8000 });
     try { notifCargar(); } catch (e) {}
-    try { if (typeof window._empCargarRebinds === 'function') window._empCargarRebinds(); } catch (e) {}
+    try { if (typeof _empCargarRebinds === 'function') _empCargarRebinds(); } catch (e) {}
   } catch (e) {
     const raw = (e && e.message) ? String(e.message) : '';
     showToast({ kind: 'error', title: 'No se pudo resolver', body: (raw.replace(/^resolver_rebind:\s*/i, '') || 'Reintenta en un momento.'), duration: 9000 });
@@ -166,9 +168,9 @@ async function _rebindResolver(reqId, aprobar, correo) {
   }
 }
 export async function _empCargarRebinds() {
-  var box = document.getElementById('empRebindsBox'); if (!box || !window.sb) return;
+  var box = document.getElementById('empRebindsBox'); if (!box || !sb) return;
   try {
-    var r = await window.sb.from('invitation_rebind_requests').select('*').eq('estado', 'pendiente').order('requested_at', { ascending: false });
+    var r = await sb.from('invitation_rebind_requests').select('*').eq('estado', 'pendiente').order('requested_at', { ascending: false });
     if (r.error) throw r.error;
     var rows = r.data || [];
     if (!rows.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
@@ -217,7 +219,7 @@ function notifDefaultTemplates() {
   ];
 }
 function notifEmpresaDefault() {
-  var e = (typeof window.EMPRESA_PERFIL !== 'undefined' && window.EMPRESA_PERFIL) ? window.EMPRESA_PERFIL : {};
+  var e = (typeof EMPRESA_PERFIL !== 'undefined' && EMPRESA_PERFIL) ? EMPRESA_PERFIL : {};
   var dir = [e.direccion, e.comuna, e.ciudad].filter(Boolean).join(', ');
   return { razonSocial: e.razonSocial || '', rut: e.rut || '', direccion: dir || '', giro: e.giro || '', mail: e.email || '', numero: e.telefono || '' };
 }
@@ -242,7 +244,7 @@ function notifLoadConfig() {
   });
   return cfg;
 }
-function getNotifConfig() { if (!window._notifCfg) window._notifCfg = notifLoadConfig(); return window._notifCfg; }
+function getNotifConfig() { if (!_notifCfg) _notifCfg = notifLoadConfig(); return _notifCfg; }
 function notifSaveConfig() { try { localStorage.setItem(NOTIF_CFG_KEY, JSON.stringify(getNotifConfig())); } catch (e) {} }
 
 function ensureNotif(project) {
@@ -279,18 +281,18 @@ function notifRecipients(project) {
   for (const dept in d.servicios) d.servicios[dept].forEach(r => { if (r.confirmado && r.nombre && !r.noVaRodaje) add(r.nombre, r.rol, r.valor, r.cantidad, r.dte, r.prontoPago); });
   ['gastos', 'equipos', 'talentos'].forEach(sec => (d[sec] || []).forEach(r => { if (r.confirmado && r.nombre && !r.noVaRodaje) add(r.nombre, r.item, r.valor, r.cantidad, r.dte, r.prontoPago); }));
   return Object.values(byName).map(p => {
-    const bd = window.BD_PERSONAS[p.nombre] || {};
-    return Object.assign(p, { mail: bd.mail || '', enBD: !!window.BD_PERSONAS[p.nombre] });
+    const bd = BD_PERSONAS[p.nombre] || {};
+    return Object.assign(p, { mail: bd.mail || '', enBD: !!BD_PERSONAS[p.nombre] });
   });
 }
 function notifVarsFor(project, rec) {
   const ip = project.data.infoProyecto || {};
-  const EP = window.EMPRESA_PERFIL || {};
+  const EP = EMPRESA_PERFIL || {};
   const fechas = (project.data.rodajes || []).filter(x => x.activo && x.fecha).map(x => _fechaCorta(x.fecha)).join(', ');
   const neto = rec.monto || 0;
   let bruto;
-  if (window.DTE_CON_RETENCION.includes(rec.dte)) bruto = Math.round(neto / window.factorRetencionDte(rec.dte));
-  else if (rec.dte === 'factura')                  bruto = Math.round(neto * (1 + window.IVA));
+  if (DTE_CON_RETENCION.includes(rec.dte)) bruto = Math.round(neto / factorRetencionDte(rec.dte));
+  else if (rec.dte === 'factura')                  bruto = Math.round(neto * (1 + IVA));
   else                                             bruto = neto;
   const _dteW = _dteWord(rec.dte);
   const _condPago = rec.prontoPago
@@ -300,7 +302,7 @@ function notifVarsFor(project, rec) {
   return {
     'NOMBRE': rec.nombre, 'ROL': rec.rol,
     'NOMBRE PROYECTO': ip.nombreProyecto || project.name || '', 'NOMBRE CLIENTE': ip.cliente || '',
-    'FECHA DE RODAJE': fechas, 'MONTO BRUTO': window.fmtMoney(bruto), 'MONTO NETO': window.fmtMoney(neto),
+    'FECHA DE RODAJE': fechas, 'MONTO BRUTO': fmtMoney(bruto), 'MONTO NETO': fmtMoney(neto),
     'BOLETA O FACTURA': _dteWord(rec.dte), 'CONDICIÓN DE PAGO': _condPago,
     'RAZÓN SOCIAL': EP.razonSocial || '', 'RUT EMPRESA': EP.rut || '', 'DIRECCIÓN EMPRESA': EP.direccion || '',
     'GIRO EMPRESA': EP.giro || '', 'MAIL EMPRESA': EP.email || '', 'NÚMERO EMPRESA': EP.telefono || '',
@@ -484,7 +486,7 @@ function ntfViewEnviar(project) {
           + '<td>' + escapeHtml(r.nombre) + (!r.enBD ? ' <span style="color:var(--warning);" title="Sin mail en BD">●</span>' : '') + '</td>'
           + '<td>' + escapeHtml(r.rol) + '</td>'
           + '<td>' + (r.mail ? escapeHtml(r.mail) : '<span style="color:var(--warning);">sin mail</span>') + '</td>'
-          + '<td>' + window.fmtMoney(r.monto) + '</td>'
+          + '<td>' + fmtMoney(r.monto) + '</td>'
           + '<td>' + (sent ? '<span style="color:var(--positive);font-weight:600;">Enviado</span>' : '<span style="color:var(--ink-faint);">Pendiente</span>')
           + ' <button class="btn btn-ghost btn-sm" ' + accionHTML('ntf.verComo', r.nombre) + '>Vista previa</button>'
           + (r.mail && st.channel === 'email' ? ' <button class="btn btn-ghost btn-sm" ' + accionHTML('ntf.gmail', r.nombre) + '>✉</button>' : '')
@@ -523,7 +525,7 @@ function ntfToggleRec(nombre, on) { const st = ntfState(); st.sel[ntfCurTpl().ke
 function ntfSelAll(on) { const st = ntfState(); const tpl = ntfCurTpl(); notifRecipients(STATE.currentProject).forEach(r => st.sel[tpl.key + '::' + r.nombre] = on); renderNotificaciones(); }
 function ntfStartOverride() { ntfState().override = true; renderNotificaciones(); }
 function ntfOverrideInput() { const el = document.getElementById('ntfOverrideBody'); if (el) ntfState()._pendingOverride = ntfSerialize(el); }
-function ntfSaveOverride() { const st = ntfState(); const tpl = ntfCurTpl(); const ovKey = tpl.key + '::' + st.viewAs; if (st._pendingOverride != null) st.overrides[ovKey] = st._pendingOverride; st.override = false; st._pendingOverride = null; window.markDirty(); showToast({ kind: 'success', title: 'Override guardado', body: 'Solo para ' + escapeHtml(String(st.viewAs).split(' ')[0]) + ' · no afecta la plantilla. (Persistencia entre sesiones con el backend.)' }); renderNotificaciones(); }
+function ntfSaveOverride() { const st = ntfState(); const tpl = ntfCurTpl(); const ovKey = tpl.key + '::' + st.viewAs; if (st._pendingOverride != null) st.overrides[ovKey] = st._pendingOverride; st.override = false; st._pendingOverride = null; markDirty(); showToast({ kind: 'success', title: 'Override guardado', body: 'Solo para ' + escapeHtml(String(st.viewAs).split(' ')[0]) + ' · no afecta la plantilla. (Persistencia entre sesiones con el backend.)' }); renderNotificaciones(); }
 function ntfSend() {
   const project = STATE.currentProject; const st = ntfState(); const tpl = ntfCurTpl();
   const val = r => ntfValidate(project, tpl, r, st.channel);
@@ -533,7 +535,7 @@ function ntfSend() {
   const n = ensureNotif(project);
   okRecs.forEach(r => n.status[tpl.key + '::' + r.nombre] = 'enviado');
   notifLogPush(project, tpl.key, okRecs.length);
-  window.markDirty(); renderNotificaciones();
+  markDirty(); renderNotificaciones();
   showToast({ kind: 'success', title: 'Envío registrado', body: okRecs.length + ' correo(s) marcados. La transmisión real se activará con el backend.' });
 }
 function ntfProgramar() {
@@ -544,7 +546,7 @@ function ntfProgramar() {
   const n = ntfEnsureSched(project);
   const selRecs = ntfRecState(project).filter(x => x.sel).map(x => x.rec);
   n.programados.push({ tpl: tpl.key, when, count: selRecs.length, by: getNotifConfig().remitente.nombre || '' });
-  window.markDirty(); renderNotificaciones();
+  markDirty(); renderNotificaciones();
   showToast({ kind: 'success', title: 'Envío programado', body: tpl.nombre + ' · ' + selRecs.length + ' persona(s) para el ' + when + '. La automatización real requiere el backend.' });
 }
 function ntfViewProgramados(project) {
@@ -558,9 +560,9 @@ function ntfViewProgramados(project) {
     + Object.entries(n.reglas).map(([id, on]) => '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:6px;cursor:pointer;"><input type="checkbox" ' + (on ? 'checked' : '') + ' ' + accionHTML('ntf.regla', id, { on: 'change' }) + '>' + escapeHtml(NTF_EFX_LABEL[id] || id) + '</label>').join('')
     + '</div>';
 }
-function ntfCancelProg(i) { const n = STATE.currentProject.data.notificaciones; n.programados.splice(i, 1); window.markDirty(); showToast({ kind: 'info', title: 'Programación cancelada' }); renderNotificaciones(); }
-function ntfReprogramar(i) { const n = STATE.currentProject.data.notificaciones; const s = n.programados[i]; if (!s) return; const v = prompt('Nueva fecha y hora (formato libre, ej. 22/05/2026 09:00):', s.when || ''); if (v != null && v.trim()) { s.when = v.trim(); window.markDirty(); showToast({ kind: 'info', title: 'Fecha actualizada' }); renderNotificaciones(); } }
-function ntfToggleRegla(id) { const n = ntfEnsureSched(STATE.currentProject); n.reglas[id] = !n.reglas[id]; window.markDirty(); renderNotificaciones(); }
+function ntfCancelProg(i) { const n = STATE.currentProject.data.notificaciones; n.programados.splice(i, 1); markDirty(); showToast({ kind: 'info', title: 'Programación cancelada' }); renderNotificaciones(); }
+function ntfReprogramar(i) { const n = STATE.currentProject.data.notificaciones; const s = n.programados[i]; if (!s) return; const v = prompt('Nueva fecha y hora (formato libre, ej. 22/05/2026 09:00):', s.when || ''); if (v != null && v.trim()) { s.when = v.trim(); markDirty(); showToast({ kind: 'info', title: 'Fecha actualizada' }); renderNotificaciones(); } }
+function ntfToggleRegla(id) { const n = ntfEnsureSched(STATE.currentProject); n.reglas[id] = !n.reglas[id]; markDirty(); renderNotificaciones(); }
 function ntfViewHistorial(project) {
   const n = ensureNotif(project); const st = ntfState();
   if (!n.log || !n.log.length) return '<p style="font-size:12px;color:var(--ink-faint);">Aún no hay envíos registrados.</p>';
@@ -607,7 +609,7 @@ function ntfViewPlantillas(project) {
     + '</div></div>';
 }
 function ntfSetEditChannel(c) { ntfState().editChannel = c; renderNotificaciones(); }
-function ntfSetTplName(v) { if (!ntfCanEdit(ntfCurEditTpl())) return; ntfCurEditTpl().nombre = v; window.markDirty(); notifSaveConfig(); }
+function ntfSetTplName(v) { if (!ntfCanEdit(ntfCurEditTpl())) return; ntfCurEditTpl().nombre = v; markDirty(); notifSaveConfig(); }
 function ntfNewTemplate() {
   const key = 'custom_' + Date.now();
   const cfg = getNotifConfig();
@@ -650,7 +652,7 @@ function ntfWireEditor() {
 }
 export function ntfOpenFromHoja() {
   const st = ntfState(); st.tab = 'enviar'; st.tplKey = 'hoja'; st.fromHoja = true; st.override = false;
-  window.navigateToModule('correos');
+  navigateToModule('correos');
 }
 
 export function renderNotificaciones() {
@@ -680,71 +682,18 @@ export function renderNotificaciones() {
 
 // ── Bridges a window ──────────────────────────────────────────────────────────
 // Sistema A
-window.bellToggle          = bellToggle;
-window.notifInit           = notifInit;
-window.notifCargar         = notifCargar;
-window.notifPintarBadge    = notifPintarBadge;
-window.notifMarcarTodas    = notifMarcarTodas;
-window.notifAbrir          = notifAbrir;
-window.notifAbrirRebind    = notifAbrirRebind;
-window._rebindAprobar      = _rebindAprobar;
-window._rebindResolver     = _rebindResolver;
-window._empCargarRebinds   = _empCargarRebinds;
+
 // Sistema B
-window.getNotifConfig      = getNotifConfig;
-window.notifSaveConfig     = notifSaveConfig;
-window.ensureNotif         = ensureNotif;
-window.notifFill           = notifFill;
-window.notifRecipients     = notifRecipients;
-window.notifVarsFor        = notifVarsFor;
-window.notifHtmlToPlain    = notifHtmlToPlain;
-window.notifSetCfg         = notifSetCfg;
-window.notifSetTpl         = notifSetTpl;
-window.notifLogPush        = notifLogPush;
-window.notifCopyTemplate   = notifCopyTemplate;
-window.notifGmailDraft     = notifGmailDraft;
+
 // Sistema C (ntf*)
-window.renderNotificaciones = renderNotificaciones;
-window.ntfState            = ntfState;
-window.ntfSetTab           = ntfSetTab;
-window.ntfPickTpl          = ntfPickTpl;
+
 window.ntfSetChannel       = ntfSetChannel;
-window.ntfSetViewAs        = ntfSetViewAs;
-window.ntfToggleRec        = ntfToggleRec;
-window.ntfSelAll           = ntfSelAll;
-window.ntfStartOverride    = ntfStartOverride;
-window.ntfOverrideInput    = ntfOverrideInput;
-window.ntfSaveOverride     = ntfSaveOverride;
-window.ntfSend             = ntfSend;
-window.ntfProgramar        = ntfProgramar;
-window.ntfCancelProg       = ntfCancelProg;
-window.ntfReprogramar      = ntfReprogramar;
-window.ntfToggleRegla      = ntfToggleRegla;
-window.ntfToggleHist       = ntfToggleHist;
-window.ntfSetEditSubver    = ntfSetEditSubver;
+
 window.ntfSetEditChannel   = ntfSetEditChannel;
-window.ntfSetTplName       = ntfSetTplName;
-window.ntfNewTemplate      = ntfNewTemplate;
-window.ntfFmt              = ntfFmt;
-window.ntfInsertVar        = ntfInsertVar;
-window.ntfOpenFromHoja     = ntfOpenFromHoja;
-window.NTF_LABELS          = NTF_LABELS;
-window.NOTIF_VAR_KEYS      = NOTIF_VAR_KEYS;
 
 // ── Bridges agregados por auditoría 2-jul (consumidos por index.html u otros módulos sin bridge) ──
-window._dteWord = _dteWord;
-window._fechaCorta = _fechaCorta;
-window._rebindRenderModal = _rebindRenderModal;
-window.notifDefaultTemplates = notifDefaultTemplates;
-window.notifEmpresaDefault = notifEmpresaDefault;
-window.notifLoadConfig = notifLoadConfig;
-window.notifRenderPanel = notifRenderPanel;
-window.ntfEnsureSched = ntfEnsureSched;
-window.ntfTemplates = ntfTemplates;
 
 // ── Bridges auditoría pre-B (onclick/oninput en HTML generado por el propio módulo) ──
-window.ntfSaveEditor      = ntfSaveEditor;
-window.ntfRefreshPreview  = ntfRefreshPreview;
 
 // D2 · acciones delegadas
 registrarAcciones('ntf', {
@@ -781,3 +730,5 @@ registrarAcciones('ntf', {
   cerrarBanner: function () { ntfState().fromHoja = false; renderNotificaciones(); },
   tab: function (a) { ntfSetTab(a[0]); },
 });
+
+define('renderNotificaciones', renderNotificaciones);

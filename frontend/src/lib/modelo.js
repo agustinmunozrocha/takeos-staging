@@ -232,7 +232,7 @@ export function hydrateContactStore(obj) {
 /* Vista de casting (incremento 2 la usará en UI). */
 
 /* _clientUuid: necesaria en startup (buildDefaultProjectData / DEMO_PROJECTS).
-   El módulo presupuesto-cotizacion.js tiene su propia copia y puentea window._clientUuid
+   El módulo presupuesto-cotizacion.js tiene su propia copia y puentea _clientUuid
    al cargar, pero ese puente llega después del classic script — este stub cubre el gap. */
 export function _clientUuid() {
   try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
@@ -422,8 +422,6 @@ export function buildProjectData(overrides) {
 
 // ── Window bridges (3 barridos func+const) ──
 window._clientUuid = _clientUuid;
-window.buildProjectData = buildProjectData;
-window.syncLegacyFromContactos = syncLegacyFromContactos;
 
 // ═══ Helpers de stores + modelo de locaciones de proyecto (Etapa C6) ═══
 export function normLocName(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' '); }
@@ -531,5 +529,3 @@ export function _dedupKeys(rut, email, nombre) {
    Los proyectos demo se cargan a demanda con "Cargar datos de ejemplo". */
 
 // ── Bridges C6 (barrido final) ──
-window._norm = _norm;
-window.ensureProjectLoc = ensureProjectLoc;

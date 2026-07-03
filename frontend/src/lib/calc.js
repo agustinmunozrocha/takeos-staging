@@ -260,18 +260,4 @@ export function normalizeTime24(raw) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window.calcCostoEmpresa = calcCostoEmpresa;
-window.calcProjectTotals = calcProjectTotals;
-window.deltaClassCosto = deltaClassCosto;
-window.deltaClassGanancia = deltaClassGanancia;
-window.displayMoneyInputValue = displayMoneyInputValue;
-window.fmtDelta = fmtDelta;
-window.fmtMoney = fmtMoney;
-window.fmtPct = fmtPct;
-window.formatCLP = formatCLP;
-window.getCostoReal = getCostoReal;
-window.initials = initials;
-window.normalizeTime24 = normalizeTime24;
-window.onMoneyInput = onMoneyInput;
-window.parseMoneyCLP = parseMoneyCLP;
-window.readNum = readNum;
+

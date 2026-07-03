@@ -7,8 +7,8 @@ import { STATE, TAKEOS_PERFIL } from '../lib/state.js';
 import { escapeHtml, showToast, safeUrl } from '../lib/helpers.js';
 // D1e · imports reales (fusionado con los preexistentes de la era C — lección #12).
 // DIFERIDOS anti-ciclo (quedan vía window): boot (applyModuleReadonly/orgNombre),
-// dal, bd-excel, gastos (ciclo DURO: renderGastos/_syncGastosCostoReal/goLinea* —
-// mueren en D2), info-proyecto (_markRowDirty), legal, plan-rodaje, calculadoras, config.
+// dal, bd-excel, gastos (ciclo DURO: gancho('renderGastos')/_syncGastosCostoReal/goLinea* —
+// mueren en D2), info-proyecto (gancho('_markRowDirty')), legal, plan-rodaje, calculadoras, config.
 import { BD_PERSONAS, EMPRESA_PERFIL, STATES_WITH_LOCKED_BUDGET, STATES_WITH_REAL_COST } from '../lib/state.js';
 import { COTIZACION_CONDICIONES_DEFAULTS, DTE_LABEL, DTE_OPTIONS, UNIDAD_OPTIONS } from '../lib/data.js';
 import { calcCostoEmpresa, deltaClassCosto, deltaClassGanancia, displayMoneyInputValue, fmtDelta, fmtDeltaWithSymbol, fmtMoney, fmtPct, getCostoReal, parseMoneyCLP, readNum, onMoneyInput } from '../lib/calc.js';
@@ -21,17 +21,18 @@ import { markDirty } from './persistencia-local.js';
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { IVA } from '../lib/rates.js';
 import { navigateToModule } from '../lib/nav.js';
-import { gancho, define } from '../lib/ganchos.js';
+import { gancho, define, valor } from '../lib/ganchos.js';
+let _BUDGET_COLW;   // D4c: estado propio del módulo (antes window._BUDGET_COLW, era de los handlers inline)
 function cotizadoLocked(project) {
   if (!project) return false;
-  return window.STATES_WITH_LOCKED_BUDGET.includes(project.state);
+  return STATES_WITH_LOCKED_BUDGET.includes(project.state);
 }
 
 // ── A1: getBDPresupuesto (disperso, línea 2085)
 export function getBDPresupuesto() {
   const out = {};
-  Object.keys(window.BD_PERSONAS).forEach(k => {
-    const p = window.BD_PERSONAS[k];
+  Object.keys(BD_PERSONAS).forEach(k => {
+    const p = BD_PERSONAS[k];
     const roles = (p && Array.isArray(p.roles)) ? p.roles : ['Crew'];
     if (roles.indexOf('Crew') !== -1 || roles.indexOf('Interno') !== -1) out[k] = p;
   });
@@ -153,7 +154,7 @@ function updateAsistentes(field, value) {
   if (!d.asistentes) d.asistentes = { cliente: 0, agencia: 0, externo: 0 };
   d.asistentes[field] = Math.max(0, Number(value) || 0);
   renderHeadcountPanel();
-  window.markDirty();
+  markDirty();
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -179,7 +180,7 @@ function presupCotVersionBarHTML(project) {
   const chips = vs.map(v => {
     const act = v.id === cs.activoId;
     const r = v.resumen;
-    const sub = r ? `${window.fmtMoney(r.valor)} · ${window.fmtPct(r.margenPct)}` : 'sin datos';
+    const sub = r ? `${fmtMoney(r.valor)} · ${fmtPct(r.margenPct)}` : 'sin datos';
     return `<button class="cotver-chip ${act ? 'is-active' : ''}" ${accionHTML('pre.d', 'presupSetCotVersion', v.id)} title="${escapeHtml(v.nota || v.label)}">
        <span class="cotver-chip-label">${escapeHtml(v.label)}${act ? ' · activa' : ''}</span>
        <span class="cotver-chip-sub">${sub}</span>
@@ -203,7 +204,7 @@ function presupSetCotVersion(id) {
   if (!cs.versiones.find(v => v.id === id)) return;
   cs.activoId = id;
   ensureCotizaciones(project);   // sincroniza el espejo d.cotizacion
-  window.markDirty();
+  markDirty();
   renderPresupuesto();
 }
 
@@ -222,7 +223,7 @@ function presupHistSummaryHTML(fin) {
   const gan = fin.gananciaFinal ? fin.gananciaFinal.cot : 0;
   const margen = cliente > 0 ? (gan / cliente) : 0;
   const card = (label, val, color) => `<div style="flex:1;min-width:130px;background:var(--bg-surface-soft);border:1px solid var(--rule);border-radius:var(--radius-sm);padding:11px 13px;"><div style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;">${label}</div><div style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;${color ? ('color:' + color + ';') : ''}">${val}</div></div>`;
-  return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">${card('Presupuesto cliente', window.fmtMoney(cliente))}${card('Costo de producción', window.fmtMoney(costo))}${card('Ganancia', window.fmtMoney(gan), gan >= 0 ? '#15803d' : '#b91c1c')}${card('Margen', window.fmtPct(margen))}</div>`;
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">${card('Presupuesto cliente', fmtMoney(cliente))}${card('Costo de producción', fmtMoney(costo))}${card('Ganancia', fmtMoney(gan), gan >= 0 ? '#15803d' : '#b91c1c')}${card('Margen', fmtPct(margen))}</div>`;
 }
 function presupHistDetailHTML(snap) {
   const e = escapeHtml;
@@ -237,8 +238,8 @@ function presupHistDetailHTML(snap) {
     const cc = calcCostoEmpresa(Number(valor) || 0, Number(cant) || 0, dte, sectionKey);
     const costoCel = cc.error
       ? `<span style="color:var(--ink-faint);">${e(cc.error)}</span>`
-      : window.fmtMoney(Math.round(cc.value || 0));
-    return `<tr><td>${e(label || '—')}</td><td ${numTd}>${window.fmtMoney(Number(valor) || 0)}</td><td ${numTd}>${cant != null ? e(String(cant)) : '1'}${unidad ? (' ' + e(unidad)) : ''}</td><td>${e(dte || '—')}</td><td ${numTd}>${costoCel}</td></tr>`;
+      : fmtMoney(Math.round(cc.value || 0));
+    return `<tr><td>${e(label || '—')}</td><td ${numTd}>${fmtMoney(Number(valor) || 0)}</td><td ${numTd}>${cant != null ? e(String(cant)) : '1'}${unidad ? (' ' + e(unidad)) : ''}</td><td>${e(dte || '—')}</td><td ${numTd}>${costoCel}</td></tr>`;
   };
   const sect = (titulo, rows) => rows.length ? `<div class="cot-card" style="margin-bottom:12px;"><div class="cot-card-title" style="margin:0 0 8px;">${e(titulo)}</div><div class="cotcmp-wrap"><table class="cotcmp-table"><thead><tr><th>Ítem</th><th ${numTd}>Valor</th><th ${numTd}>Cant.</th><th>DTE</th><th ${numTd}>Costo Cotizado</th></tr></thead><tbody>${rows.join('')}</tbody></table></div></div>` : '';
   const serv = snap.servicios || {}; const serviciosRows = [];
@@ -276,7 +277,7 @@ export function renderPresupuesto() {
   const _cs = ensureCotizaciones(project);
   const _activa = _cs.versiones.find(v => v.id === _cs.activoId);
   if (_activa && (_activa.numero || 0) !== cotUltimaNum(_cs)) { renderPresupuestoHistorico(project, _activa); return; }
-  const showReal = window.STATES_WITH_REAL_COST.includes(project.state);
+  const showReal = STATES_WITH_REAL_COST.includes(project.state);
   // Header actions: calculadora tributaria + indicador de modo
   document.getElementById('moduleHeaderActions').innerHTML = `
     <div style="display: flex; gap: 12px; align-items: center;">
@@ -305,7 +306,7 @@ export function renderPresupuesto() {
 
   const content = document.getElementById('moduleContent');
   content.innerHTML = `
-    <datalist id="dl-personas">${window.buildPersonasDatalist()}</datalist>
+    <datalist id="dl-personas">${gancho('buildPersonasDatalist')()}</datalist>
 
     <!-- V8.3.2: indicador + navegación de versión de cotización -->
     ${presupCotVersionBarHTML(project)}
@@ -385,7 +386,7 @@ function toggleDept(key) {
 export function renderServiciosBody() {
   const project = STATE.currentProject;
   const d = project.data.servicios;
-  const showReal = window.STATES_WITH_REAL_COST.includes(project.state);
+  const showReal = STATES_WITH_REAL_COST.includes(project.state);
   const _bScroll = _budgetCaptureScroll();   // V11.22 · preservar scroll horizontal
 
   let html = '';
@@ -441,7 +442,7 @@ function addServiceDept() {
   if (!name) { showToast({ kind: 'warning', title: 'Nombre inválido', body: 'Escribe un nombre para la sub-sección.' }); return; }
   if (d[name]) { showToast({ kind: 'warning', title: 'Ya existe', body: `Ya hay una sub-sección llamada «${name}».` }); return; }
   d[name] = [];
-  window.markDirty();
+  markDirty();
   renderServiciosBody();
   recalcAllDeptSummaries();
   showToast({ kind: 'success', title: 'Sub-sección creada', body: `«${name}» agregada a Servicios. Usa "+ Agregar rol" para sumarle filas.` });
@@ -461,8 +462,8 @@ function _renameServiceDeptCore(idx, rawNew) {
   const rebuilt = {};
   names.forEach(n => { rebuilt[n === oldName ? newName : n] = d[n]; });
   project.data.servicios = rebuilt;
-  (rebuilt[newName] || []).forEach(_markRowDirty);   // Pasada 1 · cambió el departamento de estas filas → re-enviarlas (su department_id se resuelve por nombre en el RPC)
-  window.markDirty();
+  (rebuilt[newName] || []).forEach(gancho('_markRowDirty'));   // Pasada 1 · cambió el departamento de estas filas → re-enviarlas (su department_id se resuelve por nombre en el RPC)
+  markDirty();
   return { oldName, newName };
 }
 function renameServiceDept(idx) {
@@ -494,13 +495,13 @@ function deleteServiceDept(idx) {
   const doDelete = () => {
     _budgetQueueDeletes(project, project.data.servicios[dept]);   // Pasada 1 · borrar en el servidor las filas existentes del depto (si no, reaparecen al recargar)
     delete project.data.servicios[dept];
-    window.markDirty();
+    markDirty();
     renderServiciosBody();
     recalcAllDeptSummaries();
     showToast({ kind: 'success', title: 'Sub-sección eliminada', body: `«${dept}» fue eliminada.` });
   };
   if (rows.length === 0) { doDelete(); return; }
-  window.showModal({
+  showModal({
     title: 'Eliminar sub-sección',
     body: `«${escapeHtml(dept)}» tiene ${rows.length} fila(s). Si la eliminas, se borran junto con la sub-sección. ¿Continuar?`,
     confirmLabel: 'Eliminar',
@@ -530,7 +531,7 @@ function moveServiceDept(idx, dir) {
   const rebuilt = {};
   order.forEach(n => { rebuilt[n] = d[n]; });   // solo cambia el orden de las llaves, no los datos
   project.data.servicios = rebuilt;
-  window.markDirty();
+  markDirty();
   renderServiciosBody();
   recalcAllDeptSummaries();
   openVisualizacionPanel();   // re-pintar el panel con el nuevo orden
@@ -584,7 +585,7 @@ export function renderSimpleSection(sectionKey) {
   const project = STATE.currentProject;
   if (sectionKey === 'gastos') gancho('_syncGastosCostoReal')(project);   // 4a · Costo Real derivado de los gastos
   const items = project.data[sectionKey];
-  const showReal = window.STATES_WITH_REAL_COST.includes(project.state);
+  const showReal = STATES_WITH_REAL_COST.includes(project.state);
 
   const labels = {
     gastos:   { firstCol: 'Ítem',  addLabel: '+ Agregar gasto' },
@@ -689,8 +690,8 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
   const roleOrItemField = sectionKey === 'servicios' ? 'rol' : 'item';
   const roleOrItemValue = sectionKey === 'servicios' ? item.rol : item.item;
   // V5.1.1: indicador visual cuando el nombre ingresado no está en BD
-  const nameInBD = item.nombre && window.BD_PERSONAS[item.nombre];
-  const nameNotInBD = item.nombre && !window.BD_PERSONAS[item.nombre];
+  const nameInBD = item.nombre && BD_PERSONAS[item.nombre];
+  const nameNotInBD = item.nombre && !BD_PERSONAS[item.nombre];
   // V5.2.2: bloqueo de cotizados después de aprobación.
   // Filas marcadas como `extra` (agregadas post-aprobación) son siempre editables.
   // V5.3.1 (Nota 1 — REGLA MADRE): el DTE cotizado vuelve a quedar
@@ -739,7 +740,7 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
   const _gastosDerivado = _esGastosSec && (typeof goLineaTieneCaja === 'function')
     && gancho('goLineaTieneCaja')(STATE.currentProject, item.item)
     && gancho('goLineaRealGastado')(STATE.currentProject, item.item) > 0;
-  const _crShow = (item.costoReal ? window.displayMoneyInputValue(item.costoReal) : '0');
+  const _crShow = (item.costoReal ? displayMoneyInputValue(item.costoReal) : '0');
   const costoRealCell = _gastosDerivado
     ? `<td class="num go-cr-derivado" data-accion="pre.d" data-args="[&quot;navigateToModule&quot;,&quot;gastos&quot;]" title="Costo real = suma de los gastos registrados en el módulo Gastos asociados a esta línea («${escapeHtml(item.item || '')}»). Clic para ir a la pestaña Gastos. No se edita a mano." style="cursor:pointer;">
           <span class="cr-money-wrap"><span class="cr-money-sign">$</span><span style="font-variant-numeric:tabular-nums;">${_crShow}</span></span>
@@ -747,7 +748,7 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
         </td>`
     : `<td class="num" ${accionHTML('pre.d', 'openCostoRealCalc', ...refA, { on: 'dblclick' })} title="Doble clic para calcular el costo real (costo empresa) con el DTE de la fila">
           <span class="cr-money-wrap"><span class="cr-money-sign">$</span><input type="text" inputmode="numeric" class="cell-input num cr-money-input" data-costo-real
-                 value="${window.displayMoneyInputValue(item.costoReal)}"
+                 value="${displayMoneyInputValue(item.costoReal)}"
                  placeholder="—"
                  ${accionHTML('pre.rowMoney', ...refA, 'costoReal', { on: 'change' })}></span>
           <span class="delta-inline ${deltaInitClass}" data-delta-inline>${deltaInitText}</span>
@@ -795,7 +796,7 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
       </td>
       <td class="num col-cot-detail">
         <input type="text" inputmode="numeric" class="cell-input num"
-               value="${window.displayMoneyInputValue(item.valor)}"
+               value="${displayMoneyInputValue(item.valor)}"
                placeholder="—"
                ${readonlyAttr}
                ${accionHTML('pre.rowMoney', ...refA, 'valor', { on: 'change' })}>
@@ -812,7 +813,7 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
       </td>
       <td class="num">
         <span class="cost-cell ${calc.error ? 'error' : (calc.value === 0 ? 'zero' : '')}" data-cost-cotizado>
-          ${calc.error ? calc.error : window.fmtMoney(calc.value)}
+          ${calc.error ? calc.error : fmtMoney(calc.value)}
         </span>
       </td>
       ${showReal ? `
@@ -832,7 +833,7 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
                    value="${heHoras}" placeholder="0" ${hePlana ? 'disabled' : ''}
                    title="N° de horas extra. La HE se calcula con el valor hora (valor de la fila ÷ 10) y el recargo del proyecto. Usa el ⚙ para una tarifa plana o una fórmula propia."
                    ${accionHTML('pre.d', 'setHeHoras', ...refA, '§v§', { on: 'change' })}>
-            <span class="he-cost ${item.horaExtra ? 'he-on' : (heNeedsCfg ? 'needs-cfg' : 'zero')}" data-he-cell${heNeedsCfg ? ` ${accionHTML('pre.d', 'openHorasExtraCalc', ...refA)} style="color:var(--warning);cursor:pointer;text-decoration:underline dotted;white-space:nowrap;" title="Ingresaste horas, pero esta fila no es «Jornadas»: no hay un valor hora del cual calcular la HE. Haz clic para fijar un valor hora propio o un monto plano."` : ''}>${item.horaExtra ? window.fmtMoney(item.horaExtra) : (heNeedsCfg ? '⚠ definir' : '—')}</span>
+            <span class="he-cost ${item.horaExtra ? 'he-on' : (heNeedsCfg ? 'needs-cfg' : 'zero')}" data-he-cell${heNeedsCfg ? ` ${accionHTML('pre.d', 'openHorasExtraCalc', ...refA)} style="color:var(--warning);cursor:pointer;text-decoration:underline dotted;white-space:nowrap;" title="Ingresaste horas, pero esta fila no es «Jornadas»: no hay un valor hora del cual calcular la HE. Haz clic para fijar un valor hora propio o un monto plano."` : ''}>${item.horaExtra ? fmtMoney(item.horaExtra) : (heNeedsCfg ? '⚠ definir' : '—')}</span>
             <button type="button" class="he-cog ${heOverride ? 'is-override' : ''}" title="Ajustar las horas extra de esta fila (tarifa plana, fórmula propia, IVA)" ${accionHTML('pre.d', 'openHorasExtraCalc', ...refA)}>⚙</button>
           </div>
         </td>
@@ -856,10 +857,10 @@ export function updateRowField(sectionKey, dept, idx, field, value) {
   const project = STATE.currentProject;
   if (sectionKey === 'servicios') {
     project.data.servicios[dept][idx][field] = value;
-    window._markRowDirty(project.data.servicios[dept][idx]);   // Pasada 1 · chokepoint de edición de campo de fila
+    gancho('_markRowDirty')(project.data.servicios[dept][idx]);   // Pasada 1 · chokepoint de edición de campo de fila
   } else {
     project.data[sectionKey][idx][field] = value;
-    window._markRowDirty(project.data[sectionKey][idx]);
+    gancho('_markRowDirty')(project.data[sectionKey][idx]);
   }
 }
 
@@ -913,8 +914,8 @@ function rowDrop(ev) {
   if (from !== to) {
     const moved = arr.splice(from, 1)[0];
     arr.splice(to, 0, moved);
-    arr.forEach(_markRowDirty);   // Pasada 1 · cambió la posición de las filas → re-enviarlas para persistir el orden
-    window.markDirty();
+    arr.forEach(gancho('_markRowDirty'));   // Pasada 1 · cambió la posición de las filas → re-enviarlas para persistir el orden
+    markDirty();
   }
   _budgetDrag = null;
   if (sec === 'servicios') renderServiciosBody(); else renderSimpleSection(sec);
@@ -1038,11 +1039,11 @@ var _BUDGET_COL_CFG = {
 var BUDGET_MENU_W = 36;
 function _budgetColCfg(colId) { return _BUDGET_COL_CFG[colId] || { min: 60, def: 120, max: 300 }; }
 function _budgetColWStore() {
-  if (!window._BUDGET_COLW) {
-    try { window._BUDGET_COLW = JSON.parse(localStorage.getItem('takeos_budget_colw') || '{}') || {}; }
-    catch (e) { window._BUDGET_COLW = {}; }
+  if (!_BUDGET_COLW) {
+    try { _BUDGET_COLW = JSON.parse(localStorage.getItem('takeos_budget_colw') || '{}') || {}; }
+    catch (e) { _BUDGET_COLW = {}; }
   }
-  return window._BUDGET_COLW;
+  return _BUDGET_COLW;
 }
 export function _budgetColWGet(sectionKey, colId, def) {
   var cfg = _budgetColCfg(colId);
@@ -1110,7 +1111,7 @@ function budgetColResizeReset(ev, sectionKey, colId) {
   var all = _budgetColWStore();
   if (all[sectionKey]) { delete all[sectionKey][colId]; try { localStorage.setItem('takeos_budget_colw', JSON.stringify(all)); } catch (e) {} }
   /* re-render SOLO de la sección afectada (no toda la página): renderServiciosBody /
-     renderSimpleSection / renderGastos preservan el scroll horizontal, así la columna
+     renderSimpleSection / gancho('renderGastos') preservan el scroll horizontal, así la columna
      vuelve a su ancho por defecto sin que la vista salte a la izquierda. */
   if (sectionKey === 'gastosReg') { if (typeof renderGastos === 'function') gancho('renderGastos')(); }
   else if (sectionKey === 'hlCrew' || sectionKey === 'hlExt') { if (typeof renderHojaLlamado === 'function') gancho('renderHojaLlamado')(); }
@@ -1182,7 +1183,7 @@ function openRowNote(sectionKey, dept, idx) {
 }
 function saveRowNote(sectionKey, dept, idx, clear) {
   const item = _rowNoteItem(sectionKey, dept, idx);
-  if (!item) { window.closeModal(); return; }
+  if (!item) { closeModal(); return; }
   if (clear) {
     delete item.nota; delete item.notaFecha; delete item.notaAutor;
   } else {
@@ -1190,9 +1191,9 @@ function saveRowNote(sectionKey, dept, idx, clear) {
     const v = t ? t.value.trim() : '';
     if (v) { item.nota = v; item.notaFecha = new Date().toLocaleDateString('es-CL'); item.notaAutor = 'Tú'; } else { delete item.nota; delete item.notaFecha; delete item.notaAutor; }
   }
-  window._markRowDirty(item);   // Pasada 1 · la nota se escribe por fuera de updateRowField → marcar la fila
-  window.markDirty();
-  window.closeModal();
+  gancho('_markRowDirty')(item);   // Pasada 1 · la nota se escribe por fuera de updateRowField → marcar la fila
+  markDirty();
+  closeModal();
   if (sectionKey === 'servicios') renderServiciosBody(); else renderSimpleSection(sectionKey);
 }
 
@@ -1216,7 +1217,7 @@ export function afterRowChange(sectionKey, dept, idx) {
   const costCell = rowEl.querySelector('[data-cost-cotizado]');
   if (costCell) {
     costCell.className = 'cost-cell ' + (calc.error ? 'error' : (calc.value === 0 ? 'zero' : ''));
-    costCell.textContent = calc.error ? calc.error : window.fmtMoney(calc.value);
+    costCell.textContent = calc.error ? calc.error : fmtMoney(calc.value);
   }
 
   // Update del delta si existe
@@ -1250,7 +1251,7 @@ export function afterRowChange(sectionKey, dept, idx) {
   // este refresco el input quedaba mostrando el líquido tipeado al abrirla.
   const crInput = rowEl.querySelector('[data-costo-real]');
   if (crInput && document.activeElement !== crInput) {
-    crInput.value = (item.costoReal != null) ? window.displayMoneyInputValue(item.costoReal) : '';
+    crInput.value = (item.costoReal != null) ? displayMoneyInputValue(item.costoReal) : '';
     crInput.classList.toggle('is-empty', item.costoReal == null);
   }
 
@@ -1259,7 +1260,7 @@ export function afterRowChange(sectionKey, dept, idx) {
   const nameWrap = rowEl.querySelector('.cell-name-wrap');
   if (nameWrap) {
     const existingWarn = nameWrap.querySelector('.cell-name-warn');
-    const nameNotInBD = item.nombre && !window.BD_PERSONAS[item.nombre];
+    const nameNotInBD = item.nombre && !BD_PERSONAS[item.nombre];
     if (nameNotInBD && !existingWarn) {
       const span = document.createElement('span');
       span.className = 'cell-name-warn';
@@ -1284,7 +1285,7 @@ export function afterRowChange(sectionKey, dept, idx) {
   if (heCostEl) {
     const heNeedsCfg = !!(item.heConfig && !item.horaExtra);   // Síntoma 1: config de HE sin costo calculable -> aviso
     heCostEl.className = 'he-cost ' + (item.horaExtra ? 'he-on' : (heNeedsCfg ? 'needs-cfg' : 'zero'));
-    heCostEl.textContent = item.horaExtra ? window.fmtMoney(item.horaExtra) : (heNeedsCfg ? '⚠ definir' : '—');
+    heCostEl.textContent = item.horaExtra ? fmtMoney(item.horaExtra) : (heNeedsCfg ? '⚠ definir' : '—');
     if (heNeedsCfg) {
       const refHeA = sectionKey === 'servicios' ? ['servicios', dept, idx] : [sectionKey, null, idx];
       heCostEl.style.cssText = 'color:var(--warning);cursor:pointer;text-decoration:underline dotted;white-space:nowrap;';
@@ -1384,7 +1385,7 @@ function deleteRow(sectionKey, dept, idx) {
     project.data[sectionKey].splice(idx, 1);
     renderSimpleSection(sectionKey);
   }
-  window.markDirty();   // Pasada 1 · la baja debe disparar el guardado (antes deleteRow no lo hacía)
+  markDirty();   // Pasada 1 · la baja debe disparar el guardado (antes deleteRow no lo hacía)
   recalcDeptSummary(sectionKey);
   recalcKPIs();
   recalcAlerts();
@@ -1395,7 +1396,7 @@ function deleteRow(sectionKey, dept, idx) {
 function recalcSubdeptTotals(dept) {
   const project = STATE.currentProject;
   const items = project.data.servicios[dept];
-  const showReal = window.STATES_WITH_REAL_COST.includes(project.state);
+  const showReal = STATES_WITH_REAL_COST.includes(project.state);
   let totCot = 0, totReal = 0, totHE = 0, hasReal = false;
   items.forEach(r => {
     const c = calcCostoEmpresa(r.valor, r.cantidad, r.dte, 'servicios');
@@ -1411,16 +1412,16 @@ function recalcSubdeptTotals(dept) {
   if (!el) return;
   const delta = totReal - totCot;
   el.innerHTML = `
-    <span>Cot: <strong>${window.fmtMoney(totCot)}</strong></span>
-    ${showReal && hasReal ? `<span>Real: <strong>${window.fmtMoney(totReal)}</strong></span>` : ''}
+    <span>Cot: <strong>${fmtMoney(totCot)}</strong></span>
+    ${showReal && hasReal ? `<span>Real: <strong>${fmtMoney(totReal)}</strong></span>` : ''}
     ${showReal && hasReal && totCot > 0 ? `<span class="delta ${deltaClassCosto(delta)}">${fmtDelta(delta)}</span>` : ''}
-    ${showReal && totHE > 0 ? `<span style="color:var(--accent);white-space:nowrap;" title="Horas extra de este departamento (costo real adicional). No entra al subtotal; se suma al Costo de Producción real en el Resumen Financiero.">+ HE ${window.fmtMoney(totHE)}</span>` : ''}
+    ${showReal && totHE > 0 ? `<span style="color:var(--accent);white-space:nowrap;" title="Horas extra de este departamento (costo real adicional). No entra al subtotal; se suma al Costo de Producción real en el Resumen Financiero.">+ HE ${fmtMoney(totHE)}</span>` : ''}
   `;
 }
 
 function recalcDeptSummary(sectionKey) {
   const project = STATE.currentProject;
-  const showReal = window.STATES_WITH_REAL_COST.includes(project.state);
+  const showReal = STATES_WITH_REAL_COST.includes(project.state);
   let totCot = 0, totReal = 0, totHE = 0, hasReal = false;
 
   if (sectionKey === 'servicios') {
@@ -1451,10 +1452,10 @@ function recalcDeptSummary(sectionKey) {
   if (!el) return;
   const delta = totReal - totCot;
   el.innerHTML = `
-    <span>Cotizado: <strong>${window.fmtMoney(totCot)}</strong></span>
-    ${showReal && hasReal ? `<span>Real: <strong>${window.fmtMoney(totReal)}</strong></span>` : ''}
+    <span>Cotizado: <strong>${fmtMoney(totCot)}</strong></span>
+    ${showReal && hasReal ? `<span>Real: <strong>${fmtMoney(totReal)}</strong></span>` : ''}
     ${showReal && hasReal && totCot > 0 ? `<span class="delta ${deltaClassCosto(delta)}">${fmtDelta(delta)}</span>` : ''}
-    ${showReal && totHE > 0 ? `<span style="color:var(--accent);white-space:nowrap;" title="Horas extra de esta sección (costo real adicional, ya con conversión por DTE). No se incluye en el subtotal para no inflar gastos administrativos ni contingencias; se suma al Costo de Producción real en el Resumen Financiero.">+ HE ${window.fmtMoney(totHE)}</span>` : ''}
+    ${showReal && totHE > 0 ? `<span style="color:var(--accent);white-space:nowrap;" title="Horas extra de esta sección (costo real adicional, ya con conversión por DTE). No se incluye en el subtotal para no inflar gastos administrativos ni contingencias; se suma al Costo de Producción real en el Resumen Financiero.">+ HE ${fmtMoney(totHE)}</span>` : ''}
   `;
 }
 
@@ -1892,7 +1893,7 @@ function toggleBudgetServiciosBreakdown() {
 export function renderSummaryFin() {
   const project = STATE.currentProject;
   if (!project) return;
-  const showReal = window.STATES_WITH_REAL_COST.includes(project.state);
+  const showReal = STATES_WITH_REAL_COST.includes(project.state);
   const locked = cotizadoLocked(project);
   const lockedAttr = locked ? 'readonly' : '';
   const lockedSelectAttr = locked ? 'disabled' : '';
@@ -1960,7 +1961,7 @@ export function renderSummaryFin() {
       <div class="spotlight-row">
         <div>
           <div class="spotlight-label">Ganancia Final Real <span class="tt" data-tip="Presupuesto Cliente − Costo de Producción real − Suma de comisiones.\n\nEs lo que efectivamente queda para la empresa después de pagar todo y repartir comisiones. El número más importante del proyecto desde el punto de vista financiero." style="background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.3);">?</span></div>
-          <div class="spotlight-value">${window.fmtMoney(gfReal)}</div>
+          <div class="spotlight-value">${fmtMoney(gfReal)}</div>
           <div class="spotlight-sub">${(margenPctReal * 100).toFixed(1)}% del presupuesto cliente</div>
         </div>
         <div class="spotlight-delta-block">
@@ -2008,8 +2009,8 @@ export function renderSummaryFin() {
           <tr${expandable ? ' style="cursor:pointer;" data-accion="pre.d" data-args="[&quot;toggleBudgetServiciosBreakdown&quot;]" title="Ver desglose por departamento"' : ''}>
             <td>${chevron}${r.label}${expandable ? ` <span style="color:var(--ink-faint);font-size:11px;">(${deptos.length} ${deptos.length === 1 ? 'depto.' : 'deptos.'})</span>` : ''}</td>
             <td class="pct">${pctOfClient(r.cot)}</td>
-            <td class="num">${window.fmtMoney(r.cot)}</td>
-            ${showReal ? `<td class="num">${r.hasReal && s.anyReal ? window.fmtMoney(r.real) : '—'}</td>` : ''}
+            <td class="num">${fmtMoney(r.cot)}</td>
+            ${showReal ? `<td class="num">${r.hasReal && s.anyReal ? fmtMoney(r.real) : '—'}</td>` : ''}
             ${showReal ? fmtPctRowGasto(r.cot, r.real) : ''}
             ${showReal ? fmtDeltaInRowGasto(r.cot, r.real) : ''}
           </tr>`;
@@ -2017,8 +2018,8 @@ export function renderSummaryFin() {
           <tr class="summary-subrow" style="background:var(--accent-bg);">
             <td style="padding-left:30px;color:var(--ink-secondary);font-size:13px;border-left:3px solid var(--accent-soft);">${escapeHtml(dp.label)}</td>
             <td class="pct">${pctOfClient(dp.cot)}</td>
-            <td class="num" style="color:var(--ink-secondary);">${window.fmtMoney(dp.cot)}</td>
-            ${showReal ? `<td class="num" style="color:var(--ink-secondary);">${s.anyReal ? window.fmtMoney(dp.real) : '—'}</td>` : ''}
+            <td class="num" style="color:var(--ink-secondary);">${fmtMoney(dp.cot)}</td>
+            ${showReal ? `<td class="num" style="color:var(--ink-secondary);">${s.anyReal ? fmtMoney(dp.real) : '—'}</td>` : ''}
             ${showReal ? fmtPctRowGasto(dp.cot, dp.real) : ''}
             ${showReal ? fmtDeltaInRowGasto(dp.cot, dp.real) : ''}
           </tr>`).join('') : '';
@@ -2028,8 +2029,8 @@ export function renderSummaryFin() {
           <tr>
             <td>${r.label}</td>
             <td class="pct">${pctOfClient(r.cot)}</td>
-            <td class="num">${window.fmtMoney(r.cot)}</td>
-            ${showReal ? `<td class="num">${r.hasReal && s.anyReal ? window.fmtMoney(r.real) : '—'}</td>` : ''}
+            <td class="num">${fmtMoney(r.cot)}</td>
+            ${showReal ? `<td class="num">${r.hasReal && s.anyReal ? fmtMoney(r.real) : '—'}</td>` : ''}
             ${showReal ? fmtPctRowGasto(r.cot, r.real) : ''}
             ${showReal ? fmtDeltaInRowGasto(r.cot, r.real) : ''}
           </tr>`;
@@ -2038,8 +2039,8 @@ export function renderSummaryFin() {
         <tr class="summary-row">
           <td>Subtotal Producción</td>
           <td class="pct">${pctOfClient(s.subtotal.cot)}</td>
-          <td class="num">${window.fmtMoney(s.subtotal.cot)}</td>
-          ${showReal ? `<td class="num">${s.anyReal ? window.fmtMoney(s.subtotal.real) : '—'}</td>` : ''}
+          <td class="num">${fmtMoney(s.subtotal.cot)}</td>
+          ${showReal ? `<td class="num">${s.anyReal ? fmtMoney(s.subtotal.real) : '—'}</td>` : ''}
           ${showReal ? fmtPctRowGasto(s.subtotal.cot, s.subtotal.real) : ''}
           ${showReal ? fmtDeltaInRowGasto(s.subtotal.cot, s.subtotal.real) : ''}
         </tr>
@@ -2054,8 +2055,8 @@ export function renderSummaryFin() {
                    ${lockedAttr}
                    ${accionHTML('pre.finPct', 'updateFinanzasField', 'gastosAdminPct', { on: 'change' })}>%
           </td>
-          <td class="num">${window.fmtMoney(s.admin.cot)}</td>
-          ${showReal ? `<td class="num">${s.anyReal ? window.fmtMoney(s.admin.real) : '—'}</td>` : ''}
+          <td class="num">${fmtMoney(s.admin.cot)}</td>
+          ${showReal ? `<td class="num">${s.anyReal ? fmtMoney(s.admin.real) : '—'}</td>` : ''}
           ${showReal ? '<td class="pct">—</td>' : ''}
           ${showReal ? fmtDeltaInRowGasto(s.admin.cot, s.admin.real) : ''}
         </tr>
@@ -2079,13 +2080,13 @@ export function renderSummaryFin() {
                 <option value="pct" ${r.mode === 'pct' ? 'selected' : ''}>%</option>
               </select>
               <input type="${r.mode === 'pct' ? 'number' : 'text'}" ${r.mode === 'pct' ? 'step="0.5"' : 'inputmode="numeric"'} min="0"
-                     value="${r.mode === 'pct' ? ((r.value || 0) * 100).toFixed(1) : window.displayMoneyInputValue(r.value)}"
+                     value="${r.mode === 'pct' ? ((r.value || 0) * 100).toFixed(1) : displayMoneyInputValue(r.value)}"
                      ${lockedAttr}
                      ${accionHTML('pre.finVal', 'updateRiesgoValue', idx, r.mode, { on: 'change' })}>
               ${r.mode === 'pct' ? '%' : ''}
             </td>
-            <td class="num">${window.fmtMoney(r.cot)}</td>
-            ${showReal ? `<td class="num">${s.anyReal ? window.fmtMoney(r.real) : '—'}</td>` : ''}
+            <td class="num">${fmtMoney(r.cot)}</td>
+            ${showReal ? `<td class="num">${s.anyReal ? fmtMoney(r.real) : '—'}</td>` : ''}
             ${showReal ? '<td class="pct">—</td>' : ''}
             ${showReal ? fmtDeltaInRowGasto(r.cot, r.real) : ''}
           </tr>
@@ -2107,7 +2108,7 @@ export function renderSummaryFin() {
           <td>Horas extra <span class="tt" data-tip="Horas extra reales (costo empresa, ya con la conversión por DTE real). Es un costo del lado real: no tiene equivalente cotizado y se suma al Costo de Producción real, después de Gastos administrativos y Contingencias. Cárgalas por fila con doble clic en la columna «Horas extra».">?</span></td>
           <td class="pct">—</td>
           <td class="num">—</td>
-          <td class="num">${window.fmtMoney(s.horasExtra.real)}</td>
+          <td class="num">${fmtMoney(s.horasExtra.real)}</td>
           ${fmtPctRowGasto(0, s.horasExtra.real)}
           ${fmtDeltaInRowGasto(0, s.horasExtra.real)}
         </tr>` : ''}
@@ -2115,8 +2116,8 @@ export function renderSummaryFin() {
         <tr class="summary-row">
           <td>Costo de Producción</td>
           <td class="pct">${pctOfClient(s.costoProd.cot)}</td>
-          <td class="num">${window.fmtMoney(s.costoProd.cot)}</td>
-          ${showReal ? `<td class="num">${s.anyReal ? window.fmtMoney(s.costoProd.real) : '—'}</td>` : ''}
+          <td class="num">${fmtMoney(s.costoProd.cot)}</td>
+          ${showReal ? `<td class="num">${s.anyReal ? fmtMoney(s.costoProd.real) : '—'}</td>` : ''}
           ${showReal ? fmtPctRowGasto(s.costoProd.cot, s.costoProd.real) : ''}
           ${showReal ? fmtDeltaInRowGasto(s.costoProd.cot, s.costoProd.real) : ''}
         </tr>
@@ -2129,7 +2130,7 @@ export function renderSummaryFin() {
           <td class="pct">—</td>
           <td class="num editable-cell" colspan="${showReal ? 4 : 1}">
             <input type="text" inputmode="numeric"
-                   value="${window.displayMoneyInputValue(s.presupCliente)}"
+                   value="${displayMoneyInputValue(s.presupCliente)}"
                    placeholder="Ingresa monto cotizado al cliente"
                    ${lockedAttr}
                    ${accionHTML('pre.finMoney', 'updateFinanzasField', 'presupuestoCliente', { on: 'change' })}>
@@ -2153,7 +2154,7 @@ export function renderSummaryFin() {
             <td class="pct">+${baseCliente > 0 ? ((x.monto || 0) / baseCliente * 100).toFixed(1) : '0.0'}%</td>
             <td class="num editable-cell" colspan="${showReal ? 4 : 1}">
               <input type="text" inputmode="numeric"
-                     value="${window.displayMoneyInputValue(x.monto || 0)}"
+                     value="${displayMoneyInputValue(x.monto || 0)}"
                      placeholder="Monto extra al cliente"
                      ${accionHTML('pre.finMoney', 'updateExtraIngresoMonto', idx, { on: 'change' })}>
             </td>
@@ -2175,8 +2176,8 @@ export function renderSummaryFin() {
             <span class="tt" data-tip="Presupuesto Cliente original + suma de extras / ampliaciones. Es la base real (en neto, sin IVA) sobre la que se calcula la ganancia y los márgenes.">?</span>
           </td>
           <td class="pct">100%</td>
-          <td class="num"><strong>${window.fmtMoney(s.presupCliente)}</strong></td>
-          ${showReal ? `<td class="num"><strong>${window.fmtMoney(s.presupClienteEfectivo)}</strong></td>` : ''}
+          <td class="num"><strong>${fmtMoney(s.presupCliente)}</strong></td>
+          ${showReal ? `<td class="num"><strong>${fmtMoney(s.presupClienteEfectivo)}</strong></td>` : ''}
           ${showReal ? '<td class="pct">—</td>' : ''}
           ${showReal ? '<td class="num">—</td>' : ''}
         </tr>
@@ -2185,8 +2186,8 @@ export function renderSummaryFin() {
         <tr class="summary-row">
           <td>Ganancia parcial</td>
           <td class="pct">${s.presupCliente > 0 ? ((s.gananciaParcial.cot / s.presupCliente) * 100).toFixed(1) + '%' : '—'}</td>
-          <td class="num" style="color: ${s.gananciaParcial.cot >= 0 ? 'var(--positive)' : 'var(--negative)'};">${window.fmtMoney(s.gananciaParcial.cot)}</td>
-          ${showReal ? `<td class="num" style="color: ${s.gananciaParcial.real >= 0 ? 'var(--positive)' : 'var(--negative)'};">${s.anyReal ? window.fmtMoney(s.gananciaParcial.real) : '—'}</td>` : ''}
+          <td class="num" style="color: ${s.gananciaParcial.cot >= 0 ? 'var(--positive)' : 'var(--negative)'};">${fmtMoney(s.gananciaParcial.cot)}</td>
+          ${showReal ? `<td class="num" style="color: ${s.gananciaParcial.real >= 0 ? 'var(--positive)' : 'var(--negative)'};">${s.anyReal ? fmtMoney(s.gananciaParcial.real) : '—'}</td>` : ''}
           ${showReal ? fmtPctRowGanancia(s.gananciaParcial.cot, s.gananciaParcial.real) : ''}
           ${showReal ? fmtDeltaInRowGanancia(s.gananciaParcial.cot, s.gananciaParcial.real) : ''}
         </tr>
@@ -2210,13 +2211,13 @@ export function renderSummaryFin() {
                 <option value="pct" ${c.mode === 'pct' ? 'selected' : ''}>%</option>
               </select>
               <input type="${c.mode === 'pct' ? 'number' : 'text'}" ${c.mode === 'pct' ? 'step="0.5"' : 'inputmode="numeric"'} min="0"
-                     value="${c.mode === 'pct' ? ((c.value || 0) * 100).toFixed(1) : window.displayMoneyInputValue(c.value)}"
+                     value="${c.mode === 'pct' ? ((c.value || 0) * 100).toFixed(1) : displayMoneyInputValue(c.value)}"
                      ${lockedAttr}
                      ${accionHTML('pre.finVal', 'updateComisionValue', idx, c.mode, { on: 'change' })}>
               ${c.mode === 'pct' ? '%' : ''}
             </td>
-            <td class="num">${window.fmtMoney(c.cot)}</td>
-            ${showReal ? `<td class="num">${s.anyReal ? window.fmtMoney(c.real) : '—'}</td>` : ''}
+            <td class="num">${fmtMoney(c.cot)}</td>
+            ${showReal ? `<td class="num">${s.anyReal ? fmtMoney(c.real) : '—'}</td>` : ''}
             ${showReal ? '<td class="pct">—</td>' : ''}
             ${showReal ? fmtDeltaInRowGasto(c.cot, c.real) : ''}
           </tr>
@@ -2235,8 +2236,8 @@ export function renderSummaryFin() {
         <tr class="final-row">
           <td>GANANCIA FINAL PRIMATE (NETO)</td>
           <td class="pct">${(margenPctCot * 100).toFixed(1)}%</td>
-          <td class="num">${window.fmtMoney(s.gananciaFinal.cot)}</td>
-          ${showReal ? `<td class="num">${s.anyReal ? window.fmtMoney(s.gananciaFinal.real) : '—'}</td>` : ''}
+          <td class="num">${fmtMoney(s.gananciaFinal.cot)}</td>
+          ${showReal ? `<td class="num">${s.anyReal ? fmtMoney(s.gananciaFinal.real) : '—'}</td>` : ''}
           ${showReal ? fmtPctRowGanancia(s.gananciaFinal.cot, s.gananciaFinal.real) : ''}
           ${showReal ? fmtDeltaInRowGanancia(s.gananciaFinal.cot, s.gananciaFinal.real) : ''}
         </tr>
@@ -2370,7 +2371,7 @@ function recalcAlerts() {
 
    El Crew NO es una tabla editable libre. Es el espejo de las personas
    confirmadas en el Presupuesto, con datos operativos auto-completados
-   desde window.BD_PERSONAS. El único campo editable aquí es "medio de transporte"
+   desde BD_PERSONAS. El único campo editable aquí es "medio de transporte"
    (vive en project.data.crewExtra).
 
    Si una persona aparece en Presupuesto como confirmada pero su nombre
@@ -2391,9 +2392,9 @@ function recalcAlerts() {
    El costeo NO duplica lógica: reutiliza calcSummaryFin() envolviendo el
    snapshot en un proyecto-fantasma en estado 'venta'.
 
-   window.markDirty(undo + autosave) se dispara solo en los onchange/oninput por los
+   markDirty(undo + autosave) se dispara solo en los onchange/oninput por los
    listeners globales del documento; las mutaciones por click (agregar/quitar
-   oferta o fila, crear/eliminar presupuesto alternativo) llaman window.markDirty()
+   oferta o fila, crear/eliminar presupuesto alternativo) llaman markDirty()
    explícitamente porque un 'click' no es un evento 'change'.
    ════════════════════════════════════════════════════════════════════ */
 
@@ -2439,7 +2440,7 @@ function cotVerId() { return 'cv_' + Date.now().toString(36) + '_' + Math.random
 function ensureCotizaciones(project) {
   const d = project.data;
   if (!d.cotizaciones || !Array.isArray(d.cotizaciones.versiones) || !d.cotizaciones.versiones.length) {
-    const base = d.cotizacion || { fechaEmision: '', representanteCliente: '', condiciones: Object.assign({}, window.COTIZACION_CONDICIONES_DEFAULTS), ofertas: [] };
+    const base = d.cotizacion || { fechaEmision: '', representanteCliente: '', condiciones: Object.assign({}, COTIZACION_CONDICIONES_DEFAULTS), ofertas: [] };
     const v = Object.assign({}, base, { id: cotVerId(), numero: 1, label: 'Versión 1', nota: '', createdAt: new Date().toISOString(), resumen: (base.resumen || null) });
     d.cotizaciones = { activoId: v.id, versiones: [v] };
   }
@@ -2460,8 +2461,8 @@ function ensureCotizaciones(project) {
 function ensureCotizacion(project) {
   const cs = ensureCotizaciones(project);
   const c = cs.versiones.find(v => v.id === cs.activoId);
-  if (!c.condiciones) c.condiciones = Object.assign({}, window.COTIZACION_CONDICIONES_DEFAULTS);
-  else for (const k in window.COTIZACION_CONDICIONES_DEFAULTS) if (c.condiciones[k] === undefined) c.condiciones[k] = window.COTIZACION_CONDICIONES_DEFAULTS[k];
+  if (!c.condiciones) c.condiciones = Object.assign({}, COTIZACION_CONDICIONES_DEFAULTS);
+  else for (const k in COTIZACION_CONDICIONES_DEFAULTS) if (c.condiciones[k] === undefined) c.condiciones[k] = COTIZACION_CONDICIONES_DEFAULTS[k];
   if (!Array.isArray(c.ofertas)) c.ofertas = [];
   if (c.descripcionProyecto === undefined) {
     const wd = c.ofertas.find(o => (o.descripcion || '').trim());
@@ -2519,7 +2520,7 @@ function cotVersionSwitcherHTML(project) {
   const chips = cs.versiones.slice().sort((a, b) => (a.numero || 0) - (b.numero || 0)).map(v => {
     const act = v.id === cs.activoId;
     const r = v.resumen;
-    const sub = r ? `${window.fmtMoney(r.valor)} · ${window.fmtPct(r.margenPct)}` : 'sin datos';
+    const sub = r ? `${fmtMoney(r.valor)} · ${fmtPct(r.margenPct)}` : 'sin datos';
     return `<button class="cotver-chip ${act ? 'is-active' : ''}" ${accionHTML('pre.d', 'cotSetActiveVersion', v.id)} title="${escapeHtml(v.nota || v.label)}">
        <span class="cotver-chip-label">${escapeHtml(v.label)}${act ? ' · activa' : ''}</span>
        <span class="cotver-chip-sub">${sub}</span>
@@ -2551,7 +2552,7 @@ function cotVersionHistBanner() {
 function cotSetVersionNota(value) {
   const cs = ensureCotizaciones(STATE.currentProject);
   const v = cs.versiones.find(x => x.id === cs.activoId);
-  if (v) { v.nota = value; window.markDirty(); }
+  if (v) { v.nota = value; markDirty(); }
 }
 
 function cotCrearVersion() {
@@ -2573,7 +2574,7 @@ function cotCrearVersion() {
   delete copia.presupSnap;   // la nueva (última) sigue el presupuesto en vivo, no un snapshot
   cs.versiones.push(copia);
   cs.activoId = copia.id;
-  window.markDirty();
+  markDirty();
   renderCotizacion();
   showToast({ kind: 'success', title: `Versión ${copia.numero} creada`, body: 'Es una copia de la anterior, lista para editar. La versión previa quedó preservada como historial.' });
 }
@@ -2583,7 +2584,7 @@ function cotSetActiveVersion(id) {
   const cs = ensureCotizaciones(project);
   if (!cs.versiones.find(v => v.id === id)) return;
   cs.activoId = id;
-  window.markDirty();
+  markDirty();
   renderCotizacion();
 }
 
@@ -2650,9 +2651,9 @@ function cotCmpBodyHTML(project) {
     const d = (b.fin.valor || 0) - (a.fin.valor || 0);
     const color = (Math.round(d) === 0) ? 'var(--ink-faint)' : (d >= 0 ? '#15803d' : '#b91c1c');
     kpi = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--bg-surface-soft);border:1px solid var(--rule);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;">
-      <div><div style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;">${escapeHtml(a.v.label)}</div><div style="font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;">${window.fmtMoney(a.fin.valor)}</div></div>
+      <div><div style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;">${escapeHtml(a.v.label)}</div><div style="font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;">${fmtMoney(a.fin.valor)}</div></div>
       <div style="font-size:20px;color:var(--ink-faint);">&rarr;</div>
-      <div><div style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;">${escapeHtml(b.v.label)}</div><div style="font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;">${window.fmtMoney(b.fin.valor)}</div></div>
+      <div><div style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;">${escapeHtml(b.v.label)}</div><div style="font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;">${fmtMoney(b.fin.valor)}</div></div>
       <div style="margin-left:auto;text-align:right;"><div style="font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;">&Delta; valor cotizado</div><div style="font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;color:${color};">${fmtDelta(d)}</div></div>
     </div>`;
   }
@@ -2681,10 +2682,10 @@ function cotCmpBodyHTML(project) {
     <thead><tr><th></th>${cols.map(c => `<th>${escapeHtml(c.v.label)}${c.v.id === cs.activoId ? ' ·activa' : ''}${c.o ? '' : ' <span style="color:var(--ink-faint);font-weight:400;">(sin esta oferta)</span>'}${c.v.nota ? `<span class="cotcmp-nota">${escapeHtml(c.v.nota)}</span>` : ''}</th>`).join('')}</tr></thead>
     <tbody>
       <tr class="cotcmp-group"><td colspan="${cols.length + 1}">Financiero · ${escapeHtml(sel)}</td></tr>
-      ${row('Valor cotizado', 'valor', window.fmtMoney, true, false)}
-      ${row('Costo de producción', 'costo', window.fmtMoney, false, false)}
-      ${row('Ganancia proyectada', 'ganancia', window.fmtMoney, true, false)}
-      ${row('Margen', 'margen', window.fmtPct, true, true)}
+      ${row('Valor cotizado', 'valor', fmtMoney, true, false)}
+      ${row('Costo de producción', 'costo', fmtMoney, false, false)}
+      ${row('Ganancia proyectada', 'ganancia', fmtMoney, true, false)}
+      ${row('Margen', 'margen', fmtPct, true, true)}
     </tbody></table></div>`;
 
   const nota = `<p class="config-hint" style="margin-top:12px;">El delta se calcula contra la primera versión que tiene esta oferta. La base de la última versión sigue el presupuesto en vivo; las alternativas y versiones anteriores usan su snapshot/resumen congelado.</p>`;
@@ -2780,7 +2781,7 @@ function renderCotizacion() {
   const c = ensureCotizacion(project);
   const esUltima = (c.numero || 0) === cotUltimaNum(cs);   // solo la última sigue el presupuesto en vivo
   // La oferta base siempre existe (es el Presupuesto real surfaceado como oferta).
-  if (c.ofertas.length === 0) { c.ofertas.push(cotNewBaseOferta(project)); window.markDirty(); }
+  if (c.ofertas.length === 0) { c.ofertas.push(cotNewBaseOferta(project)); markDirty(); }
   const base = c.ofertas.find(o => o.esBase);
   if (esUltima && base) base.valorCliente = cotRealPresup(project);
   if (esUltima) cotCaptureResumen(project, c);
@@ -2804,7 +2805,7 @@ function renderCotizacion() {
       ${c.ofertas.map((o, i) => cotOfertaCardHTML(project, o, i)).join('')}
     </div>`;
   // V10.5.1: el innerHTML de arriba borra el banner de solo-lectura; re-aplicarlo tras cada render.
-  try { window.applyModuleReadonly('cotizacion'); } catch (e) {}
+  try { gancho('applyModuleReadonly')('cotizacion'); } catch (e) {}
 }
 
 function cotMetaCardHTML(project, c, ip, fechaVal) {
@@ -2873,7 +2874,7 @@ function cotCondicionesCardHTML(project, c) {
     <div class="cond-inline"><input type="number" class="cot-input num" min="${min == null ? 0 : min}" value="${k[key]}"
       ${accionHTML('pre.cond', key, { on: 'change' })}><span class="cond-suffix">${escapeHtml(suffix)}</span></div></div>`;
   const money = (key, label) => `<div class="cond-field"><label>${escapeHtml(label)}</label>
-    <div class="cond-inline"><input type="text" inputmode="numeric" class="cot-input num" value="${window.displayMoneyInputValue(k[key])}"
+    <div class="cond-inline"><input type="text" inputmode="numeric" class="cot-input num" value="${displayMoneyInputValue(k[key])}"
       ${accionHTML('pre.d', 'cotSetCondicionMoney', '§el§', key, { on: 'change' })}><span class="cond-suffix">CLP</span></div></div>`;
   return `<div class="cot-card">
     <div class="cot-card-title cot-collapse-head ${collapsed ? '' : 'open'}" data-accion="pre.d" data-args="[&quot;cotToggleCondiciones&quot;]">
@@ -2911,13 +2912,13 @@ function cotOfertaCardHTML(project, o, i) {
   const valorBlock = base
     ? `<div class="cot-field" style="margin-bottom:16px;">
          <label>Valor al cliente (neto, sin IVA)</label>
-         <div class="ro" style="font-size:18px;font-weight:700;color:var(--ink-primary);padding:2px 0;">${window.fmtMoney(o.valorCliente)}</div>
+         <div class="ro" style="font-size:18px;font-weight:700;color:var(--ink-primary);padding:2px 0;">${fmtMoney(o.valorCliente)}</div>
          <span style="font-size:11px;color:var(--ink-faint);">Viene del Presupuesto. Para cambiarlo, edita el Presupuesto del proyecto.</span>
        </div>`
     : `<div class="cot-field" style="margin-bottom:16px;">
          <label>Valor al cliente (neto, sin IVA)</label>
          <input type="text" inputmode="numeric" class="cot-input num" style="max-width:220px;"
-                value="${window.displayMoneyInputValue(o.valorCliente)}" placeholder="$0"
+                value="${displayMoneyInputValue(o.valorCliente)}" placeholder="$0"
                 ${accionHTML('pre.d', 'cotMoneyOferta', '§el§', id, { on: 'change' })}>
          <span style="font-size:11px;color:var(--ink-faint);margin-top:4px;">Parte del valor del Presupuesto. Ajústalo para esta oferta.</span>
        </div>`;
@@ -2976,13 +2977,13 @@ function cotCosteoInnerHTML(project, o) {
   const pct = valor > 0 ? (gan / valor * 100) : null;
   const cls = gan >= 0 ? 'pos' : 'neg';
   return `
-    <div class="cot-margin-row"><span class="lbl">Subtotal de producción</span><span class="val">${window.fmtMoney(subtotal)}</span></div>
-    <div class="cot-margin-row" style="opacity:.8;font-size:12px;"><span class="lbl">+ Gastos administrativos (${adminPct}%)</span><span class="val">${window.fmtMoney(admin)}</span></div>
-    <div class="cot-margin-row" style="opacity:.8;font-size:12px;"><span class="lbl">+ Contingencias</span><span class="val">${window.fmtMoney(conting)}</span></div>
-    <div class="cot-margin-row"><span class="lbl">= Costo de producción</span><span class="val">${window.fmtMoney(costo)}</span></div>
-    <div class="cot-margin-row"><span class="lbl">− Comisiones</span><span class="val">${window.fmtMoney(comis)}</span></div>
-    <div class="cot-margin-row"><span class="lbl">Valor al cliente (neto)</span><span class="val">${window.fmtMoney(valor)}</span></div>
-    <div class="cot-margin-row total"><span class="lbl">Ganancia</span><span class="val ${cls}">${window.fmtMoney(gan)}${pct !== null ? `<span class="cot-margin-pct ${cls}">${pct.toFixed(1)}%</span>` : ''}</span></div>`;
+    <div class="cot-margin-row"><span class="lbl">Subtotal de producción</span><span class="val">${fmtMoney(subtotal)}</span></div>
+    <div class="cot-margin-row" style="opacity:.8;font-size:12px;"><span class="lbl">+ Gastos administrativos (${adminPct}%)</span><span class="val">${fmtMoney(admin)}</span></div>
+    <div class="cot-margin-row" style="opacity:.8;font-size:12px;"><span class="lbl">+ Contingencias</span><span class="val">${fmtMoney(conting)}</span></div>
+    <div class="cot-margin-row"><span class="lbl">= Costo de producción</span><span class="val">${fmtMoney(costo)}</span></div>
+    <div class="cot-margin-row"><span class="lbl">− Comisiones</span><span class="val">${fmtMoney(comis)}</span></div>
+    <div class="cot-margin-row"><span class="lbl">Valor al cliente (neto)</span><span class="val">${fmtMoney(valor)}</span></div>
+    <div class="cot-margin-row total"><span class="lbl">Ganancia</span><span class="val ${cls}">${fmtMoney(gan)}${pct !== null ? `<span class="cot-margin-pct ${cls}">${pct.toFixed(1)}%</span>` : ''}</span></div>`;
 }
 
 /* ─── Listas simples (Incluye / NO incluye / Fotografía / Otros) ─────── */
@@ -3050,12 +3051,12 @@ function cotRerenderVideos(ofId) {
 function cotVideoAdd(ofId) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
   o.entregables.videos.push({ nombre: '', variables: [] });
-  window.markDirty(); cotRerenderVideos(ofId);
+  markDirty(); cotRerenderVideos(ofId);
 }
 function cotVideoDel(ofId, idx) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
   o.entregables.videos.splice(idx, 1);
-  window.markDirty(); cotRerenderVideos(ofId);
+  markDirty(); cotRerenderVideos(ofId);
 }
 function cotVideoName(ofId, idx, val) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
@@ -3066,7 +3067,7 @@ function cotVarAdd(ofId, vidIdx) {
   const v = o.entregables.videos[vidIdx]; if (!v) return;
   if (!Array.isArray(v.variables)) v.variables = [];
   v.variables.push('');
-  window.markDirty(); cotRerenderVideos(ofId);
+  markDirty(); cotRerenderVideos(ofId);
 }
 function cotVarEdit(ofId, vidIdx, j, val) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
@@ -3076,7 +3077,7 @@ function cotVarDel(ofId, vidIdx, j) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
   const v = o.entregables.videos[vidIdx]; if (!v) return;
   v.variables.splice(j, 1);
-  window.markDirty(); cotRerenderVideos(ofId);
+  markDirty(); cotRerenderVideos(ofId);
 }
 
 /* ─── Editor del presupuesto alternativo (solo ofertas no-base) ─────── */
@@ -3129,14 +3130,14 @@ function cotSnapRowHTML(ofId, section, dept, r, idx) {
         <option value="">— DTE —</option>
         ${DTE_OPTIONS.map(d => `<option value="${d.value}" ${r.dte === d.value ? 'selected' : ''}>${d.label}</option>`).join('')}
       </select></td>
-    <td class="num"><input type="text" inputmode="numeric" class="cot-input num" value="${window.displayMoneyInputValue(r.valor)}" placeholder="—"
+    <td class="num"><input type="text" inputmode="numeric" class="cot-input num" value="${displayMoneyInputValue(r.valor)}" placeholder="—"
         ${accionHTML('pre.snap', ...refA, 'valor', { on: 'change' })}></td>
     <td class="num"><input type="number" step="0.5" class="cot-input num" value="${r.cantidad ?? ''}" placeholder="0"
         ${accionHTML('pre.snap', ...refA, 'cantidad', { on: 'change' })}></td>
     <td><select class="cot-input" ${accionHTML('pre.snap', ...refA, 'unidad', { on: 'change' })}>
         ${unidades.map(u => `<option value="${escapeHtml(u)}" ${r.unidad === u ? 'selected' : ''}>${escapeHtml(u)}</option>`).join('')}
       </select></td>
-    <td class="num"><span class="cot-snapcost ${calc.error ? 'error' : ''}">${calc.error ? escapeHtml(calc.error) : window.fmtMoney(calc.value)}</span></td>
+    <td class="num"><span class="cot-snapcost ${calc.error ? 'error' : ''}">${calc.error ? escapeHtml(calc.error) : fmtMoney(calc.value)}</span></td>
     <td><button class="bullet-del" title="Quitar" ${accionHTML('pre.d', 'cotSnapDel', ofId, section, dq, idx)}>×</button></td>
   </tr>`;
 }
@@ -3147,14 +3148,14 @@ function _cotSetMetaReal(field, value) { ensureCotizacion(STATE.currentProject)[
 function cotSetCondicion(key, value) { ensureCotizacion(STATE.currentProject).condiciones[key] = value; }
 function cotSetCondicionMoney(el, key) {
   const c = ensureCotizacion(STATE.currentProject);
-  c.condiciones[key] = window.parseMoneyCLP(el.value);
-  el.value = window.displayMoneyInputValue(c.condiciones[key]);
+  c.condiciones[key] = parseMoneyCLP(el.value);
+  el.value = displayMoneyInputValue(c.condiciones[key]);
 }
 function cotSetOfertaField(ofId, field, value) { const o = cotFindOferta(STATE.currentProject, ofId); if (o) o[field] = value; }
 function cotMoneyOferta(el, ofId) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
-  o.valorCliente = window.parseMoneyCLP(el.value);
-  el.value = window.displayMoneyInputValue(o.valorCliente);
+  o.valorCliente = parseMoneyCLP(el.value);
+  el.value = displayMoneyInputValue(o.valorCliente);
   refreshCosteo(ofId);
 }
 function refreshCosteo(ofId) {
@@ -3189,7 +3190,7 @@ function cotAddOferta() {
     nueva = cotNewAltOferta(project, nAlt);
   }
   c.ofertas.push(nueva);
-  window.markDirty();
+  markDirty();
   renderCotizacion();
   showToast({ kind: 'success', title: 'Oferta creada', body: 'Es una copia de la oferta base (entregables, incluye, no incluye) con su propio presupuesto alternativo. Edítala libremente para esta opción.' });
 }
@@ -3201,14 +3202,14 @@ function cotDeleteOferta(ofId) {
     showToast({ kind: 'info', title: 'No se puede eliminar', body: 'La oferta base usa el Presupuesto real y siempre existe. Puedes eliminar las ofertas alternativas.' });
     return;
   }
-  window.showModal({
+  showModal({
     danger: true, title: 'Eliminar oferta',
     body: `¿Eliminar <strong>${escapeHtml(o.nombre || 'esta oferta')}</strong>? Se borra su contenido y su presupuesto alternativo. Se puede deshacer con el botón Deshacer.`,
     confirmLabel: 'Eliminar oferta', cancelLabel: 'Cancelar',
     onConfirm: () => {
       const idx = c.ofertas.findIndex(x => x.id === ofId);
       if (idx > -1) c.ofertas.splice(idx, 1);
-      window.markDirty(); renderCotizacion();
+      markDirty(); renderCotizacion();
     },
     onCancel: () => {}
   });
@@ -3230,7 +3231,7 @@ function cotDrop(ev, ofId, listKey, idx) {
   if (!list || from < 0 || from >= list.length || from === idx) { renderCotizacion(); return; }
   const item = list.splice(from, 1)[0];
   list.splice(idx, 0, item);
-  window.markDirty(); renderCotizacion();
+  markDirty(); renderCotizacion();
 }
 function cotBulletEdit(ofId, listKey, idx, value) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
@@ -3240,7 +3241,7 @@ function cotBulletEdit(ofId, listKey, idx, value) {
 function cotBulletAdd(ofId, listKey) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
   const list = cotResolveList(o, listKey); if (!list) return;
-  list.push(''); window.markDirty(); cotRerenderBullets(ofId, listKey);
+  list.push(''); markDirty(); cotRerenderBullets(ofId, listKey);
 }
 function cotRegenIncluye(ofId) {
   // V6.4 (Nota 4): refresco manual del Incluye desde el Presupuesto actual.
@@ -3248,7 +3249,7 @@ function cotRegenIncluye(ofId) {
   const project = STATE.currentProject;
   const o = cotFindOferta(project, ofId); if (!o) return;
   o.incluye = cotDefaultIncluye(project);
-  window.markDirty();
+  markDirty();
   cotRerenderBullets(ofId, 'incluye');
   showToast({ kind: 'info', title: 'Incluye actualizado', body: o.incluye.length
     ? 'Se trajo desde el Presupuesto (ítems con cantidad ≥ 1).'
@@ -3257,7 +3258,7 @@ function cotRegenIncluye(ofId) {
 function cotBulletDel(ofId, listKey, idx) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
   const list = cotResolveList(o, listKey); if (!list) return;
-  list.splice(idx, 1); window.markDirty(); cotRerenderBullets(ofId, listKey);
+  list.splice(idx, 1); markDirty(); cotRerenderBullets(ofId, listKey);
 }
 function cotRerenderBullets(ofId, listKey) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
@@ -3276,15 +3277,15 @@ function cotSnapEdit(el, ofId, section, dept, idx, field) {
   const rows = cotSnapRows(o, section, dept);
   if (!rows || !rows[idx]) return;
   const row = rows[idx];
-  if (field === 'valor') row.valor = window.parseMoneyCLP(el.value);
-  else if (field === 'cantidad') row.cantidad = window.readNum(el) ?? 0;
+  if (field === 'valor') row.valor = parseMoneyCLP(el.value);
+  else if (field === 'cantidad') row.cantidad = readNum(el) ?? 0;
   else if (field === 'dte') row.dte = el.value || null;
   else row[field] = el.value;
   const tr = el.closest('tr');
   const costCell = tr && tr.querySelector('.cot-snapcost');
   if (costCell) {
     const calc = calcCostoEmpresa(row.valor, row.cantidad, row.dte, section);
-    costCell.textContent = calc.error ? calc.error : window.fmtMoney(calc.value);
+    costCell.textContent = calc.error ? calc.error : fmtMoney(calc.value);
     costCell.classList.toggle('error', !!calc.error);
   }
   refreshCosteo(ofId);
@@ -3295,12 +3296,12 @@ function cotSnapAdd(ofId, section, dept) {
   const isServ = section === 'servicios';
   const blank = { valor: 0, cantidad: 0, unidad: isServ ? 'Jornadas' : 'Tarifa Plana', dte: null };
   if (isServ) blank.rol = ''; else blank.item = '';
-  rows.push(blank); window.markDirty(); rerenderOfertaCard(ofId);
+  rows.push(blank); markDirty(); rerenderOfertaCard(ofId);
 }
 function cotSnapDel(ofId, section, dept, idx) {
   const o = cotFindOferta(STATE.currentProject, ofId); if (!o) return;
   const rows = cotSnapRows(o, section, dept); if (!rows) return;
-  rows.splice(idx, 1); window.markDirty(); rerenderOfertaCard(ofId);
+  rows.splice(idx, 1); markDirty(); rerenderOfertaCard(ofId);
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -3360,7 +3361,7 @@ function cotCartaOfertaSection(o, cond, i, total) {
     <div class="offer-commercial">
       <div class="valor-band">
         <span class="valor-label">Valor</span>
-        <span class="valor-num">${window.fmtMoney(o.valorCliente || 0)}${cond.montosMasIVA ? ' <span class="valor-iva">+ IVA</span>' : ''}</span>
+        <span class="valor-num">${fmtMoney(o.valorCliente || 0)}${cond.montosMasIVA ? ' <span class="valor-iva">+ IVA</span>' : ''}</span>
       </div>
       <div class="incl-grid">
         <div>
@@ -3475,12 +3476,12 @@ function cotBuildCartaHTML(project, opts) {
     <div class="sheet">
       <div class="cover">
         <div class="left">
-          <div class="kicker">${escapeHtml(window.orgNombre())}${window.orgNombre() ? ' · ' : ''}Productora Audiovisual</div>
+          <div class="kicker">${escapeHtml(gancho('orgNombre')())}${gancho('orgNombre')() ? ' · ' : ''}Productora Audiovisual</div>
           <h1>Cotización<span class="a">Audiovisual</span></h1>
         </div>
         <div class="org">
           ${logoData ? ('<img class="logo" style="height:' + Math.round(logoH * 1.35) + 'px;max-width:240px;width:auto;" src="' + safeUrl(logoData) + '" alt="">') : ''}
-          <div class="name">${escapeHtml(window.orgNombre() || 'Productora')}</div>
+          <div class="name">${escapeHtml(gancho('orgNombre')() || 'Productora')}</div>
           <div class="role">Productora Audiovisual</div>
           <div class="date">${escapeHtml(fecha)}</div>
         </div>
@@ -3492,13 +3493,12 @@ function cotBuildCartaHTML(project, opts) {
     </div>
     ${ofertas.map((o, i) => `<div class="sheet">${cotCartaOfertaSection(o, cond, i, ofertas.length)}</div>`).join('')}
     <div class="sheet">${cotCartaCondiciones(cond, project)}
-      <div class="foot">${escapeHtml(window.orgNombre())}${window.orgNombre() ? ' · ' : ''}Generado ${escapeHtml(new Date().toLocaleString('es-CL', { hour12: false }))} · Documento de cotización confidencial</div>
+      <div class="foot">${escapeHtml(gancho('orgNombre')())}${gancho('orgNombre')() ? ' · ' : ''}Generado ${escapeHtml(new Date().toLocaleString('es-CL', { hour12: false }))} · Documento de cotización confidencial</div>
     </div>
   </body></html>`;
 }
 
 /* ─── Exportación PDF ───────────────────────────────────────────────── */
-
 
 /* ─── V6.5 (Nota 2): export del detalle de presupuesto a CSV (abre en Excel) ──
    Sin dependencias ni backend: CSV con separador ';' (Excel es-CL) y BOM UTF-8
@@ -3552,7 +3552,7 @@ function cotExportPresupuestoCSV(ofId) {
     if (!cc.error) total += (cc.value || 0);
     lines.push([r.seccion, r.dept, r.concepto, r.nombre,
       (r.valor != null ? r.valor : ''), (r.cantidad != null ? r.cantidad : ''),
-      r.unidad, (r.dte ? (window.DTE_LABEL[r.dte] || r.dte) : ''), costo].map(_csvCell).join(';'));
+      r.unidad, (r.dte ? (DTE_LABEL[r.dte] || r.dte) : ''), costo].map(_csvCell).join(';'));
   });
   lines.push(['', '', '', '', '', '', '', 'TOTAL COSTO EMPRESA', Math.round(total)].map(_csvCell).join(';'));
   const ip = project.data.infoProyecto;
@@ -3579,7 +3579,7 @@ function cotDescGuardarAlto(ta) {
     const project = STATE.currentProject; if (!project || !ta) return;
     const c = ensureCotizacion(project);
     const h = Math.round(ta.getBoundingClientRect().height);
-    if (h && Math.abs((c.descAlto || 0) - h) > 4) { c.descAlto = h; window.markDirty(); }
+    if (h && Math.abs((c.descAlto || 0) - h) > 4) { c.descAlto = h; markDirty(); }
   } catch (e) {}
 }
 function cotDescWrap(mark) {
@@ -3643,20 +3643,20 @@ function cotCondVars(project) {
   const cond = c.condiciones || {};
   const ip = project.data.infoProyecto || {};
   return {
-    PRODUCTORA: window.orgNombre() || 'la Productora',
+    PRODUCTORA: gancho('orgNombre')() || 'la Productora',
     CLIENTE: ip.cliente || '', PROYECTO: ip.nombreProyecto || project.name || '',
     ABONO_PCT: cond.abonoPct, ABONO_PLAZO: cond.abonoPlazoDiasHabiles,
     SALDO_PCT: cond.saldoPct, SALDO_PLAZO: cond.saldoPlazoDias,
     IVA_NOTA: cond.montosMasIVA ? 'Todos los montos están sujetos a IVA.' : '',
     PRIMERA_ENTREGA: cond.primeraEntregaDiasHabiles, CORRECCIONES_PLAZO: cond.correccionesPlazoDiasHabiles,
-    RONDAS: cond.rondasIncluidas, VALOR_RONDA_EXTRA: window.fmtMoney(cond.valorRondaExtra), VALOR_CAMBIO_MUSICA: window.fmtMoney(cond.valorCambioMusica),
+    RONDAS: cond.rondasIncluidas, VALOR_RONDA_EXTRA: fmtMoney(cond.valorRondaExtra), VALOR_CAMBIO_MUSICA: fmtMoney(cond.valorCambioMusica),
     CANCELACION_ANTES_PCT: cond.cancelacionAntesPct, CANCELACION_DESPUES_PCT: cond.cancelacionDespuesPct,
     REPROGRAMACION_AVISO: cond.reprogramacionAvisoDiasHabiles, REPROGRAMACION_PCT: cond.reprogramacionPct,
     VALIDEZ_DIAS: cond.validezDiasHabiles
   };
 }
 function cotCondTplActual() {
-  const t = (typeof window.EMPRESA_PERFIL !== 'undefined' && window.EMPRESA_PERFIL && typeof window.EMPRESA_PERFIL.condCotTpl === 'string') ? window.EMPRESA_PERFIL.condCotTpl : '';
+  const t = (typeof EMPRESA_PERFIL !== 'undefined' && EMPRESA_PERFIL && typeof EMPRESA_PERFIL.condCotTpl === 'string') ? EMPRESA_PERFIL.condCotTpl : '';
   return t.trim() ? t : cotCondTplDefault();
 }
 function cotCondBloques(project) {
@@ -3685,13 +3685,13 @@ setInterval(function () {
 }, 600);
 
 function cotCondTplSet(v) {
-  window.EMPRESA_PERFIL.condCotTpl = String(v || '');
-  window.markDirty(); gancho('_dalPerfilSaveSoon')();
+  EMPRESA_PERFIL.condCotTpl = String(v || '');
+  markDirty(); gancho('_dalPerfilSaveSoon')();
   cotCondPreviewVivo();
 }
 function cotCondRestaurar() {
-  window.EMPRESA_PERFIL.condCotTpl = '';
-  window.markDirty(); gancho('_dalPerfilSaveSoon')();
+  EMPRESA_PERFIL.condCotTpl = '';
+  markDirty(); gancho('_dalPerfilSaveSoon')();
   const ta = document.getElementById('cotCondTa'); if (ta) ta.value = cotCondTplDefault();
   cotCondPreviewVivo();
   showToast({ kind: 'info', title: 'Texto original restaurado', body: 'Las condiciones vuelven al estándar de TakeOS.' });
@@ -3720,8 +3720,8 @@ function cotCondPreviewVivo() {
    3 plantillas estructurales: Editorial / Carta formal / Manifiesto.
    Personalización (plantilla, color, logo, tamaño de logo, tipografía,
    orientación, formato, márgenes) persiste como default de la productora.
-   Sin literales de marca: nombre por window.orgNombre(), logo por _orgLogos(),
-   contacto por gancho('legalRep')()/window.EMPRESA_PERFIL con fallback vacío.
+   Sin literales de marca: nombre por gancho('orgNombre')(), logo por valor('_orgLogos')(),
+   contacto por gancho('legalRep')()/EMPRESA_PERFIL con fallback vacío.
    ════════════════════════════════════════════════════════════════════ */
 
 /* ── Geometría única (mm → px y @page) ── */
@@ -3731,7 +3731,7 @@ function cotPrevPagePx(fmt, orient) { const mm = cotPrevPageMm(fmt, orient); ret
 function cotPrevLogoH(size) { return ({ s: 34, m: 52, l: 72 })[size] || 52; }
 
 /* ── Tipografías · V11.11.0: dos del sistema + el repositorio tipográfico de
-   la marca (Configuración → Diseño, window.EMPRESA_PERFIL.tipografias). Las de marca
+   la marca (Configuración → Diseño, EMPRESA_PERFIL.tipografias). Las de marca
    se cargan desde Google Fonts por nombre de familia (peso regular; la negrita
    se sintetiza). Archivos de fuente propios (p. ej. Gotham licenciada) llegan
    cuando se resuelva el almacenamiento. ── */
@@ -3743,7 +3743,7 @@ export function _cotPrevFamiliaGF(family) { return String(family || '').trim().r
 function cotPrevFonts() {
   let org = [];
   try {
-    org = ((window.EMPRESA_PERFIL && Array.isArray(window.EMPRESA_PERFIL.tipografias)) ? window.EMPRESA_PERFIL.tipografias : [])
+    org = ((EMPRESA_PERFIL && Array.isArray(EMPRESA_PERFIL.tipografias)) ? EMPRESA_PERFIL.tipografias : [])
       .filter(t => t && String(t.family || '').trim())
       .map(t => {
         const fam = String(t.family).trim().replace(/['"<>]/g, '');
@@ -3764,27 +3764,27 @@ const COTPREV_PLANTILLAS = [
   { id: 'manifiesto', n: 'Manifiesto', d: 'Portada statement con franja de color; el valor protagonista.' }
 ];
 /* V11.11.0 · los colores de énfasis salen de la paleta de marca definida en
-   Configuración → Diseño (window.EMPRESA_PERFIL.coloresMarca). Si la productora aún
+   Configuración → Diseño (EMPRESA_PERFIL.coloresMarca). Si la productora aún
    no define paleta, presets del sistema. */
 export function _cotPrevHexValido(h) { return /^#[0-9a-fA-F]{6}$/.test(String(h || '')); }
 function cotPrevColores() {
   try {
-    const m = (typeof window.EMPRESA_PERFIL !== 'undefined' && window.EMPRESA_PERFIL && Array.isArray(window.EMPRESA_PERFIL.coloresMarca))
-      ? window.EMPRESA_PERFIL.coloresMarca.filter(_cotPrevHexValido) : [];
+    const m = (typeof EMPRESA_PERFIL !== 'undefined' && EMPRESA_PERFIL && Array.isArray(EMPRESA_PERFIL.coloresMarca))
+      ? EMPRESA_PERFIL.coloresMarca.filter(_cotPrevHexValido) : [];
     if (m.length) return m.slice(0, 10);
   } catch (e) {}
   return ['#B03A2F', '#23231F', '#2E5B8A', '#3F7A52', '#7A4FB0', '#A6792B'];
 }
 function cotPrevPaletaEsMarca() {
-  try { return !!(window.EMPRESA_PERFIL && Array.isArray(window.EMPRESA_PERFIL.coloresMarca) && window.EMPRESA_PERFIL.coloresMarca.filter(_cotPrevHexValido).length); } catch (e) { return false; }
+  try { return !!(EMPRESA_PERFIL && Array.isArray(EMPRESA_PERFIL.coloresMarca) && EMPRESA_PERFIL.coloresMarca.filter(_cotPrevHexValido).length); } catch (e) { return false; }
 }
 
 /* ── Settings de documento por productora (personalización persistente) ── */
 function cotPrevSettings() {
   let s = {};
-  try { s = (typeof window.EMPRESA_PERFIL !== 'undefined' && window.EMPRESA_PERFIL && window.EMPRESA_PERFIL.cotDoc) ? window.EMPRESA_PERFIL.cotDoc : {}; } catch (e) { s = {}; }
+  try { s = (typeof EMPRESA_PERFIL !== 'undefined' && EMPRESA_PERFIL && EMPRESA_PERFIL.cotDoc) ? EMPRESA_PERFIL.cotDoc : {}; } catch (e) { s = {}; }
   let pl = s.plantilla;
-  if (!pl) { try { pl = window.EMPRESA_PERFIL && window.EMPRESA_PERFIL.cotPlantilla; } catch (e) {} }   // migra el viejo cotPlantilla (clasica/sobria/bloque → editorial)
+  if (!pl) { try { pl = EMPRESA_PERFIL && EMPRESA_PERFIL.cotPlantilla; } catch (e) {} }   // migra el viejo cotPlantilla (clasica/sobria/bloque → editorial)
   if (pl !== 'editorial' && pl !== 'carta' && pl !== 'manifiesto') pl = 'editorial';
   return {
     plantilla: pl,
@@ -3799,17 +3799,17 @@ function cotPrevSettings() {
 }
 function cotPrevSaveSettings(patch) {
   try {
-    if (!window.EMPRESA_PERFIL.cotDoc) window.EMPRESA_PERFIL.cotDoc = {};
-    Object.assign(window.EMPRESA_PERFIL.cotDoc, patch);
-    window.EMPRESA_PERFIL.cotPlantilla = window.EMPRESA_PERFIL.cotDoc.plantilla;   // compat con lecturas previas
-    window.markDirty(); gancho('_dalPerfilSaveSoon')();
+    if (!EMPRESA_PERFIL.cotDoc) EMPRESA_PERFIL.cotDoc = {};
+    Object.assign(EMPRESA_PERFIL.cotDoc, patch);
+    EMPRESA_PERFIL.cotPlantilla = EMPRESA_PERFIL.cotDoc.plantilla;   // compat con lecturas previas
+    markDirty(); gancho('_dalPerfilSaveSoon')();
   } catch (e) {}
 }
 
 /* ── Logo seleccionado (default = principal) ── */
 function cotPrevLogoData(opts) {
   try {
-    const logos = _orgLogos().filter(l => l && l.dataUrl);
+    const logos = valor('_orgLogos')().filter(l => l && l.dataUrl);
     if (opts && opts.logoId) { const f = logos.find(l => l.id === opts.logoId); if (f) return f.dataUrl; }
     return gancho('orgLogo')();
   } catch (e) { return ''; }
@@ -3873,7 +3873,7 @@ function cotPrevDocModel(project) {
       nombre: o.nombre || '',
       etiqueta: (i === 0 && o.esBase) ? 'Opción base' : 'Opción ' + String(i + 1).padStart(2, '0'),
       sub: (o.descripcion || '').trim(),
-      valor: window.fmtMoney(o.valorCliente || 0),
+      valor: fmtMoney(o.valorCliente || 0),
       videos: videos,
       fotos: (ent.fotografia || []).filter(x => (x || '').trim()),
       otros: (ent.otros || []).filter(x => (x || '').trim()),
@@ -3883,7 +3883,7 @@ function cotPrevDocModel(project) {
     };
   });
   return {
-    org: window.orgNombre(), fecha: cotFechaFmt(_gen.toISOString().slice(0, 10)) + ' · ' + _hhmm + ' hrs',
+    org: gancho('orgNombre')(), fecha: cotFechaFmt(_gen.toISOString().slice(0, 10)) + ' · ' + _hhmm + ' hrs',
     fechaCorta: cotFechaFmt(_gen.toISOString().slice(0, 10)),
     cliente: ip.cliente || '', rep: c.representanteCliente || ip.contactoCliente || '',
     dir: ip.director || '', pe: ip.productorEjecutivo || '',
@@ -3903,7 +3903,7 @@ function cotTplCarta(M, opts) {
   const iva = M.masIVA ? ' + IVA' : '';
   const logo = cotPrevLogoData(opts), logoH = cotPrevLogoH(opts.logoSize);
   const lr = (typeof legalRep === 'function') ? gancho('legalRep')() : {};
-  const ep = (typeof window.EMPRESA_PERFIL !== 'undefined' && window.EMPRESA_PERFIL) ? window.EMPRESA_PERFIL : {};
+  const ep = (typeof EMPRESA_PERFIL !== 'undefined' && EMPRESA_PERFIL) ? EMPRESA_PERFIL : {};
   const contacto = [lr.domEmp, ep.web, ep.telefono, ep.email].filter(x => x && String(x).trim()).map(E).join(' · ');
   const repNom = M.rep || '';
   const saludo = repNom ? ('Estimado/a ' + E(repNom.split(' ')[0]) + ':') : 'Estimado/a:';
@@ -4138,7 +4138,7 @@ function cotPrevPanelHTML() {
   const colorCtl = `<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;">${colorSw}<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-muted,#a0a399);cursor:pointer;">Otro <input type="color" value="${o.acc || '#B03A2F'}" data-accion="pre.d" data-args="[&quot;cotPrevSetOptLive&quot;, &quot;acc&quot;, &quot;\u00a7v\u00a7&quot;]" data-on="input" style="width:28px;height:28px;border:none;background:none;padding:0;cursor:pointer;"></label></div>`;
 
   let logos = [];
-  try { logos = (typeof _orgLogos === 'function') ? _orgLogos().filter(l => l && l.dataUrl) : []; } catch (e) { logos = []; }
+  try { logos = (typeof _orgLogos === 'function') ? valor('_orgLogos')().filter(l => l && l.dataUrl) : []; } catch (e) { logos = []; }
   const logoCtl = logos.length
     ? logos.map(l => { const on = o.logoId ? (o.logoId === l.id) : !!l.principal; return `<label style="display:flex;align-items:center;gap:7px;border:1px solid ${on ? 'var(--accent,#B03A2F)' : 'var(--rule,#34342f)'};border-radius:8px;padding:5px 8px;cursor:pointer;margin-bottom:6px;background:var(--bg-surface-soft,#262624);"><input type="radio" name="cotPrevLogo" ${on ? 'checked' : ''} ${accionHTML('pre.d', 'cotPrevSetOpt', 'logoId', l.id, { on: 'change' })}><img src="${safeUrl(l.dataUrl)}" style="height:22px;max-width:64px;object-fit:contain;"><span style="font-size:11px;color:var(--ink-secondary,#d3d6cb);">${E(l.nombre || 'Logo')}</span></label>`; }).join('')
     : '<div style="font-size:10.5px;color:var(--ink-faint,#71736a);line-height:1.4;">Carga el logo de la productora en Configuración → Diseño para que aparezca en los documentos.</div>';
@@ -4214,10 +4214,10 @@ function cotPreviewGenerar() {
   const ip = project.data.infoProyecto;
   const c = ensureCotizacion(project);
   const html = cotDocBuildHTML(project, _cotPrevOpts);
-  if (!c.exportada) { c.exportNum = (c.exportNum || 0) + 1; c.exportada = true; window.markDirty(); }
+  if (!c.exportada) { c.exportNum = (c.exportNum || 0) + 1; c.exportada = true; markDirty(); }
   const vTxt = 'V.' + (c.exportNum || 1);
   const fname = `Cotización - ${ip.nombreProyecto || project.name || 'Proyecto'}${ip.cliente ? ' - ' + ip.cliente : ''} - ${vTxt}`;
-  window.closeModal();
+  closeModal();
   gancho('printViaIframe')(html, fname);
   showToast({ kind: 'success', title: 'Carta lista para PDF (' + vTxt + ')', body: 'Se abrió el diálogo de impresión. Elige <strong>“Guardar como PDF”</strong>. Esta versión queda bloqueada: cualquier edición pedirá confirmación.' });
 }
@@ -4241,13 +4241,13 @@ function _cotBloqueada(k) {
 function cotNuevaVersion() {
   const c = ensureCotizacion(STATE.currentProject);
   c.exportada = false;   // el próximo export incrementa a V.(n+1)
-  window.markDirty(); window.closeModal();
+  markDirty(); closeModal();
   showToast({ kind: 'success', title: 'Versión nueva abierta', body: 'Estás editando la V.' + ((c.exportNum || 0) + 1) + '. Se fija al exportarla.' });
 }
 function cotDesbloquearMisma() {
   const c = ensureCotizacion(STATE.currentProject);
   c.exportada = false; c.exportNum = Math.max(0, (c.exportNum || 1) - 1);   // re-exportar mantiene el número
-  window.markDirty(); window.closeModal();
+  markDirty(); closeModal();
   showToast({ kind: 'warning', title: 'Editando una versión ya exportada', body: 'Sigues en la V.' + ((c.exportNum || 0) + 1) + '. El PDF anterior con ese número queda obsoleto.' });
 }
 
@@ -4310,7 +4310,7 @@ function onUnidadReset(btnEl, sectionKey, dept, idx) {
     ? project.data.servicios[dept][idx]
     : project.data[sectionKey][idx];
   item.unidad = 'Tarifa Plana';
-  gancho('_markRowDirty')(item); window.markDirty();
+  gancho('_markRowDirty')(item); markDirty();
   const td = btnEl.closest('td');
   td.innerHTML = renderUnidadCellSelect(sectionKey, dept, idx, 'Tarifa Plana');
 }
@@ -4327,168 +4327,44 @@ export function _budgetFindRow(project, clientUuid) {
 // ── F: goCotizadoTotal (disperso, línea 22501)
 export function goCotizadoTotal(project) { try { const f = calcSummaryFin(project); return (f && f.subtotal) ? f.subtotal.cot : 0; } catch (e) { return 0; } }
 
-
-
 // ── Puentes a window (para que el classic script y los onclick inline sigan funcionando) ──
 // Constantes de módulo
-window._BUDGET_COL_CFG             = _BUDGET_COL_CFG;
-window.BUDGET_MENU_W               = BUDGET_MENU_W;
-window.COTPREV_MM2PX               = COTPREV_MM2PX;
+
 // Helpers compartidos
-window.cotizadoLocked              = cotizadoLocked;
-window.getBDPresupuesto            = getBDPresupuesto;
-window.isEmptyTemplateRow          = isEmptyTemplateRow;
-window.purgeEmptyRows              = purgeEmptyRows;
+
 window._clientUuid                 = _clientUuid;
-window._budgetQueueDeletes         = _budgetQueueDeletes;
-window.renderUnidadCell            = renderUnidadCell;
-window.renderUnidadCellSelect      = renderUnidadCellSelect;
-window.renderUnidadCellInput       = renderUnidadCellInput;
+
 // Presupuesto — render
-window.renderPresupuesto           = renderPresupuesto;
-window.renderPresupuestoHistorico  = renderPresupuestoHistorico;
-window.renderSummaryFin            = renderSummaryFin;
-window.renderServiciosBody         = renderServiciosBody;
-window.renderSimpleSection         = renderSimpleSection;
-window.renderRoleTable             = renderRoleTable;
-window.renderRoleRow               = renderRoleRow;
-window.renderHeadcountPanel        = renderHeadcountPanel;
+
 // Presupuesto — cálculo
-window.calcSummaryFin              = calcSummaryFin;   // kanban.js lo usa
-window.recalcAlerts                = recalcAlerts;
-window.recalcAllDeptSummaries      = recalcAllDeptSummaries;  // llamado desde fuera del bloque (~línea 16009)
-window.recalcKPIs                  = recalcKPIs;
-window.recalcSubdeptTotals         = recalcSubdeptTotals;
-window.recalcDeptSummary           = recalcDeptSummary;
+
 // Presupuesto — acciones
-window.toggleBudgetCotizado        = toggleBudgetCotizado;
-window.snapshotFullBudget          = snapshotFullBudget;
-window.presupCotVersionBarHTML     = presupCotVersionBarHTML;
-window.presupSetCotVersion         = presupSetCotVersion;
-window.exportPresupuestoExcel      = exportPresupuestoExcel;
-window.budgetSortBy                = budgetSortBy;
-window.budgetSortClear             = budgetSortClear;
-window.budgetColResizeDown         = budgetColResizeDown;
-window.budgetColResizeReset        = budgetColResizeReset;
-window._budgetFindRow              = _budgetFindRow;
-window.openVisualizacionPanel      = openVisualizacionPanel;
+
 // Presupuesto — filas y departamentos
-window.addRow                      = addRow;
-window.deleteRow                   = deleteRow;
-window.updateRowField              = updateRowField;
-window.afterRowChange              = afterRowChange;
-window.afterRowConfirmToggle       = afterRowConfirmToggle;
-window.openRowNote                 = openRowNote;
-window.saveRowNote                 = saveRowNote;
-window.addServiceDept              = addServiceDept;
-window.renameServiceDept           = renameServiceDept;
-window.deleteServiceDept           = deleteServiceDept;
-window.moveServiceDept             = moveServiceDept;
-window.vizRenameInput              = vizRenameInput;
-window.rowHandleDown               = rowHandleDown;
-window.rowDragStart                = rowDragStart;
-window.rowDragOver                 = rowDragOver;
-window.rowDrop                     = rowDrop;
-window.rowDragEnd                  = rowDragEnd;
-window.isCollapsed                 = isCollapsed;
-window.toggleDept                  = toggleDept;
+
 // Presupuesto — finanzas/comisiones/riesgos
-window.updateFinanzasField         = updateFinanzasField;
-window.updateComisionMode          = updateComisionMode;
-window.updateComisionValue         = updateComisionValue;
-window.updateComisionLabel         = updateComisionLabel;
-window.addComision                 = addComision;
-window.deleteComision              = deleteComision;
-window.updateRiesgoLabel           = updateRiesgoLabel;
-window.updateRiesgoMode            = updateRiesgoMode;
-window.updateRiesgoValue           = updateRiesgoValue;
-window.addRiesgo                   = addRiesgo;
-window.deleteRiesgo                = deleteRiesgo;
-window.addExtraIngreso             = addExtraIngreso;
-window.updateExtraIngresoLabel     = updateExtraIngresoLabel;
-window.updateExtraIngresoMonto     = updateExtraIngresoMonto;
-window.deleteExtraIngreso          = deleteExtraIngreso;
-window.updateAsistentes            = updateAsistentes;
-window.headcountPanelHTML          = headcountPanelHTML;
-window.calcHeadcount               = calcHeadcount;
-window.rowCountsAsPerson           = rowCountsAsPerson;
+
 // Presupuesto — unidad
-window.onUnidadSelectChange        = onUnidadSelectChange;
-window.onUnidadInputChange         = onUnidadInputChange;
-window.onUnidadReset               = onUnidadReset;
-window.goCotizadoTotal             = goCotizadoTotal;
+
 // Cotización — render y CRUD
-window.renderCotizacion            = renderCotizacion;
-window.ensureCotizaciones          = ensureCotizaciones;
-window.ensureCotizacion            = ensureCotizacion;
-window.cotUltimaNum                = cotUltimaNum;
-window.cotCrearVersion             = cotCrearVersion;
-window.cotSetActiveVersion         = cotSetActiveVersion;
-window.cotNuevaVersion             = cotNuevaVersion;
-window.cotDesbloquearMisma         = cotDesbloquearMisma;
-window.cotAbrirComparador          = cotAbrirComparador;
-window.cotCmpSelectOffer           = cotCmpSelectOffer;
-window.cotAddOferta                = cotAddOferta;
-window.cotDeleteOferta             = cotDeleteOferta;
-window.cotSetMeta                  = cotSetMeta;
-window.cotSetCondicion             = cotSetCondicion;
-window.cotSetCondicionMoney        = cotSetCondicionMoney;
-window.cotSetOfertaField           = cotSetOfertaField;
-window.cotMoneyOferta              = cotMoneyOferta;
-window.cotSetVersionNota           = cotSetVersionNota;
-window.cotRealPresup               = cotRealPresup;
-window.cotBudgetRows               = cotBudgetRows;
-window.cotContarEntregables        = cotContarEntregables;
+
 // Cotización — drag
-window.cotDragStart                = cotDragStart;
-window.cotDragEnd                  = cotDragEnd;
-window.cotDragOver                 = cotDragOver;
-window.cotDragLeave                = cotDragLeave;
-window.cotDrop                     = cotDrop;
+
 // Cotización — bullets
-window.cotBulletEdit               = cotBulletEdit;
-window.cotBulletAdd                = cotBulletAdd;
-window.cotBulletDel                = cotBulletDel;
-window.cotRegenIncluye             = cotRegenIncluye;
-window.cotRerenderBullets          = cotRerenderBullets;
+
 // Cotización — videos y variables
-window.cotRerenderVideos           = cotRerenderVideos;
-window.cotVideoAdd                 = cotVideoAdd;
-window.cotVideoDel                 = cotVideoDel;
-window.cotVideoName                = cotVideoName;
-window.cotVarAdd                   = cotVarAdd;
-window.cotVarEdit                  = cotVarEdit;
-window.cotVarDel                   = cotVarDel;
+
 // Cotización — snaps
-window.cotSnapEdit                 = cotSnapEdit;
-window.cotSnapAdd                  = cotSnapAdd;
-window.cotSnapDel                  = cotSnapDel;
+
 // Cotización — descripción
-window.cotDescGuardarAlto          = cotDescGuardarAlto;
-window.cotDescWrap                 = cotDescWrap;
+
 // Cotización — condiciones
-window.cotCondTplSet               = cotCondTplSet;
-window.cotCondRestaurar            = cotCondRestaurar;
-window.cotCondInsertarVar          = cotCondInsertarVar;
-window.cotCondPreviewVivo          = cotCondPreviewVivo;
-window.cotToggleCondiciones        = cotToggleCondiciones;
+
 // Cotización — export
-window.cotExportPresupuestoCSV     = cotExportPresupuestoCSV;
+
 // Cotización — preview PDF
-window.cotPreviewPDF               = cotPreviewPDF;
-window.cotPreviewGenerar           = cotPreviewGenerar;
-window.cotPrevSetOpt               = cotPrevSetOpt;
-window.cotPrevSetOptLive           = cotPrevSetOptLive;
-window.cotPrevBuildAndLoad         = cotPrevBuildAndLoad;
-window.cotPrevRenderPanel          = cotPrevRenderPanel;
-window.cotPrevSaveSettings         = cotPrevSaveSettings;
-window.CotPreview                  = CotPreview;
 
 // ── Bridges agregados por auditoría 2-jul (consumidos por index.html u otros módulos sin bridge) ──
-window.cotPrevColores = cotPrevColores;
-window.cotPrevFontLink = cotPrevFontLink;
-window.cotPrevFonts = cotPrevFonts;
-window.ofertaCosteo = ofertaCosteo;
 
 // D2 · despachador pre.d + acciones compuestas
 var _PRE_FN = {

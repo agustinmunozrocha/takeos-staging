@@ -34,7 +34,6 @@ var _hlPrevMargen = 13;
    autoformateados. "Traer de…" copia un plan existente. El PDF llega después.
    ════════════════════════════════════════════════════════════════════ */
 
-
 /* ── Tiempo ── */
 function prParseHM(s) {
   if (s == null) return null;
@@ -493,7 +492,6 @@ function prSetResponsable(nombre) {
   markDirty(); renderPlanRodaje();
 }
 
-
 function prDragStart(ev, id) { PR_DRAG_ID = id; try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', id); } catch (e) {} try { const tr = document.querySelector('tr[data-fid="' + id + '"]'); if (tr) tr.classList.add('pr-dragging'); } catch (e) {} }
 function prDragEnd(ev) { PR_DRAG_ID = null; try { document.querySelectorAll('.pr-drag-over,.pr-dragging').forEach(el => el.classList.remove('pr-drag-over', 'pr-dragging')); } catch (e) {} }
 function prDragOver(ev, id) { if (!PR_DRAG_ID || PR_DRAG_ID === id) return; ev.preventDefault(); const tr = ev.currentTarget; if (tr && tr.classList) tr.classList.add('pr-drag-over'); }
@@ -577,7 +575,6 @@ function ensureHojaDia(diaId) {
   if (!Array.isArray(dia.crewOrden)) dia.crewOrden = [];
   return dia;
 }
-
 
 function renderHojaLlamado() {
   const project = STATE.currentProject;
@@ -908,9 +905,6 @@ function deleteCitExterna(diaId, idx) {
   ensureHojaDia(diaId).citacionesExternas.splice(idx, 1);
   renderHojaLlamado();
 }
-
-
-
 
 /* V5.3.1 (Notas 3+4): exportar a PDF AVANZA la versión automáticamente
    (obligatorio, sin bypass) y registra el timestamp del momento exacto
@@ -1252,7 +1246,6 @@ function _hlDoExportPDF() {
   });
 }
 
-
 /* ════════════════════════════════════════════════════════════════════
    V7.11 · EXPORT PDF · PLAN DE RODAJE
    Día con FECHA. Filas (no texto) coloreadas, texto normal. Sin mayúsculas
@@ -1405,84 +1398,11 @@ function _prDoExportPDF() {
 function prSetOrientacion(v) { const pr = ensurePlanRodaje(STATE.currentProject); pr.orientacion = (v === 'vertical') ? 'vertical' : 'horizontal'; markDirty(); }
 
 // ── Window bridges Plan de Rodaje ──────────────────────────────────
-window.renderPlanRodaje      = renderPlanRodaje;
-window.exportPlanRodajePDF   = exportPlanRodajePDF;
-window._prDoExportPDF        = _prDoExportPDF;
-window.prSetOrientacion      = prSetOrientacion;
-window.prSetDia              = prSetDia;
-window.prSetUnidad           = prSetUnidad;
-window.prSetPlan             = prSetPlan;
-window.prAddUnidad           = prAddUnidad;
-window.prAddPlan             = prAddPlan;
-window.prRenameUnidad        = prRenameUnidad;
-window.prDelUnidad           = prDelUnidad;
-window.prRenamePlan          = prRenamePlan;
-window.prDelPlan             = prDelPlan;
-window.prOpenTraer           = prOpenTraer;
-window.prTraerDe             = prTraerDe;
-window.prSelectFila          = prSelectFila;
-window.prAddFila             = prAddFila;
-window.prDelFila             = prDelFila;
-window.prMoveFila            = prMoveFila;
-window.prSetFilaField        = prSetFilaField;
-window.prSetDur              = prSetDur;
-window.prToggleAnchor        = prToggleAnchor;
-window.prSetAnchor           = prSetAnchor;
-window.prToggleParalelo      = prToggleParalelo;
-window.prSetHeader           = prSetHeader;
-window.prSetResponsable      = prSetResponsable;
-window.prSetHoraInicio       = prSetHoraInicio;
-window.prAddBanco            = prAddBanco;
-window.prDelBanco            = prDelBanco;
-window.prDragStart           = prDragStart;
-window.prDragEnd             = prDragEnd;
-window.prDragOver            = prDragOver;
-window.prDragLeave           = prDragLeave;
-window.prDrop                = prDrop;
-window.prImgDragOver         = prImgDragOver;
-window.prImgDragLeave        = prImgDragLeave;
-window.prDropImagen          = prDropImagen;
-window.prAddImagen           = prAddImagen;
-window.prDelImagen           = prDelImagen;
-window.prOpenCols            = prOpenCols;
-window.prToggleStruct        = prToggleStruct;
-window.prSetColLabel         = prSetColLabel;
-window.prSetColTipo          = prSetColTipo;
-window.prToggleColOn         = prToggleColOn;
-window.prMoveCol             = prMoveCol;
-window.prDelColumna          = prDelColumna;
-window.prAddColumna          = prAddColumna;
-window.prResetCols           = prResetCols;
-window.prNormalizeDur        = prNormalizeDur;   // locaciones.js lo llama como window.prNormalizeDur
 
 // ── Window bridges Hoja de Llamado ─────────────────────────────────
 window.renderHojaLlamado     = renderHojaLlamado;
-window.selectHojaDia         = selectHojaDia;
-window.updateHojaInfoGeneral = updateHojaInfoGeneral;
-window.updateCrewOverride    = updateCrewOverride;
-window.revertCrewOverride    = revertCrewOverride;
-window.hlMoverCrew           = hlMoverCrew;
-window.hlMoverExterna        = hlMoverExterna;
-window.hlDragStart           = hlDragStart;
-window.hlDragEnd             = hlDragEnd;
-window.hlDragOver            = hlDragOver;
-window.hlDragLeave           = hlDragLeave;
-window.hlDrop                = hlDrop;
-window.toggleCrewPresente    = toggleCrewPresente;
-window.addCitacionExterna    = addCitacionExterna;
-window.updateCitExterna      = updateCitExterna;
-window.deleteCitExterna      = deleteCitExterna;
-window.hojaPreviewPDF        = hojaPreviewPDF;
-window.hojaPreviewGenerar    = hojaPreviewGenerar;
-window.hlPrevSetMargen       = hlPrevSetMargen;
-window.exportHojaLlamadoPDF  = exportHojaLlamadoPDF;
-window.printViaIframe        = printViaIframe;   // legal.js lo llama como global
 
 // ── Bridges agregados por auditoría 2-jul (consumidos por index.html u otros módulos sin bridge) ──
-window._callSheetSignature = _callSheetSignature;
-window._hashStr = _hashStr;
-window.getConfirmedCrew = getConfirmedCrew;
-window.prEffectiveStartMin = prEffectiveStartMin;
 
 // ── Bridge auditoría pre-B (botón «Exportar de todas formas» del modal HL) ──
 
@@ -1566,3 +1486,5 @@ define('prParseHM', prParseHM);
 define('printViaIframe', printViaIframe);
 define('renderHojaLlamado', renderHojaLlamado);
 define('renderPlanRodaje', renderPlanRodaje);
+
+define('prNormalizeDur', prNormalizeDur);

@@ -26,6 +26,7 @@ import { markDirty, autosaveNow } from './persistencia-local.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { define } from '../lib/ganchos.js';
+let _lglQT;   // D4c: estado propio del módulo (antes window._lglQT, era de los handlers inline)
 /* ════════════════════════════════════════════════════════════════════
    V8.3 · MÓDULO LEGAL
    Genera, versiona y archiva documentos legales (cesión de derechos,
@@ -854,7 +855,6 @@ function legalExportPDF() {
   printViaIframe(html, _fname);
 }
 
-
 // ── Outliers de L1809–1810 (junto a BD_LEGAL, su contexto natural) ──
 function nextLegalId() { let m = 0; BD_LEGAL.forEach(d => { const x = /LEG-(\d+)/.exec(d.docId || ''); if (x) m = Math.max(m, +x[1]); }); return 'LEG-' + String(m + 1).padStart(4, '0'); }
 function legalDocsForProject(projectId) { return BD_LEGAL.filter(d => d.proyectoId === projectId); }
@@ -878,45 +878,17 @@ function legalComboboxFilter(inputEl) {
 }
 
 // ── Window bridges (24) ──
-window.renderLegal          = renderLegal;
-window.legalSetSub          = legalSetSub;
-window.legalSetFiltro       = legalSetFiltro;
-window.openLegalGen         = openLegalGen;
-window.openLegalGenDoc      = openLegalGenDoc;
-window.legalAdvance         = legalAdvance;
-window.legalMarcarFirmado   = legalMarcarFirmado;
-window._abrirLegalPDF       = _abrirLegalPDF;
-window.legalDeleteDoc       = legalDeleteDoc;
-window.openLegalTplEditor   = openLegalTplEditor;
-window.legalTplSave         = legalTplSave;
-window.legalTplDelete       = legalTplDelete;
-window.legalTplInsertVar    = legalTplInsertVar;
-window.legalTplWrapBold     = legalTplWrapBold;
-window.legalGenPickTpl      = legalGenPickTpl;
-window.legalGenSetPers      = legalGenSetPers;
-window.legalGenSetLoc       = legalGenSetLoc;
-window.legalGenSetOv        = legalGenSetOv;
-window.legalSetCompletar    = legalSetCompletar;
-window.drawLegalGen         = drawLegalGen;
-window.legalDoGenerate      = legalDoGenerate;
-window.legalExportPDF       = legalExportPDF;
-window.legalComboboxFilter  = legalComboboxFilter;
-window.legalMoneyInput      = legalMoneyInput;
 
 // ── Bridges agregados por auditoría 2-jul (consumidos por index.html u otros módulos sin bridge) ──
-window.legalAllTplEntries = legalAllTplEntries;
-window.legalPersonData = legalPersonData;
+
 window.legalRep = legalRep;
-window.legalTplGet = legalTplGet;
-window.legalVarMap = legalVarMap;
 
 // ── Bridges auditoría pre-B (onclick/oninput en HTML generado por el propio módulo) ──
-window.openLegalGenTpl       = openLegalGenTpl;
 
 // D2 · acciones delegadas
 registrarAcciones('lgl', {
   sub: function (a) { legalSetSub(a[0]); },
-  q: function (a, el) { clearTimeout(window._lglQT); window._lglQT = setTimeout(function () { legalSetFiltro('q', el.value); }, 250); },
+  q: function (a, el) { clearTimeout(_lglQT); _lglQT = setTimeout(function () { legalSetFiltro('q', el.value); }, 250); },
   filtro: function (a, el) { legalSetFiltro(a[0], el.value); },
   gen: function () { openLegalGen(); },
   verDoc: function (a) { openLegalGenDoc(a[0]); },

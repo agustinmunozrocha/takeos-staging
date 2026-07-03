@@ -8,7 +8,7 @@
 // VETADO: _TIENE_EMPRESA (boot lo escribe).
 import { supabaseInit } from './supabase.js';
 import { dalBootTaxRates } from './rates.js';
-import { BD_CONTACTOS, BD_EMPRESAS, BD_EMPRESAS_BYID, BD_LEGAL, BD_LEGAL_TPL, BD_LOC, BD_PERSONAS, BD_TALENTOS, EMPRESA_PERFIL, PROJECTS, STATE, TAKEOS_VERSION, TRASH, setOrgId, setSource, setTakeosAcceso, setTieneEmpresa, setUserNombre, setUserApellido, setUsuarioActual, TAKEOS_PERFIL, USER_APELLIDO, USER_NOMBRE, USUARIO_ACTUAL, _TIENE_EMPRESA } from './state.js';
+import { BD_CONTACTOS, BD_EMPRESAS, BD_EMPRESAS_BYID, BD_LEGAL, BD_LEGAL_TPL, BD_LOC, BD_PERSONAS, BD_TALENTOS, EMPRESA_PERFIL, PROJECTS, STATE, TAKEOS_VERSION, TRASH, setOrgId, setSource, setTakeosAcceso, setTieneEmpresa, setUserNombre, setUserApellido, setUsuarioActual, TAKEOS_PERFIL, USER_APELLIDO, USER_NOMBRE, USUARIO_ACTUAL, _TIENE_EMPRESA, ORG_ID } from './state.js';
 import { authNivel, authNivelModulo, authPuedeVer } from './auth.js';
 import { applyStoredTheme, setupTooltipListeners, showModal } from './ui.js';
 import { newProject, renderKanban, renderMetrics, navigateToControlRoom } from '../modules/kanban.js';
@@ -19,9 +19,10 @@ import { openGlobalCFO } from '../modules/gastos.js';
 
 import { registrarAcciones } from './delegacion.js';
 import { _gsearchHide, globalSearchInput, globalSearchKey } from '../modules/buscador.js';
-import { navigateToModule } from './nav.js';
+import { navigateToModule, MODULES } from './nav.js';
 import { openTrash } from '../modules/info-proyecto.js';
 import { gancho, valor, define } from './ganchos.js';
+let _bootCoverTO;   // D4c: estado propio del módulo (antes window._bootCoverTO, era de los handlers inline)
 function currentUser() {
   if (USUARIO_ACTUAL && String(USUARIO_ACTUAL).trim()) return USUARIO_ACTUAL;
   const ep = (typeof EMPRESA_PERFIL !== 'undefined') ? EMPRESA_PERFIL : {};
@@ -29,7 +30,7 @@ function currentUser() {
   if (typeof BD_PERSONAS !== 'undefined') { const ks = Object.keys(BD_PERSONAS); if (ks.length) return ks[0]; }
   return 'Yo';
 }
-function setCurrentUser(name) { setUsuarioActual(name || ''); try { localStorage.setItem('takeos_usuario_actual', window.USUARIO_ACTUAL); } catch (e) {} try { renderMetrics(); renderKanban(); } catch (e) {} }
+function setCurrentUser(name) { setUsuarioActual(name || ''); try { localStorage.setItem('takeos_usuario_actual', USUARIO_ACTUAL); } catch (e) {} try { renderMetrics(); renderKanban(); } catch (e) {} }
 (function(){ try { const u = localStorage.getItem('takeos_usuario_actual'); if (u) setUsuarioActual(u); } catch (e) {} })();
 
 // TAREAS/SEÑALES: ensureTareas, ensureSenales, marcarSenal*, senalAplica, userSenales, menciones, openTareasModal, _tm*, renderTareasModal, tm*, renderMisTareas, crtToggle, crtGoTask, crtGoSenal, STORAGE_BUCKET_ADJUNTOS → movido a src/modules/tareas.js (Etapa C3)
@@ -47,7 +48,7 @@ function setCurrentUser(name) { setUsuarioActual(name || ''); try { localStorage
 /* _LV_KEY, _lastViewSave, _lastViewLeer, navigateToControlRoom, projectClientNet,
    navigateToProject -> movidos a src/modules/kanban.js (Etapa 2) */
 
-// NAVEGACIÓN+MODULES: navigateToModule, registro MODULES (window.MODULES viaja adentro) → movido a src/lib/nav.js (Etapa C5)
+// NAVEGACIÓN+MODULES: navigateToModule, registro MODULES (MODULES viaja adentro) → movido a src/lib/nav.js (Etapa C5)
 
 // PLAN DE RODAJE: renderPlanRodaje, pr* (todas), PR_DRAG_ID → movido a src/modules/plan-rodaje.js (Etapa A2)
 // TIPO DE CUENTA + CUMPLEAÑOS: TIPOS_CUENTA, tipoCuentaSelectHTML, _cumple*, cumple*SelectHTML → movido a src/modules/bd.js (Etapa A3)
@@ -134,7 +135,7 @@ export function _setOrgActiva(orgId){
        la org anterior. Sin esto, dalBootProyectos fusionaba los proyectos de la
        nueva org SOBRE los de la vieja (mezcla de datos entre organizaciones) y
        los flags *_SOURCE one-way impedían recargar. Hallazgo 🔴 de la Fase 0. */
-    if (s !== window.ORG_ID) {
+    if (s !== ORG_ID) {
       try {
         /* Rescate del guardado pendiente ANTES de demoler el estado: si el
            usuario editó dentro de la ventana del debounce (1,5 s), el touch
@@ -142,8 +143,8 @@ export function _setOrgActiva(orgId){
            saliente (el RPC resuelve la org de filas existentes desde la BD,
            así que el write tardío no puede cruzarse). Sin esto, la edición se
            descartaba en silencio al cambiar de productora. */
-        try { if (window.STATE && window.STATE.currentProject && window.dalTouchProyecto) window.dalTouchProyecto(window.STATE.currentProject); } catch (e) {}
-        try { if (window.dalFlushProyectos) window.dalFlushProyectos(); } catch (e) {}
+        try { if (STATE && STATE.currentProject && dalTouchProyecto) dalTouchProyecto(STATE.currentProject); } catch (e) {}
+        try { if (dalFlushProyectos) dalFlushProyectos(); } catch (e) {}
         PROJECTS.length = 0; TRASH.length = 0;
         [BD_LOC, BD_LEGAL, BD_LEGAL_TPL].forEach(function (a) { a.length = 0; });
         [BD_CONTACTOS, BD_EMPRESAS_BYID, BD_PERSONAS, BD_TALENTOS, BD_EMPRESAS].forEach(function (o) {
@@ -154,8 +155,8 @@ export function _setOrgActiva(orgId){
         setSource('legal', 'pending'); setSource('perfil', 'pending');
         setSource('projects', 'pending');
         setTakeosAcceso(null);                      // fail-closed hasta dalLoadPermisos de la nueva org
-        if (window.STATE) window.STATE.currentProject = null;
-        if (window.dalResetOrg) window.dalResetOrg();     // sets de IDs conocidos + timers pendientes del DAL + época (aborta cadenas de boot en vuelo)
+        if (STATE) STATE.currentProject = null;
+        if (dalResetOrg) dalResetOrg();     // sets de IDs conocidos + timers pendientes del DAL + época (aborta cadenas de boot en vuelo)
         if (window._persisResetOrg) window._persisResetOrg();   // pilas de deshacer + timer de autosave de la org anterior
         /* Reset de VISTA (el modelo ya está limpio, pero la vista NO): si el
            cambio de org ocurre desde dentro de un proyecto, el #projectView de
@@ -166,7 +167,7 @@ export function _setOrgActiva(orgId){
            redirige al Panel según el orden del llamador, y esto debe cubrir
            también los early-returns del boot (error de red / org sin filas). */
         try {
-          if (window.STATE) { window.STATE.currentView = 'control-room'; window.STATE.currentModule = null; }
+          if (STATE) { STATE.currentView = 'control-room'; STATE.currentModule = null; }
           var _pv = document.getElementById('projectView'); if (_pv) _pv.classList.add('hidden');
           var _crv = document.getElementById('controlRoomView'); if (_crv) _crv.classList.remove('hidden');
           var _bdv = document.getElementById('bdGlobalView'); if (_bdv) _bdv.classList.add('hidden');
@@ -204,11 +205,11 @@ export function _bootCoverShow(msg){
     }
     var m = document.getElementById('takeosBootCoverMsg'); if (m) m.textContent = msg || 'Cargando…';
     c.style.display = 'grid';
-    try{ clearTimeout(window._bootCoverTO); }catch(e){}
-    window._bootCoverTO = setTimeout(_bootCoverHide, 10000);   /* red de seguridad: nunca dejar al usuario pegado */
+    try{ clearTimeout(_bootCoverTO); }catch(e){}
+    _bootCoverTO = setTimeout(_bootCoverHide, 10000);   /* red de seguridad: nunca dejar al usuario pegado */
   }catch(e){}
 }
-export function _bootCoverHide(){ try{ clearTimeout(window._bootCoverTO); }catch(e){} try{ var c = document.getElementById('takeosBootCover'); if (c) c.remove(); }catch(e){} }
+export function _bootCoverHide(){ try{ clearTimeout(_bootCoverTO); }catch(e){} try{ var c = document.getElementById('takeosBootCover'); if (c) c.remove(); }catch(e){} }
 /* Render seguro cuando NO hay empresa confirmada: el Panel Personal cubre el
    Control Room. Jamás cae al Control Room. */
 function _renderEspacioSeguro(email){
@@ -692,20 +693,7 @@ try {
 } catch (e) {}
 
 // ── Bridges C6 (barrido final) ──
-window._bootCoverHide = _bootCoverHide;
-window._firstVisibleModule = _firstVisibleModule;
-window._setOrgActiva = _setOrgActiva;
-window.aplicarMarcaOrg = aplicarMarcaOrg;
-window.applyModuleReadonly = applyModuleReadonly;
-window.applyPermisosUI = applyPermisosUI;
-window.arrancarTakeOS = arrancarTakeOS;
 window.cloudGate = cloudGate;
-window.currentUser = currentUser;
-window.iniciarSesionTakeOS = iniciarSesionTakeOS;
-window.orgNombre = orgNombre;
-window.renderTopbarUser = renderTopbarUser;
-window.resolverEspacioYArrancar = resolverEspacioYArrancar;
-window.setCurrentUser = setCurrentUser;
 
 // D2 · acciones delegadas
 registrarAcciones('boot', {

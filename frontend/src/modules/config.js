@@ -26,7 +26,7 @@ import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { IVA } from '../lib/rates.js';
 import { _cotPrevFamiliaGF, _cotPrevHexValido } from './presupuesto-cotizacion.js';
 import { openGlobalBDPersonas } from './bd.js';
-import { gancho, define } from '../lib/ganchos.js';
+import { gancho, define, valor } from '../lib/ganchos.js';
 const CHIPAX_LOGO = 'data:image/png;base64,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';
 function cfgSetUsaChipax(on) {
   try { EMPRESA_PERFIL.usaChipax = !!on; markDirty(); _dalPerfilSaveSoon(); } catch (e) {}
@@ -1522,7 +1522,6 @@ function _cpTourKanbanSample() {
   }).join('');
 }
 
-
 /* ════════════════════════════════════════════════════════════════════
    FRENTE B · B1 · CENTRO DE PRIVACIDAD Y DATOS (hub + ruteo)
    ─────────────────────────────────────────────────────────────────────
@@ -2111,43 +2110,20 @@ function _pdEsMayorDe(fechaISO, n) {
 // ── Window bridges Configuración ───────────────────────────────────
 // Lista generada cruzando definiciones con consumidores (index, módulos,
 // handlers inline en HTML generado). Incluye helpers internos por seguridad.
-window._configPanelOpen = _configPanelOpen;
-window._cpAtras = _cpAtras;
+
 window._cpCerrar = _cpCerrar;
 window._cpSiguiente = _cpSiguiente;
-window._cpTourCerrar = _cpTourCerrar;
+
 window._cpTourNext = _cpTourNext;
-window._empCambiarTipo = _empCambiarTipo;
-window._empCancelarInvitacion = _empCancelarInvitacion;
-window._empColorCopiar = _empColorCopiar;
-window._empColorQuitar = _empColorQuitar;
-window._empCopiarInv = _empCopiarInv;
-window._empEcharMiembro = _empEcharMiembro;
-window._empLogoDescargar = _empLogoDescargar;
-window._empLogoPrincipal = _empLogoPrincipal;
-window._empLogoQuitar = _empLogoQuitar;
-window._empShowSub = _empShowSub;
-window._empTipoQuitar = _empTipoQuitar;
+
 window._orgLogos = _orgLogos;
-window._pdCkTouch = _pdCkTouch;
-window._pdIr = _pdIr;
-window._pdRevocarConfirm = _pdRevocarConfirm;
-window.abrirFlujoCrearProductora = abrirFlujoCrearProductora;
-window.abrirPrivacidadDatos = abrirPrivacidadDatos;
-window.cfgSetUsaChipax = cfgSetUsaChipax;
-window.closeConfigPanel = closeConfigPanel;
-window.irAlPanelPersonal = irAlPanelPersonal;
-window.openConfigPanel = openConfigPanel;
-window.openEmpresaPerfil = openEmpresaPerfil;
-window.orgLogo = orgLogo;
-window.saveEmpresaPerfil = saveEmpresaPerfil;
 
 // D2 · acciones delegadas — cfg.fn despacha por nombre a un mapa LOCAL.
 var _CFG_FN = {
   closeConfigPanel: function () { closeConfigPanel(); }, irAlPanelPersonal: function () { irAlPanelPersonal(); },
   openEmpresaPerfil: function () { openEmpresaPerfil(); }, toggleTheme: function () { toggleTheme(); },
-  toggleAdminMode: function () { window.toggleAdminMode(); }, exportSupabaseBackup: function () { window.exportSupabaseBackup(); },
-  openSnapshotsModal: function () { window.openSnapshotsModal(); },
+  toggleAdminMode: function () { gancho('toggleAdminMode')(); }, exportSupabaseBackup: function () { gancho('exportSupabaseBackup')(); },
+  openSnapshotsModal: function () { gancho('openSnapshotsModal')(); },
   _empShowSub: _empShowSub, _empDatosConClave: _empDatosConClave, _empAbrirTransferir: _empAbrirTransferir,
   _empAbrirInvitar: _empAbrirInvitar, _empColorAgregar: _empColorAgregar, _empTipoAgregar: _empTipoAgregar,
   _invEnviarDatos: _invEnviarDatos, _empEnviarInvitacion: _empEnviarInvitacion, _empConfirmarTransferir: _empConfirmarTransferir,
@@ -2171,7 +2147,7 @@ registrarAcciones('cfg', {
   cargarOS: function () { closeConfigPanel(); document.getElementById('loadFileInput').click(); },
   bd: function () { closeConfigPanel(); openGlobalBDPersonas(); },
   miPerfil: function () { closeConfigPanel(); abrirPerfilUsuario(false); },
-  chipax: function (a, el) { window.cfgSetUsaChipax(el.checked); },
+  chipax: function (a, el) { cfgSetUsaChipax(el.checked); },
   logoPick: function (a, el) { _empLogoPick(el); },
   subirLogo: function () { document.getElementById('empLogoInput').click(); },
   colorSync: function (a, el) { document.getElementById('empColorHex').value = el.value.toUpperCase(); },
@@ -2191,3 +2167,5 @@ define('closeConfigPanel', closeConfigPanel);
 define('irAlPanelPersonal', irAlPanelPersonal);
 define('openConfigPanel', openConfigPanel);
 define('orgLogo', orgLogo);
+
+define('_orgLogos', _orgLogos);

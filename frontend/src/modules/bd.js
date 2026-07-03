@@ -1118,45 +1118,14 @@ function submitPersonaForm(mode, contactId) {
 }
 
 // ── Window bridges BD ──────────────────────────────────────────────
-window.renderBDPersonas       = renderBDPersonas;
-window.renderBDListByTab      = renderBDListByTab;
-window.openBDLocAdd           = openBDLocAdd;
-window.saveBDLocAdd           = saveBDLocAdd;
-window.renderBDEmpresasList   = renderBDEmpresasList;
-window.bdTalentoEditar        = bdTalentoEditar;
-window.renderBDTalentosList   = renderBDTalentosList;
-window.openAddEmpresaQuick    = openAddEmpresaQuick;
-window.empresaSet             = empresaSet;
-window.empresaSetSub          = empresaSetSub;
-window.empresaSetDuenoField   = empresaSetDuenoField;
-window.empresaAddDueno        = empresaAddDueno;
-window.empresaRemoveDueno     = empresaRemoveDueno;
-window.empresaSetContactoRel  = empresaSetContactoRel;
-window.empresaUnlinkContacto  = empresaUnlinkContacto;
-window.empresaAddContacto     = empresaAddContacto;
-window.openEmpresaEdit        = openEmpresaEdit;
-window.openEmpresaProfile     = openEmpresaProfile;
-window.openAddTalentoQuick    = openAddTalentoQuick;
-window.renderBDPersonList     = renderBDPersonList;
-window.togglePersonExpand     = togglePersonExpand;
-window._bdPuedeArchivar       = _bdPuedeArchivar;
-window.archivarContactoModal  = archivarContactoModal;
-window.archivarEmpresaModal   = archivarEmpresaModal;
-window.archivarLocacionModal  = archivarLocacionModal;
-window.dalCargarArchivadosBD  = dalCargarArchivadosBD;
-window.openArchivadosBD       = openArchivadosBD;
+
 window.restaurarContactoBD    = restaurarContactoBD;
 window.restaurarEmpresaBD     = restaurarEmpresaBD;
 window.restaurarLocacionBD    = restaurarLocacionBD;
-window.openGlobalBDPersonas   = openGlobalBDPersonas;
-window.openAddPersonaQuick    = openAddPersonaQuick;
+
 window.crewAddToBD            = crewAddToBD;   // presupuesto-cotizacion.js y comboboxAddToBD (index) la llaman
-window.requestEditPersona     = requestEditPersona;
+
 window.openPersonaForm        = openPersonaForm;
-window.togglePfTalento        = togglePfTalento;
-window.submitPersonaForm      = submitPersonaForm;
-window.tipoCuentaSelectHTML   = tipoCuentaSelectHTML;
-window.openPersonaByName      = openPersonaByName;   // locaciones.js la llama como window.openPersonaByName
 
 // D2 · acciones delegadas
 registrarAcciones('bd', {
@@ -1206,7 +1175,7 @@ registrarAcciones('bd', {
   listo: function () { closeModal(); renderBDPersonas(); },
   expandir: function (a) { togglePersonExpand(a[0]); },
   editPersona: function (a) { requestEditPersona(a[0]); },
-  restaurarArch: function (a) { var f = window[a[0]]; if (f) f(a[1]); },
+  restaurarArch: function (a) { var f = { restaurarContactoBD: restaurarContactoBD, restaurarEmpresaBD: restaurarEmpresaBD, restaurarLocacionBD: restaurarLocacionBD }[a[0]]; if (f) f(a[1]); },
   pfTalento: function () { togglePfTalento(); },
   pfCrew: function () { togglePfCrew(); },
   invitarLink: function () { closeModal(); gancho('_invAbrirDatos')(); },
@@ -1222,3 +1191,5 @@ define('crewAddToBD', crewAddToBD);
 define('openPersonaByName', openPersonaByName);
 define('openPersonaForm', openPersonaForm);
 define('renderBDPersonas', renderBDPersonas);
+
+define('archivarLocacionModal', archivarLocacionModal);

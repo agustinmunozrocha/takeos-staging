@@ -210,16 +210,9 @@ function deleteRodaje(idx) {
 
 
 // ── Window bridges (3 barridos: externos, auto-consumo, nombre-string) ──
-window.addRodaje = addRodaje;
-window.deleteRodaje = deleteRodaje;
-window.fmtFechaLarga = fmtFechaLarga;
-window.renderRodajes = renderRodajes;
-window.toggleRodajeActivo = toggleRodajeActivo;
-window.updateRodajeField = updateRodajeField;
 
 // D0 · puentes que faltaban desde la Etapa C (barrido 3 re-ejecutado): los
 // handlers on* generados los invocan como globales.
-window.recalcRodajesKPI = recalcRodajesKPI;
 
 // D2 · acciones delegadas
 registrarAcciones('rodajes', {

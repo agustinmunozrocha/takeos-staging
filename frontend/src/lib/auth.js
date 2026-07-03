@@ -79,8 +79,4 @@ export function _authBlockWriteToast() {
 }
 
 // Puentes a window (el codigo clasico llama a estos como globales):
-window.authNivel = authNivel;
-window.authNivelModulo = authNivelModulo;
-window.authPuedeVer = authPuedeVer;
-window.authEsAdmin = authEsAdmin;
-window._authBlockWriteToast = _authBlockWriteToast;
+

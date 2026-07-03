@@ -19,6 +19,7 @@ import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { setTieneEmpresa, USER_NOMBRE, USER_APELLIDO } from '../lib/state.js';
 import { abrirInvitacionRecibida } from './invitaciones.js';
 import { define } from '../lib/ganchos.js';
+let _espOnbNext;   // D4c: estado propio del módulo (antes window._espOnbNext, era de los handlers inline)
 /* ── FRENTE C · C3 · Selector "Cambiar de espacio" (topbar) ──────────────────
    Cambia el contexto de organización activa desde la barra superior. Lista:
    Panel personal · tus productoras (Control Room, interno) · proyectos externos
@@ -183,7 +184,7 @@ function _espOnboarding(hayInternas, hayExternas){
       + (pasos.length > 1 ? '<div style="margin-top:10px;font-size:11px;color:var(--ink-faint);">' + (i + 1) + ' de ' + pasos.length + '</div>' : '')
       + '</div>';
   }
-  window._espOnbNext = function(){ i++; if (i >= pasos.length) { try { localStorage.setItem('takeos_esp_onb', '1'); } catch (e) {} pop.remove(); } else paint(); };
+  _espOnbNext = function(){ i++; if (i >= pasos.length) { try { localStorage.setItem('takeos_esp_onb', '1'); } catch (e) {} pop.remove(); } else paint(); };
   paint();
   document.body.appendChild(pop);
 }
@@ -422,14 +423,6 @@ export function _espInyectarInvitaciones(invs) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window._espAbrirProyecto = _espAbrirProyecto;
-window._espEntrarInterna = _espEntrarInterna;
-window._espPerfil = _espPerfil;
-window._swControlRoom = _swControlRoom;
-window._swPanel = _swPanel;
-window._swProyecto = _swProyecto;
-window._swToggle = _swToggle;
-window.renderEspacioUsuario = renderEspacioUsuario;
 // ── Bridges de reparación C4 (llamadas reales de las islas bootstrap, verificadas por cuerpo) ──
 
 // D2 · acciones delegadas (cta*/abrirInvitacionRecibida/abrirPrivacidadDatos vía window)
@@ -437,7 +430,7 @@ registrarAcciones('esp', {
   panel: function () { _swPanel(); },
   cr: function (a) { _swControlRoom(a[0]); },
   proy: function (a) { _swProyecto(a[0], a[1]); },
-  onbNext: function () { window._espOnbNext(); },
+  onbNext: function () { _espOnbNext(); },
   abrirProy: function (a) { _espAbrirProyecto(a[0], a[1]); },
   entrar: function (a) { _espEntrarInterna(a[0], a[1]); },
   perfil: function () { _espPerfil(); },

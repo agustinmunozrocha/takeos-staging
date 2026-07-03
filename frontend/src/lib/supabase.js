@@ -6,8 +6,8 @@
 // se leen como módulo en vez del marcador %VITE_% del HTML.
 //
 // Se expone en window vía src/main.js (puente):
-//   - window.supabaseInit  (lo llama el código clásico al arrancar)
-//   - window.sb            (lo setea supabaseInit; el clásico lo usa como sb.*)
+//   - supabaseInit  (lo llama el código clásico al arrancar)
+//   - sb            (lo setea supabaseInit; el clásico lo usa como sb.*)
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY;
 console.info('[supabase] base:', SUPABASE_URL);

@@ -544,11 +544,7 @@ async function restoreFromTrash(id) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window._markRowDirty = _markRowDirty;
-window.collectApprovalBlockers = collectApprovalBlockers;
-window.openTrash = openTrash;
-window.renderInfoProyecto = renderInfoProyecto;
-window.restoreFromTrash = restoreFromTrash;
+
 window.updateInfoField = updateInfoField;
 
 // D0 · puentes que faltaban desde la Etapa C (barrido 3 re-ejecutado): los

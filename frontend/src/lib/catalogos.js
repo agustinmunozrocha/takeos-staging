@@ -89,10 +89,5 @@ export const LOC_ESTADO_RANK = { confirmada: 3, candidata: 2, descartada: 1 };
 export const ROLES_OPERATIVOS = ['Crew', 'Interno', 'Contacto cliente', 'Proveedor individual'];
 
 // Espejos window (compat; se retiran en d4c cuando el último lector window muera)
-window.COTIZACION_CONDICIONES_DEFAULTS = COTIZACION_CONDICIONES_DEFAULTS;
-window.LOC_ESTADO_RANK = LOC_ESTADO_RANK;
-window.ROLES_OPERATIVOS = ROLES_OPERATIVOS;
-window.DEFAULT_DEPARTAMENTOS = DEFAULT_DEPARTAMENTOS;
-window.DEFAULT_GASTOS = DEFAULT_GASTOS;
-window.DEFAULT_EQUIPOS = DEFAULT_EQUIPOS;
-window.DEFAULT_TALENTOS = DEFAULT_TALENTOS;
+
+

@@ -16,9 +16,8 @@ export let FACTOR_BOLETA = 1 - IMPUESTO_HONORARIOS;
 export let FACTOR_BTE = 1 - IMPUESTO_BTE;
 export let TAX_RATES_SOURCE = 'default';      // pasa a 'supabase' si se cargaron las tasas
 function _espejo() {
-  window.IMPUESTO_HONORARIOS = IMPUESTO_HONORARIOS; window.IMPUESTO_BTE = IMPUESTO_BTE;
-  window.IVA = IVA; window.FACTOR_BOLETA = FACTOR_BOLETA; window.FACTOR_BTE = FACTOR_BTE;
-  window.TAX_RATES_SOURCE = TAX_RATES_SOURCE;
+
+
 }
 _espejo();
 

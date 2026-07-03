@@ -201,8 +201,6 @@ async function invRechazar(token) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window.dalInvitar = dalInvitar;
-window.invitacionLink = invitacionLink;
 
 // D2 · acciones delegadas (token/org viajan como JSON en data-args: fin de la
 // familia de escaping de comillas en handlers concatenados)

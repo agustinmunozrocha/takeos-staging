@@ -386,12 +386,8 @@ async function exportSupabaseBackup() {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window._applyAdminUI = _applyAdminUI;
-window._puedeModoAdmin = _puedeModoAdmin;
 window.exportSupabaseBackup = exportSupabaseBackup;
-window.requestAdminPassword = requestAdminPassword;
 window.toggleAdminMode = toggleAdminMode;
-window.updateProjectState = updateProjectState;
 
 // D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
 define('_puedeModoAdmin', _puedeModoAdmin);

@@ -86,10 +86,6 @@ function _gsearchGo(i) {
 }
 
 // ── Window bridges Buscador ────────────────────────────────────────
-window.globalSearchInput = globalSearchInput;  // topbar oninput/onfocus
-window.globalSearchKey   = globalSearchKey;    // topbar onkeydown
-window._gsearchHide      = _gsearchHide;       // topbar onblur
-window._gsearchGo        = _gsearchGo;         // onmousedown en resultados generados
 
 // D2 · acciones delegadas
 registrarAcciones('buscador', {

@@ -2,7 +2,7 @@
 
 // D1b · imports reales. getCrewForExport NO se exporta: plan-rodaje:1110 lo
 // consume vía window (cerrar el ciclo ESM sin necesidad = prohibido).
-// window._transportPeople/_transportSel: estado propio en window, no tocar.
+// _transportPeople/_transportSel: estado propio en window, no tocar.
 // 2º paso del hoist de boot: →33 (cruza tareas/cargos/invitaciones, inertes).
 import { escapeHtml, showToast } from '../lib/helpers.js';
 import { STATE, BD_PERSONAS } from '../lib/state.js';
@@ -14,6 +14,8 @@ import { orgNombre } from '../lib/boot.js';
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { crewAddToBD } from './bd.js';
 import { define } from '../lib/ganchos.js';
+let _transportPeople;   // D4c: estado propio del módulo (antes window._transportPeople, era de los handlers inline)
+let _transportSel;   // D4c: estado propio del módulo (antes window._transportSel, era de los handlers inline)
 function renderCrew() {
   const project = STATE.currentProject;
   if (!project) return;
@@ -303,8 +305,8 @@ function exportTransportePDF() {
   const project = STATE.currentProject;
   const people = getCrewForExport(project);
   if (!people.length) { showToast({ kind: 'warning', title: 'Sin personas', body: 'No hay crew ni externos para exportar.' }); return; }
-  window._transportPeople = people;
-  window._transportSel = new Set(people.map((_, i) => i));
+  _transportPeople = people;
+  _transportSel = new Set(people.map((_, i) => i));
   const list = people.map((p, i) => `
     <label style="display:flex; align-items:flex-start; gap:8px; padding:7px 0; border-bottom:1px solid var(--rule);">
       <input type="checkbox" checked ${accionHTML('crew.selTrans', i, { on: 'change' })}>
@@ -323,8 +325,8 @@ function exportTransportePDF() {
 }
 function doExportTransporte() {
   const project = STATE.currentProject; const ip = project.data.infoProyecto;
-  const people = window._transportPeople || [];
-  const sel = window._transportSel || new Set();
+  const people = _transportPeople || [];
+  const sel = _transportSel || new Set();
   const chosen = people.filter((_, i) => sel.has(i));
   if (!chosen.length) { showToast({ kind: 'warning', title: 'Nadie seleccionado', body: 'Marca al menos una persona.' }); return; }
   const rows = chosen.map(p => `<tr>
@@ -340,12 +342,6 @@ function doExportTransporte() {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window.doExportTransporte = doExportTransporte;
-window.exportCateringPDF = exportCateringPDF;
-window.exportCrewListPDF = exportCrewListPDF;
-window.exportTransportePDF = exportTransportePDF;
-window.getCrewForExport = getCrewForExport;
-window.renderCrew = renderCrew;
 
 // D2 · acciones delegadas (crewAddToBD vía window: arista diferida ui/bd)
 registrarAcciones('crew', {
@@ -357,7 +353,7 @@ registrarAcciones('crew', {
   ext: function (a, el) { updateCrewExterno(a[0], a[1], el.value); },
   extQuitar: function (a) { removeCrewExterno(a[0]); },
   extAdd: function () { addCrewExterno(); },
-  selTrans: function (a, el) { if (el.checked) window._transportSel.add(a[0]); else window._transportSel.delete(a[0]); },
+  selTrans: function (a, el) { if (el.checked) _transportSel.add(a[0]); else _transportSel.delete(a[0]); },
   transExport: function () { doExportTransporte(); },
 });
 

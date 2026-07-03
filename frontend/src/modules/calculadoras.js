@@ -1,6 +1,6 @@
 // Calculadoras tributarias + Costo Real + Horas Extra — extraído de index.html (Etapa C1)
 // El estado de las calculadoras (_calc*, _crc*, _he*) vive en window: los
-// handlers inline del HTML generado lo ESCRIBEN directamente (onchange="window._calcTipo=...").
+// handlers inline del HTML generado lo ESCRIBEN directamente (onchange="_calcTipo=...").
 
 // D1a · imports reales. NO importar jamás (línea roja #1): IVA / FACTOR_BOLETA
 // (window-props puros de rates.js, reasignados por dalBootTaxRates — importarlos
@@ -18,6 +18,12 @@ import { _markRowDirty } from './info-proyecto.js';
 import { registrarAcciones } from '../lib/delegacion.js';
 import { IVA, FACTOR_BOLETA } from '../lib/rates.js';
 import { define } from '../lib/ganchos.js';
+let _hep;   // D4c: estado propio del módulo (antes window._hep, era de los handlers inline)
+let _hec;   // D4c: estado propio del módulo (antes window._hec, era de los handlers inline)
+let _crc;   // D4c: estado propio del módulo (antes window._crc, era de los handlers inline)
+let _calcModo;   // D4c: estado propio del módulo (antes window._calcModo, era de los handlers inline)
+let _calcTipo;   // D4c: estado propio del módulo (antes window._calcTipo, era de los handlers inline)
+let _calcMonto;   // D4c: estado propio del módulo (antes window._calcMonto, era de los handlers inline)
 /* ─── CALCULADORA TRIBUTARIA ────────────────────────────────────────
    Recuperada del Master Sheet V2.4.1 (M2:O9 de la pestaña PRESUPUESTO).
    Convierte entre líquido y bruto según tipo de documento.
@@ -28,31 +34,31 @@ import { define } from '../lib/ganchos.js';
      Neto = bruto / 1.19
      Bruto = neto × 1.19  */
 
-window._calcMonto = 100000;
-window._calcTipo = 'bhe';
-window._calcModo = 'liquido';  // 'liquido' = el monto ingresado es líquido/neto. 'bruto' = el monto ingresado es bruto.
+_calcMonto = 100000;
+_calcTipo = 'bhe';
+_calcModo = 'liquido';  // 'liquido' = el monto ingresado es líquido/neto. 'bruto' = el monto ingresado es bruto.
 
 function openCalculadoraTributaria() {
   const root = document.getElementById('modalRoot');
 
   const renderBody = () => {
     let liquido, bruto, impuesto;
-    if (window._calcTipo === 'bhe') {
-      if (window._calcModo === 'liquido') {
-        liquido = window._calcMonto;
-        bruto = montoBrutoDesde(window._calcMonto, 'boleta');
+    if (_calcTipo === 'bhe') {
+      if (_calcModo === 'liquido') {
+        liquido = _calcMonto;
+        bruto = montoBrutoDesde(_calcMonto, 'boleta');
       } else {
-        bruto = window._calcMonto;
-        liquido = montoNetoDesde(window._calcMonto, 'boleta');
+        bruto = _calcMonto;
+        liquido = montoNetoDesde(_calcMonto, 'boleta');
       }
       impuesto = bruto - liquido;
     } else { // IVA
-      if (window._calcModo === 'liquido') {
-        liquido = window._calcMonto;  // neto
-        bruto = window._calcMonto * (1 + IVA);
+      if (_calcModo === 'liquido') {
+        liquido = _calcMonto;  // neto
+        bruto = _calcMonto * (1 + IVA);
       } else {
-        bruto = window._calcMonto;
-        liquido = window._calcMonto / (1 + IVA);
+        bruto = _calcMonto;
+        liquido = _calcMonto / (1 + IVA);
       }
       impuesto = bruto - liquido;
     }
@@ -63,42 +69,42 @@ function openCalculadoraTributaria() {
           <div class="field">
             <label class="field-label">Tipo de documento</label>
             <select class="select" data-accion="calc.tipo" data-on="change">
-              <option value="bhe" ${window._calcTipo === 'bhe' ? 'selected' : ''}>Boleta de honorarios (15.25%)</option>
-              <option value="iva" ${window._calcTipo === 'iva' ? 'selected' : ''}>Factura con IVA (19%)</option>
+              <option value="bhe" ${_calcTipo === 'bhe' ? 'selected' : ''}>Boleta de honorarios (15.25%)</option>
+              <option value="iva" ${_calcTipo === 'iva' ? 'selected' : ''}>Factura con IVA (19%)</option>
             </select>
           </div>
           <div class="field">
             <label class="field-label">El monto ingresado es…</label>
             <select class="select" data-accion="calc.modo" data-on="change">
-              <option value="liquido" ${window._calcModo === 'liquido' ? 'selected' : ''}>${window._calcTipo === 'bhe' ? 'Líquido (lo que recibe el proveedor)' : 'Neto (sin IVA)'}</option>
-              <option value="bruto" ${window._calcModo === 'bruto' ? 'selected' : ''}>${window._calcTipo === 'bhe' ? 'Bruto (lo que paga la empresa)' : 'Bruto (con IVA)'}</option>
+              <option value="liquido" ${_calcModo === 'liquido' ? 'selected' : ''}>${_calcTipo === 'bhe' ? 'Líquido (lo que recibe el proveedor)' : 'Neto (sin IVA)'}</option>
+              <option value="bruto" ${_calcModo === 'bruto' ? 'selected' : ''}>${_calcTipo === 'bhe' ? 'Bruto (lo que paga la empresa)' : 'Bruto (con IVA)'}</option>
             </select>
           </div>
         </div>
         <div class="field">
           <label class="field-label">Monto</label>
           <input type="text" inputmode="numeric" class="input num" id="calcMontoInput"
-                 value="${window._calcMonto ? displayMoneyInputValue(window._calcMonto) : ''}" placeholder="0"
+                 value="${_calcMonto ? displayMoneyInputValue(_calcMonto) : ''}" placeholder="0"
                  data-accion="calc.monto" data-on="input">
         </div>
 
         <div class="calc-output">
           <div class="calc-output-row">
-            <span class="calc-output-label">${window._calcTipo === 'bhe' ? 'Líquido (proveedor recibe)' : 'Neto (sin IVA)'}</span>
+            <span class="calc-output-label">${_calcTipo === 'bhe' ? 'Líquido (proveedor recibe)' : 'Neto (sin IVA)'}</span>
             <strong id="calcOutLiquido">${fmtMoney(liquido)}</strong>
           </div>
           <div class="calc-output-row">
-            <span class="calc-output-label">${window._calcTipo === 'bhe' ? 'Retención (15.25%)' : 'IVA (19%)'}</span>
+            <span class="calc-output-label">${_calcTipo === 'bhe' ? 'Retención (15.25%)' : 'IVA (19%)'}</span>
             <strong id="calcOutImpuesto">${fmtMoney(impuesto)}</strong>
           </div>
           <div class="calc-output-row">
-            <span class="calc-output-label">${window._calcTipo === 'bhe' ? 'Bruto (costo empresa)' : 'Bruto (con IVA)'}</span>
+            <span class="calc-output-label">${_calcTipo === 'bhe' ? 'Bruto (costo empresa)' : 'Bruto (con IVA)'}</span>
             <strong id="calcOutBruto">${fmtMoney(bruto)}</strong>
           </div>
         </div>
 
         <div class="calc-note">
-          ${window._calcTipo === 'bhe'
+          ${_calcTipo === 'bhe'
             ? 'La retención del 15.25% es pagada por la empresa al SII por cuenta del proveedor. El líquido es lo que efectivamente recibe el proveedor en su cuenta.'
             : 'El IVA del 19% es recaudado por la empresa y pagado al SII. El neto es el monto que efectivamente percibe el proveedor.'}
         </div>
@@ -129,14 +135,14 @@ function openCalculadoraTributaria() {
    y actualiza las celdas de output, SIN re-renderizar el modal entero
    (eso destruía el input en cada tecla y movía el cursor). */
 function calcUpdate(raw) {
-  window._calcMonto = parseMoneyCLP(raw) || 0;
+  _calcMonto = parseMoneyCLP(raw) || 0;
   let liquido, bruto;
-  if (window._calcTipo === 'bhe') {
-    if (window._calcModo === 'liquido') { liquido = window._calcMonto; bruto = window._calcMonto / FACTOR_BOLETA; }
-    else                          { bruto = window._calcMonto;   liquido = window._calcMonto * FACTOR_BOLETA; }
+  if (_calcTipo === 'bhe') {
+    if (_calcModo === 'liquido') { liquido = _calcMonto; bruto = _calcMonto / FACTOR_BOLETA; }
+    else                          { bruto = _calcMonto;   liquido = _calcMonto * FACTOR_BOLETA; }
   } else {
-    if (window._calcModo === 'liquido') { liquido = window._calcMonto; bruto = window._calcMonto * (1 + IVA); }
-    else                          { bruto = window._calcMonto;   liquido = window._calcMonto / (1 + IVA); }
+    if (_calcModo === 'liquido') { liquido = _calcMonto; bruto = _calcMonto * (1 + IVA); }
+    else                          { bruto = _calcMonto;   liquido = _calcMonto / (1 + IVA); }
   }
   const impuesto = bruto - liquido;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmtMoney(v); };
@@ -158,12 +164,12 @@ function openCostoRealCalc(sectionKey, dept, idx) {
   const item = _rowNoteItem(sectionKey, dept, idx);
   if (!item) return;
   const dte = item.dteReal || null;
-  window._crc = { sectionKey: sectionKey, dept: dept, idx: idx, dte: dte, monto: 0, incluyeIVA: false };
+  _crc = { sectionKey: sectionKey, dept: dept, idx: idx, dte: dte, monto: 0, incluyeIVA: false };
   // semilla: si ya hay un costoReal, lo mostramos como punto de partida (en su forma de entrada)
   if (item.costoReal != null && item.costoReal !== '') {
     const cr = Number(item.costoReal) || 0;
-    if (dteTieneRetencion(dte)) window._crc.monto = Math.round(cr * factorRetencionDte(dte));   // bruto guardado -> líquido de partida
-    else window._crc.monto = cr;
+    if (dteTieneRetencion(dte)) _crc.monto = Math.round(cr * factorRetencionDte(dte));   // bruto guardado -> líquido de partida
+    else _crc.monto = cr;
   }
   renderCostoRealCalc();
 }
@@ -173,14 +179,14 @@ function _crcDteLabel(dte) {
   return o ? o.label : dte;
 }
 function _crcCostoReal() {
-  const st = window._crc || {}; const m = Number(st.monto) || 0;
+  const st = _crc || {}; const m = Number(st.monto) || 0;
   if (!m) return 0;
   if (dteTieneRetencion(st.dte)) return Math.round(m / factorRetencionDte(st.dte));             // líquido -> bruto (costo empresa)
   if (st.dte === 'factura' && st.incluyeIVA) return Math.round(m / (1 + IVA));     // con IVA -> neto (costo empresa)
   return Math.round(m);                                                            // neto/exenta/sin dte
 }
 function renderCostoRealCalc() {
-  const st = window._crc; if (!st) return;
+  const st = _crc; if (!st) return;
   const item = _rowNoteItem(st.sectionKey, st.dept, st.idx) || {};
   const quien = item.nombre || item.rol || item.item || 'esta fila';
   const conReten = dteTieneRetencion(st.dte);
@@ -249,7 +255,7 @@ function renderCostoRealCalc() {
 function _crcUpdateOut() {
   // recálculo granular del bloque de salida sin re-render del modal (no pierde foco/cursor)
   const out = document.getElementById('crcOutput'); if (!out) return;
-  const st = window._crc; const m = Number(st.monto) || 0; const costoReal = _crcCostoReal();
+  const st = _crc; const m = Number(st.monto) || 0; const costoReal = _crcCostoReal();
   const conReten = dteTieneRetencion(st.dte); const esFacturaIVA = (st.dte === 'factura');
   let html;
   if (conReten) {
@@ -266,7 +272,7 @@ function _crcUpdateOut() {
   out.innerHTML = html;
 }
 function _crcConfirm() {
-  const st = window._crc; if (!st) { closeModal(); return; }
+  const st = _crc; if (!st) { closeModal(); return; }
   const costoReal = _crcCostoReal();
   updateRowField(st.sectionKey, st.dept, st.idx, 'costoReal', costoReal || null);
   markDirty();
@@ -391,7 +397,7 @@ function openHorasExtraCalc(sectionKey, dept, idx) {
   if (!item) return;
   const cfg = item.heConfig || _heDefaultConfig();
   const vhDef = _heValorHoraDefault(item);
-  window._hec = {
+  _hec = {
     sectionKey: sectionKey, dept: dept, idx: idx,
     dte: _heEffDte(item),
     usaProyecto: (cfg.usaProyecto !== false),
@@ -407,10 +413,10 @@ function openHorasExtraCalc(sectionKey, dept, idx) {
   };
   renderHorasExtraCalc();
 }
-function _hecSetUsaProyecto(v) { if (window._hec) { window._hec.usaProyecto = !!v; renderHorasExtraCalc(); } }
-function _hecSetModo(modo) { if (window._hec) { window._hec.modo = modo; renderHorasExtraCalc(); } }
+function _hecSetUsaProyecto(v) { if (_hec) { _hec.usaProyecto = !!v; renderHorasExtraCalc(); } }
+function _hecSetModo(modo) { if (_hec) { _hec.modo = modo; renderHorasExtraCalc(); } }
 function _hecLiquido() {
-  const st = window._hec; if (!st) return 0;
+  const st = _hec; if (!st) return 0;
   if (!st.usaProyecto && st.modo === 'plana') return Number(st.montoPlano) || 0;
   const horas = Number(st.horas) || 0;
   if (horas <= 0) return 0;
@@ -418,9 +424,9 @@ function _hecLiquido() {
   const rec = st.usaProyecto ? st.projRecargo : ((st.recargo != null && st.recargo !== '' && !isNaN(Number(st.recargo))) ? Number(st.recargo) : st.projRecargo);
   return Math.round((Number(vh) || 0) * (rec / 100) * horas);
 }
-function _hecCosto() { const st = window._hec; if (!st) return 0; return _heCostoEmpresa(_hecLiquido(), st.dte, st.incluyeIVA); }
+function _hecCosto() { const st = _hec; if (!st) return 0; return _heCostoEmpresa(_hecLiquido(), st.dte, st.incluyeIVA); }
 function _hecOutHTML() {
-  const st = window._hec; if (!st) return '';
+  const st = _hec; if (!st) return '';
   const liquido = _hecLiquido();
   const costo = _hecCosto();
   const conReten = dteTieneRetencion(st.dte);
@@ -432,7 +438,7 @@ function _hecOutHTML() {
 }
 function _hecUpdateOut() { const out = document.getElementById('hecOutput'); if (out) out.innerHTML = _hecOutHTML(); }
 function renderHorasExtraCalc() {
-  const st = window._hec; if (!st) return;
+  const st = _hec; if (!st) return;
   const item = _rowNoteItem(st.sectionKey, st.dept, st.idx) || {};
   const quien = item.nombre || item.rol || item.item || 'esta fila';
   const esFacturaIVA = (st.dte === 'factura');
@@ -523,7 +529,7 @@ function renderHorasExtraCalc() {
     </div>`;
 }
 function _hecConfirm() {
-  const st = window._hec; if (!st) { closeModal(); return; }
+  const st = _hec; if (!st) { closeModal(); return; }
   const item = _rowNoteItem(st.sectionKey, st.dept, st.idx);
   if (!item) { closeModal(); return; }
   const override = !st.usaProyecto;
@@ -549,7 +555,7 @@ function _hecConfirm() {
   _heRefreshAll(st.sectionKey);
 }
 function _hecClear() {
-  const st = window._hec; if (!st) { closeModal(); return; }
+  const st = _hec; if (!st) { closeModal(); return; }
   const item = _rowNoteItem(st.sectionKey, st.dept, st.idx);
   if (item) { item.heConfig = null; item.horaExtra = null; _markRowDirty(item); }   // Pasada 1
   markDirty();
@@ -561,7 +567,7 @@ function _hecClear() {
 function openHeProyectoDefault() {
   if (authNivel('presupuesto') !== 'E') { showToast({ kind: 'info', title: 'Solo lectura', body: 'Tu perfil puede ver el presupuesto, pero no configurar las horas extra.' }); return; }   // V10.5.1
   if (!STATE.currentProject) return;
-  window._hep = { recargo: _heProjRecargo() };
+  _hep = { recargo: _heProjRecargo() };
   renderHeProyectoDefault();
 }
 function _hepContarFilas() {
@@ -574,7 +580,7 @@ function _hepContarFilas() {
   return n;
 }
 function renderHeProyectoDefault() {
-  const st = window._hep; if (!st) return;
+  const st = _hep; if (!st) return;
   const afectadas = _hepContarFilas();
   document.getElementById('modalRoot').innerHTML = `
     <div class="modal-backdrop" data-accion="ui.backdrop">
@@ -599,7 +605,7 @@ function renderHeProyectoDefault() {
     </div>`;
 }
 function _hepConfirm() {
-  const st = window._hep; if (!st) { closeModal(); return; }
+  const st = _hep; if (!st) { closeModal(); return; }
   const d = STATE.currentProject && STATE.currentProject.data;
   if (!d) { closeModal(); return; }
   if (!d.finanzas) d.finanzas = {};
@@ -612,33 +618,31 @@ function _hepConfirm() {
 }
 
 // ── Window bridges (3 barridos: externos, auto-consumo, nombre-string) ──
-window.calcUpdate = calcUpdate;
 window.openCalculadoraTributaria = openCalculadoraTributaria;
 window.openCostoRealCalc = openCostoRealCalc;
 window.openHeProyectoDefault = openHeProyectoDefault;
 window.openHorasExtraCalc = openHorasExtraCalc;
-window.renderCostoRealCalc = renderCostoRealCalc;
 window.setHeHoras = setHeHoras;
 
 // D2 · acciones delegadas (el estado _calc*/_crc/_hec/_hep sigue en window:
 // lección #6 — lo escriben estas acciones igual que antes los inline)
 registrarAcciones('calc', {
-  tipo: function (a, el) { window._calcTipo = el.value; openCalculadoraTributaria(); },
-  modo: function (a, el) { window._calcModo = el.value; openCalculadoraTributaria(); },
+  tipo: function (a, el) { _calcTipo = el.value; openCalculadoraTributaria(); },
+  modo: function (a, el) { _calcModo = el.value; openCalculadoraTributaria(); },
   monto: function (a, el) { calcUpdate(el.value); },
-  crcIVA: function (a, el) { window._crc.incluyeIVA = el.checked; renderCostoRealCalc(); },
-  crcMonto: function (a, el) { window._crc.monto = parseMoneyCLP(el.value) || 0; _crcUpdateOut(); },
+  crcIVA: function (a, el) { _crc.incluyeIVA = el.checked; renderCostoRealCalc(); },
+  crcMonto: function (a, el) { _crc.monto = parseMoneyCLP(el.value) || 0; _crcUpdateOut(); },
   crcOk: function () { _crcConfirm(); },
   hecUsaProy: function (a, el) { _hecSetUsaProyecto(el.checked); },
-  hecHoras: function (a, el) { window._hec.horas = parseFloat(el.value) || 0; _hecUpdateOut(); },
+  hecHoras: function (a, el) { _hec.horas = parseFloat(el.value) || 0; _hecUpdateOut(); },
   hecModo: function (a) { _hecSetModo(a[0]); },
-  hecValor: function (a, el) { window._hec.valorHora = parseMoneyCLP(el.value) || 0; _hecUpdateOut(); },
-  hecRecargo: function (a, el) { window._hec.recargo = (el.value === '' ? '' : parseFloat(el.value)); _hecUpdateOut(); },
-  hecPlano: function (a, el) { window._hec.montoPlano = parseMoneyCLP(el.value) || 0; _hecUpdateOut(); },
-  hecIVA: function (a, el) { window._hec.incluyeIVA = el.checked; _hecUpdateOut(); },
+  hecValor: function (a, el) { _hec.valorHora = parseMoneyCLP(el.value) || 0; _hecUpdateOut(); },
+  hecRecargo: function (a, el) { _hec.recargo = (el.value === '' ? '' : parseFloat(el.value)); _hecUpdateOut(); },
+  hecPlano: function (a, el) { _hec.montoPlano = parseMoneyCLP(el.value) || 0; _hecUpdateOut(); },
+  hecIVA: function (a, el) { _hec.incluyeIVA = el.checked; _hecUpdateOut(); },
   hecClear: function () { _hecClear(); },
   hecOk: function () { _hecConfirm(); },
-  hepRecargo: function (a, el) { window._hep.recargo = (el.value === '' ? 150 : parseFloat(el.value)); },
+  hepRecargo: function (a, el) { _hep.recargo = (el.value === '' ? 150 : parseFloat(el.value)); },
   hepOk: function () { _hepConfirm(); },
 });
 

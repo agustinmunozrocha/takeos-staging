@@ -619,20 +619,8 @@ export function redoLast() {
    (no clobbear en silencio, para no confundir entre archivos/versiones). */
 
 // ── Window bridges Persistencia local (verificados caller por caller en pre-análisis) ──
-window.markDirty                    = markDirty;                    // ~35 sitios clásicos + 9 módulos + listeners DOMContentLoaded (por referencia)
-window.autosaveNow                  = autosaveNow;                  // clásico + beforeunload + bd/legal/locaciones/bd-excel
-window.undoLast                     = undoLast;                     // onclick topbar L1323 + keydown ⌘Z
-window.redoLast                     = redoLast;                     // keydown ⌘⇧Z
-window.importSaveFromInput          = importSaveFromInput;          // onchange estático L1328
-window.importSingleProjectFromInput = importSingleProjectFromInput; // onchange estático L1380
-window.restoreSnapshot              = restoreSnapshot;              // onclick generado
-window.deleteSnapshotFromModal      = deleteSnapshotFromModal;      // onclick generado
+
 window.openSnapshotsModal           = openSnapshotsModal;           // config.js + buscador.js
-window.exportSave                   = exportSave;                   // config.js + buscador.js
-window.exportSingleProject          = exportSingleProject;          // kanban.js
-window.captureUndoBaseline          = captureUndoBaseline;          // kanban.js
-window.pushSnapshot                 = pushSnapshot;                 // bd-excel.js
-window.restoreLocalLocPhotos        = restoreLocalLocPhotos;        // dal.js:321
 
 // D2 · acciones delegadas
 registrarAcciones('snap', {

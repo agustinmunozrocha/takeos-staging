@@ -598,8 +598,7 @@ async function _perfilGuardar() {
 }
 
 // ── Window bridges Perfil/Onboarding ──
-window.abrirPerfilUsuario = abrirPerfilUsuario;
-window._rutValido         = _rutValido;
+
 window._regionCanonica    = _regionCanonica;
 
 // D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)

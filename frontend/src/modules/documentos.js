@@ -208,7 +208,6 @@ function docRemoveArchivo(id) {
 
 
 // ── Window bridges (3 barridos: externos, auto-consumo, nombre-string) ──
-window.renderDocumentos = renderDocumentos;
 
 // D2 · acciones delegadas
 registrarAcciones('doc', {
