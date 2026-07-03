@@ -559,7 +559,7 @@ export function arrancarTakeOS() {
 
 // _espIniciales, _espSello, _titleCaseNombre, ESPACIO_DEMO, _espConstruir, _espCargarConteos → movido a src/modules/espacio.js (Etapa C4)
 
-async function resolverEspacioYArrancar(){
+export async function resolverEspacioYArrancar(){
   const forzar = /[?&]espacio=1\b/.test(window.location.search);
   const demo   = /[?&]espacio=demo\b/.test(window.location.search);
   if (demo) { try { renderEspacioUsuario(ESPACIO_DEMO); return; } catch(e){ arrancarTakeOS(); return; } }

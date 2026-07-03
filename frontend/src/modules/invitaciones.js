@@ -1,6 +1,14 @@
 // Sistema de invitaciones (frontend) — extraído de index.html (Etapa C3)
 // Incluye dalInvitar (excepción B1 que ahora se muda con su dominio).
 
+// D1b · imports reales. VETADOS: _TIENE_EMPRESA (este módulo LO ESCRIBE en :68
+// — import read-only = TypeError), ORG_ID, closeModal (solo strings on*=).
+// El import de boot hoistea su eval a la pos 36 — auditado inerte (§0.A d1b).
+import { escapeHtml, showToast } from '../lib/helpers.js';
+import { sb } from '../lib/supabase.js';
+import { abrirPerfilUsuario } from './perfil-onboarding.js';
+import { _setOrgActiva, _bootCoverShow, arrancarTakeOS, resolverEspacioYArrancar } from '../lib/boot.js';
+
 /* ════════════════════════════════════════════════════════════════════
    V11.3.0 · SISTEMA DE INVITACIONES (frontend)
    ════════════════════════════════════════════════════════════════════
