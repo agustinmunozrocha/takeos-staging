@@ -6,6 +6,9 @@
 // internos del modulo. Al final se auto-puentean a window (el codigo clasico
 // los llama como globales).
 
+// D1e · imports reales (regla lib-precede: solo de libs anteriores en main.js)
+import { showToast } from './helpers.js';
+
 const MODULE_PERM_CODE = {
   'info-proyecto': 'info_proyecto',
   'bd-personas': 'bd',
@@ -48,7 +51,7 @@ export function authEsAdmin() { return TAKEOS_PERFIL && (TAKEOS_PERFIL.codigo ==
 /* V10.5.2: editar responsables de sección es exclusivo de Administrador (1) y Ejecutivo (2).
    El servidor (RPC 4b) ya ignora los responsables para el resto; esto alinea la UI.
    Fail-open coherente: sin perfil cargado, no restringe. */
-function _puedeEditarResponsables() {
+export function _puedeEditarResponsables() {
   if (!TAKEOS_PERFIL) return true;
   return TAKEOS_PERFIL.codigo === 1 || TAKEOS_PERFIL.codigo === 2;
 }

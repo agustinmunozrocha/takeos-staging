@@ -1,5 +1,8 @@
 // Fórmulas de costo/totales + formateadores CLP + helpers de input — extraído de index.html (Etapa C5)
 
+// D1e · imports reales (regla lib-precede: solo de libs anteriores en main.js)
+import { DTE_CON_RETENCION, factorRetencionDte } from './data.js';
+
 /* Costo empresa cotizado de un ítem.
    Retorna { value: number|null, error: string|null }
    - value === null + error → mostrar error

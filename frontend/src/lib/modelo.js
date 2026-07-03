@@ -2,6 +2,9 @@
 // ⚠ ORDEN: este módulo DEBE importarse ANTES que lib/data.js — el inicializador
 // de DEMO_PROJECTS (data.js, eval-time) llama buildProjectData/_clientUuid vía window.
 
+// D1e · imports reales (regla lib-precede: solo de libs anteriores en main.js)
+import { BD_CONTACTOS, BD_EMPRESAS, BD_EMPRESAS_BYID, BD_LOC, BD_PERSONAS, BD_TALENTOS } from './state.js';
+
 /* ── DTE: texto del Excel/Form ("Boleta de Honorarios") → código interno ── */
 function _tipoDTEaCodigo(tipo) {
   const t = String(tipo || '').toLowerCase();

@@ -3,6 +3,12 @@
 // eval y resuelve vía window.MODULES (asignado aquí). Las entradas render son arrows
 // diferidos (lección #7); jamás referencias directas.
 
+// D1e · imports reales (regla lib-precede: solo de libs anteriores en main.js)
+import { escapeHtml, showToast } from './helpers.js';
+import { STATE } from './state.js';
+import { authPuedeVer } from './auth.js';
+import { sectionResponsableHTML } from './ui.js';
+
 export function navigateToModule(moduleKey) {
   // V10.4.0 (Gate B): no navegar a módulos sin acceso; caer al primero visible
   if (!authPuedeVer(moduleKey)) {

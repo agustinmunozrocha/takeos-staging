@@ -1,5 +1,12 @@
 // UI compartida: renderPersonSelect, modales, tooltip global, combobox, tema — extraído de index.html (Etapa C5)
 
+// D1e · imports reales (regla lib-precede: solo de libs anteriores en main.js)
+import { escapeHtml, safeUrl, showToast } from './helpers.js';
+import { BD_EMPRESAS, BD_EMPRESAS_BYID, BD_PERSONAS, STATE } from './state.js';
+import { _genId, syncLegacyFromContactos } from './modelo.js';
+import { BANCOS_CHILE, REGIONES_CHILE } from './data.js';
+import { _puedeEditarResponsables } from './auth.js';
+
 /* ─── PERSON SELECT (sustituye datalist+input bugeado) ──────────────
    Bug original: el datalist+input no permitía cambiar ni borrar a una
    persona ya seleccionada. UX rota.
@@ -515,7 +522,7 @@ function sectionTareasBtnHTML(key) {
   const n = sectionTaskCount(STATE.currentProject, key);
   return '<button type="button" class="module-tareas-btn" onclick="openTareasModal(\'' + key + '\')" data-tip="Tareas de esta sección — asigna trabajo a tu equipo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Tareas' + (n ? '<span class="module-tareas-badge">' + n + '</span>' : '') + '</button>';
 }
-function sectionResponsableHTML(key) {
+export function sectionResponsableHTML(key) {
   const m = MODULES[key];
   if (m && m.scope === 'project' && !STATE.currentProject) return '';
   if (!STATE.currentProject) return '';
