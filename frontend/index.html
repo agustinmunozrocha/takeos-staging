@@ -1293,7 +1293,7 @@
        ════════════════════════════════════════════════════════════════ -->
   <header class="topbar">
     <div class="topbar-left">
-      <div class="brand" onclick="navigateToControlRoom()">
+      <div class="brand" data-accion="app.controlRoom">
         <div class="brand-logo" id="brandLogo">T</div>
         <div>
           <span class="brand-name">TakeOS</span>
@@ -1306,7 +1306,7 @@
         <span class="breadcrumb-current">Control Room</span>
       </nav>
       <div class="esw" id="eswWrap">
-        <button class="esw-btn" onclick="_swToggle(event)" title="Cambiar de espacio">Cambiar de espacio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+        <button class="esw-btn" data-accion="app.swToggle" title="Cambiar de espacio">Cambiar de espacio <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
         <div class="esw-menu" id="eswMenu" hidden></div>
       </div>
     </div>
@@ -1314,40 +1314,40 @@
     <div class="topbar-right">
       <div class="topbar-search">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="text" id="globalSearch" placeholder="Buscar proyectos, personas, módulos…" autocomplete="off" oninput="globalSearchInput(this.value)" onkeydown="globalSearchKey(event)" onfocus="globalSearchInput(this.value)" onblur="setTimeout(_gsearchHide, 160)" />
+        <input type="text" id="globalSearch" placeholder="Buscar proyectos, personas, módulos…" autocomplete="off" data-accion="app.buscar" data-on="input keydown focus blur" />
         <div id="gsearchResults" class="gsearch-results" hidden></div>
       </div>
-      <button class="topbar-admin-badge" id="adminBadge" onclick="openConfigPanel()" style="display:none;" title="Modo administrador ACTIVO. Acciones restringidas habilitadas. Click para abrir Configuración.">
+      <button class="topbar-admin-badge" id="adminBadge" data-accion="app.config" style="display:none;" title="Modo administrador ACTIVO. Acciones restringidas habilitadas. Click para abrir Configuración.">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Modo Admin
       </button>
-      <button class="topbar-save-btn" id="undoBtn" onclick="undoLast()" disabled
+      <button class="topbar-save-btn" id="undoBtn" data-accion="app.undo" disabled
               title="Deshacer el último cambio en este proyecto">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
         Deshacer
       </button>
-      <input type="file" id="loadFileInput" accept="application/json,.json" style="display:none;" onchange="importSaveFromInput(this)">
+      <input type="file" id="loadFileInput" accept="application/json,.json" style="display:none;" data-accion="app.importSave" data-on="change">
       <!-- V7.4: las herramientas globales (BD, Guardar/Cargar OS, Snapshots, tema, admin)
            viven en el panel de Configuración. La barra solo deja Deshacer (uso frecuente). -->
       <div class="notif-wrap" style="position:relative;">
-        <button class="topbar-user" id="notifBtn" onclick="bellToggle()" title="Avisos" style="position:relative;padding:8px 10px;">
+        <button class="topbar-user" id="notifBtn" data-accion="app.bell" title="Avisos" style="position:relative;padding:8px 10px;">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span id="notifBadge" style="display:none;position:absolute;top:3px;right:3px;min-width:15px;height:15px;padding:0 3px;border-radius:999px;background:var(--accent,#c2410c);color:#fff;font-size:9.5px;font-weight:700;line-height:15px;text-align:center;box-sizing:border-box;">0</span>
         </button>
         <div id="notifPanel" style="position:absolute;right:0;top:calc(100% + 8px);width:344px;max-height:460px;background:var(--bg-card,#1b1c20);border:1px solid var(--rule,#2a2a28);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.4);z-index:1200;overflow:hidden;display:none;flex-direction:column;">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 18px;border-bottom:1px solid var(--rule,#2a2a28);">
             <span style="font-weight:700;font-size:13.5px;color:var(--ink-primary);">Avisos</span>
-            <button onclick="notifMarcarTodas()" style="background:none;border:none;color:var(--accent,#c2410c);font-size:11.5px;cursor:pointer;font-family:inherit;">Marcar todas como leídas</button>
+            <button data-accion="app.notifTodas" style="background:none;border:none;color:var(--accent,#c2410c);font-size:11.5px;cursor:pointer;font-family:inherit;">Marcar todas como leídas</button>
           </div>
           <div id="notifList" style="overflow:auto;max-height:400px;"></div>
         </div>
       </div>
-      <button class="topbar-user topbar-config-btn" onclick="openConfigPanel()" title="Configuración (⌘ , / Ctrl ,)">
+      <button class="topbar-user topbar-config-btn" data-accion="app.config" title="Configuración (⌘ , / Ctrl ,)">
         <div class="user-avatar" id="userAvatar"></div>
         <span class="user-name" id="userName">Mi cuenta</span>
         <svg class="config-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
-      <button class="topbar-save-btn" id="logoutBtn" onclick="confirmLogout()" title="Cerrar sesión en TakeOS">
+      <button class="topbar-save-btn" id="logoutBtn" data-accion="app.logout" title="Cerrar sesión en TakeOS">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Salir
       </button>
@@ -1373,21 +1373,21 @@
         <p class="cr-subtitle" id="crSubtitle">Vista global de todos tus proyectos.</p>
       </div>
       <div class="cr-actions">
-        <button class="btn btn-secondary" id="importProjectBtn" onclick="document.getElementById('importProjectFileInput').click()"
+        <button class="btn btn-secondary" id="importProjectBtn" data-accion="app.importProyectoBtn"
                 title="Importar UN proyecto desde un archivo .json. NO toca la BD ni los demás proyectos.">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><polyline points="9 15 12 12 15 15"/></svg>
           Importar proyecto
         </button>
-        <input type="file" id="importProjectFileInput" accept="application/json,.json" style="display:none;" onchange="importSingleProjectFromInput(this)">
-        <button class="btn btn-secondary" onclick="openTrash()" title="Proyectos eliminados (recuperables)">
+        <input type="file" id="importProjectFileInput" accept="application/json,.json" style="display:none;" data-accion="app.importProyecto" data-on="change">
+        <button class="btn btn-secondary" data-accion="app.papelera" title="Proyectos eliminados (recuperables)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           Papelera
         </button>
-        <button class="btn btn-secondary" onclick="openGlobalCFO()" title="Finanzas: consolida los gastos de todos los proyectos, valida, paga reembolsos y exporta a Chipax.">
+        <button class="btn btn-secondary" data-accion="app.cfo" title="Finanzas: consolida los gastos de todos los proyectos, valida, paga reembolsos y exporta a Chipax.">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
           Finanzas
         </button>
-        <button class="btn btn-primary" onclick="newProject()">
+        <button class="btn btn-primary" data-accion="app.nuevoProyecto">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Nuevo proyecto
         </button>
@@ -1447,31 +1447,31 @@
 
       <div class="sidebar-section">
         <div class="sidebar-label">Identidad y equipo</div>
-        <div class="sidebar-item" data-module="info-proyecto" onclick="navigateToModule('info-proyecto')">
+        <div class="sidebar-item" data-module="info-proyecto" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
           Info Proyecto
         </div>
-        <div class="sidebar-item" data-module="bd-personas" onclick="navigateToModule('bd-personas')">
+        <div class="sidebar-item" data-module="bd-personas" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Base de Datos
         </div>
-        <div class="sidebar-item" data-module="presupuesto" onclick="navigateToModule('presupuesto')">
+        <div class="sidebar-item" data-module="presupuesto" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           Presupuesto
         </div>
-        <div class="sidebar-item" data-module="cotizacion" onclick="navigateToModule('cotizacion')">
+        <div class="sidebar-item" data-module="cotizacion" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6"/><path d="M9 17h3"/></svg>
           Cotización
         </div>
-        <div class="sidebar-item" data-module="crew" onclick="navigateToModule('crew')">
+        <div class="sidebar-item" data-module="crew" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3-3-3"/><path d="M19 14V4"/></svg>
           Crew
         </div>
-        <div class="sidebar-item" data-module="cargos" onclick="navigateToModule('cargos')">
+        <div class="sidebar-item" data-module="cargos" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M12 12v3"/></svg>
           Cargos
         </div>
-        <div class="sidebar-item" data-module="documentos" onclick="navigateToModule('documentos')">
+        <div class="sidebar-item" data-module="documentos" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
           Documentos
         </div>
@@ -1479,23 +1479,23 @@
 
       <div class="sidebar-section">
         <div class="sidebar-label">Producción</div>
-        <div class="sidebar-item" data-module="rodajes" onclick="navigateToModule('rodajes')">
+        <div class="sidebar-item" data-module="rodajes" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
           Rodajes
         </div>
-        <div class="sidebar-item" data-module="locaciones" onclick="navigateToModule('locaciones')">
+        <div class="sidebar-item" data-module="locaciones" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           Locaciones
         </div>
-        <div class="sidebar-item" data-module="hoja-llamado" onclick="navigateToModule('hoja-llamado')">
+        <div class="sidebar-item" data-module="hoja-llamado" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           Hoja de Llamado
         </div>
-        <div class="sidebar-item" data-module="plan-rodaje" onclick="navigateToModule('plan-rodaje')">
+        <div class="sidebar-item" data-module="plan-rodaje" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="4" x2="8" y2="21"/><line x1="12" y1="13" x2="17" y2="13"/><line x1="12" y1="17" x2="17" y2="17"/></svg>
           Plan de Rodaje
         </div>
-        <div class="sidebar-item" data-module="legal" onclick="navigateToModule('legal')">
+        <div class="sidebar-item" data-module="legal" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6M9 17h4"/></svg>
           Legal
         </div>
@@ -1503,11 +1503,11 @@
 
       <div class="sidebar-section">
         <div class="sidebar-label">Comunicación y dinero</div>
-        <div class="sidebar-item" data-module="correos" onclick="navigateToModule('correos')">
+        <div class="sidebar-item" data-module="correos" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
           Notificaciones
         </div>
-        <div class="sidebar-item" data-module="gastos" onclick="navigateToModule('gastos')">
+        <div class="sidebar-item" data-module="gastos" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
           Gastos
         </div>
@@ -1515,12 +1515,12 @@
 
       <div class="sidebar-section">
         <div class="sidebar-label">Próximamente</div>
-        <div class="sidebar-item" data-module="entregables" onclick="navigateToModule('entregables')">
+        <div class="sidebar-item" data-module="entregables" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Entregables
           <span class="sidebar-soon">SOON</span>
         </div>
-        <div class="sidebar-item" data-module="reporte-cierre" onclick="navigateToModule('reporte-cierre')">
+        <div class="sidebar-item" data-module="reporte-cierre" data-accion="app.modulo">
           <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 12l4-4 4 4 5-5"/></svg>
           Reporte de Cierre
           <span class="sidebar-soon">V6</span>

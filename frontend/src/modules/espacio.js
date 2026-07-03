@@ -15,6 +15,7 @@ import { abrirPerfilUsuario } from './perfil-onboarding.js';
 import { TAKEOS_MARCA, _ctaProdEvento, _ctaProdDescartado } from './plan-limites.js';
 import { _setOrgActiva, _bootCoverShow, _bootCoverHide, arrancarTakeOS } from '../lib/boot.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 /* ── FRENTE C · C3 · Selector "Cambiar de espacio" (topbar) ──────────────────
    Cambia el contexto de organización activa desde la barra superior. Lista:
    Panel personal · tus productoras (Control Room, interno) · proyectos externos
@@ -56,17 +57,17 @@ async function _swCargar() {
 function _swRender() {
   var menu = document.getElementById('eswMenu'); if (!menu) return;
   if (!_swData) { menu.innerHTML = '<div class="esw-empty">Cargando tus espacios…</div>'; return; }
-  var html = '<div class="esw-item" onclick="_swPanel()"><span class="esw-i">🏠</span><span class="esw-x"><b>Panel personal</b><em>Todos tus espacios</em></span></div>';
+  var html = '<div class="esw-item" data-accion="esp.panel"><span class="esw-i">🏠</span><span class="esw-x"><b>Panel personal</b><em>Todos tus espacios</em></span></div>';
   if (_swData.internas.length) {
     html += '<div class="esw-group">Tus productoras · acceso completo</div>'
       + _swData.internas.map(function (o) {
-        return '<div class="esw-item" onclick="_swControlRoom(\'' + o.orgId + '\')"><span class="esw-i">🎬</span><span class="esw-x"><b>' + escapeHtml(o.nombre) + '</b><em>Control Room (interno)</em></span></div>';
+        return '<div class="esw-item" ' + accionHTML('esp.cr', o.orgId) + '><span class="esw-i">🎬</span><span class="esw-x"><b>' + escapeHtml(o.nombre) + '</b><em>Control Room (interno)</em></span></div>';
       }).join('');
   }
   _swData.externas.forEach(function (o) {
     html += '<div class="esw-group">' + escapeHtml(o.nombre) + ' · externo (solo proyectos)</div>';
     html += o.proyectos.length
-      ? o.proyectos.map(function (p) { return '<div class="esw-item" onclick="_swProyecto(\'' + o.orgId + '\',\'' + p.id + '\')"><span class="esw-i">📁</span><span class="esw-x"><b>' + escapeHtml(p.nombre_proyecto || 'Proyecto') + '</b><em>Proyecto</em></span></div>'; }).join('')
+      ? o.proyectos.map(function (p) { return '<div class="esw-item" ' + accionHTML('esp.proy', o.orgId, p.id) + '><span class="esw-i">📁</span><span class="esw-x"><b>' + escapeHtml(p.nombre_proyecto || 'Proyecto') + '</b><em>Proyecto</em></span></div>'; }).join('')
       : '<div class="esw-empty">Sin proyectos visibles.</div>';
   });
   menu.innerHTML = html;
@@ -175,7 +176,7 @@ function _espOnboarding(hayInternas, hayExternas){
     pop.innerHTML = '<div style="background:var(--bg-card,#1b1c20);border:1px solid var(--rule,#2a2a28);border-radius:14px;max-width:340px;padding:22px 24px;text-align:center;">'
       + '<div style="font-weight:700;font-size:15px;color:var(--ink-primary);margin-bottom:8px;">' + p.t + '</div>'
       + '<div style="font-size:13px;color:var(--ink-secondary);line-height:1.55;margin-bottom:16px;">' + p.b + '</div>'
-      + '<button class="btn btn-primary btn-sm" onclick="_espOnbNext()">' + (i < pasos.length - 1 ? 'Siguiente' : 'Entendido') + '</button>'
+      + '<button class="btn btn-primary btn-sm" data-accion="esp.onbNext">' + (i < pasos.length - 1 ? 'Siguiente' : 'Entendido') + '</button>'
       + (pasos.length > 1 ? '<div style="margin-top:10px;font-size:11px;color:var(--ink-faint);">' + (i + 1) + ' de ' + pasos.length + '</div>' : '')
       + '</div>';
   }
@@ -221,7 +222,7 @@ async function _espCargarProyectosExternos(externas){
           if (r.error || !r.data || !r.data.length) { box.innerHTML = '<div class="esp-empty">Verás aquí los proyectos a los que te inviten.</div>'; return; }
           box.innerHTML = r.data.map(function(p){
             var est = (typeof STATES !== 'undefined' && STATES[p.estado] && STATES[p.estado].name) ? STATES[p.estado].name : (p.estado || '');
-            return '<div class="esp-proj" onclick="_espAbrirProyecto(\'' + o.orgId + '\',\'' + p.id + '\')">'
+            return '<div class="esp-proj" ' + accionHTML('esp.abrirProy', o.orgId, p.id) + '>'
               + '<div class="esp-f1"><div class="pnm">' + escapeHtml(p.nombre_proyecto || p.id) + '</div><div class="psub">invitado por ' + escapeHtml(o.nombre || '') + '</div></div>'
               + '<span class="esp-chip sale">' + escapeHtml(est) + '</span>'
               + '<span class="esp-go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>'
@@ -247,7 +248,7 @@ function renderEspacioUsuario(data){
           <div class="esp-meta"><span class="esp-badge i">Interno</span><span class="esp-role">${o.perfil||'—'} · acceso completo</span></div>
           ${(o.orgId||(o.proyectos&&o.proyectos.length))?`<div class="esp-prev">${o.orgId?`<span class="esp-pill faint" id="espc_${o.orgId}">Cargando proyectos…</span>`:(o.total?`<span class="esp-pill faint">${o.total} proyectos activos</span>`:'')}${(o.proyectos||[]).map(function(p){return `<span class="esp-pill">${p}</span>`;}).join('')}</div>`:''}
         </div>
-        <button class="esp-enter" onclick="_espEntrarInterna(${demo}, '${o.orgId||''}')">Entrar <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></button>
+        <button class="esp-enter" ${accionHTML('esp.entrar', demo, o.orgId || '')}>Entrar <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></button>
       </div>`; }).join('');
     const extHTML = externas.map(function(o){ return `
       <div class="esp-grp">
@@ -326,8 +327,8 @@ function renderEspacioUsuario(data){
       <div class="esp-top"><div class="esp-top-in">
         <div class="esp-brand"><div class="esp-mark">T</div><span class="esp-bname">TakeOS</span><span class="esp-ver">${demo?'Demo':'Tu espacio'}</span></div>
         <div class="esp-right">
-          <div class="esp-acct" onclick="_espPerfil()"><div class="who"><b>${u.nombre||'tu cuenta'}</b><span>${u.email||''}</span></div><div class="esp-av">${u.iniciales||'U'}</div></div>
-          <button class="esp-logout" onclick="confirmLogout()" title="Cerrar sesión en TakeOS"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Salir</button>
+          <div class="esp-acct" data-accion="esp.perfil"><div class="who"><b>${u.nombre||'tu cuenta'}</b><span>${u.email||''}</span></div><div class="esp-av">${u.iniciales||'U'}</div></div>
+          <button class="esp-logout" data-accion="app.logout" title="Cerrar sesión en TakeOS"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Salir</button>
         </div>
       </div></div>
       <div class="esp-wrap">
@@ -336,7 +337,7 @@ function renderEspacioUsuario(data){
         ${internas.length?`<div class="esp-sec"><div class="esp-sec-h"><div class="esp-eyebrow"><span class="esp-dot i"></span>Tus productoras</div></div>${intHTML}</div>`:''}
         ${externas.length?`<div class="esp-sec"><div class="esp-sec-h"><div class="esp-eyebrow"><span class="esp-dot e"></span>Proyectos donde colaboras</div></div>${extHTML}</div>`:''}
         ${(!internas.length && !externas.length)?`<div class="esp-grp"><div class="esp-empty" style="padding:30px 20px;text-align:center;line-height:1.7;">Aún no perteneces a ninguna productora.<br><span style="color:var(--ink-faint);font-size:12.5px;">Cuando una productora te invite a colaborar, sus proyectos van a aparecer aquí.</span></div></div>`:''}
-        <div class="esp-foot"><a onclick="abrirPrivacidadDatos()" style="color:var(--accent-deep);cursor:pointer;font-weight:600;text-decoration:none;">Privacidad y datos</a> · tus derechos sobre tus datos personales (Ley 21.719).</div>
+        <div class="esp-foot"><a data-accion="esp.privacidad" style="color:var(--accent-deep);cursor:pointer;font-weight:600;text-decoration:none;">Privacidad y datos</a> · tus derechos sobre tus datos personales (Ley 21.719).</div>
       </div>`;
     document.body.appendChild(ov);
     try{ if(!demo){ _espCargarConteos(internas); _espCargarProyectosExternos(externas); _espOnboarding(internas.length>0, externas.length>0); } }catch(e){}
@@ -356,10 +357,10 @@ function _espInyectarCtaProductora() {
     sec.id = 'espCtaProd';
     sec.style.cssText = 'max-width:680px;margin:18px auto 0;';
     sec.innerHTML = '<div style="position:relative;border:1px solid var(--rule);border-radius:14px;padding:20px 22px;background:linear-gradient(135deg, var(--bg-card), var(--bg-surface));overflow:hidden;">'
-      + '<button onclick="ctaProdCerrar()" title="Cerrar" aria-label="Cerrar" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--ink-faint);font-size:18px;cursor:pointer;line-height:1;padding:2px 6px;">×</button>'
+      + '<button data-accion="esp.ctaCerrar" title="Cerrar" aria-label="Cerrar" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--ink-faint);font-size:18px;cursor:pointer;line-height:1;padding:2px 6px;">×</button>'
       + '<div style="font-weight:700;font-size:17px;color:var(--ink-primary);margin-bottom:6px;">¿Tienes una productora?</div>'
       + '<div style="font-size:13px;color:var(--ink-secondary);line-height:1.55;max-width:52ch;margin-bottom:14px;">Esta es la punta del iceberg. ' + TAKEOS_MARCA + ' ordena tu productora entera: la plata, el equipo y tu paz.</div>'
-      + '<button class="btn btn-primary btn-sm" onclick="ctaProdSaberMas()">Saber más →</button>'
+      + '<button class="btn btn-primary btn-sm" data-accion="esp.ctaSaberMas">Saber más →</button>'
       + '</div>';
     cont.appendChild(sec);
     _ctaProdEvento('cta_productora_impression', { slot: 'dashboard' });
@@ -409,7 +410,7 @@ function _espInyectarInvitaciones(invs) {
             + (i.proyecto ? ' · ' + escapeHtml(i.proyecto) : '')
             + (i.cargo ? ' · como ' + escapeHtml(i.cargo) : '')
             + ' <span style="color:var(--ink-faint);">(' + escapeHtml(i.perfil || '') + ', ' + escapeHtml(i.tipo || '') + ')</span></div>'
-            + '<button class="btn btn-primary btn-sm" onclick="abrirInvitacionRecibida(\'' + escapeHtml(i.token) + '\')">Ver invitación</button>'
+            + '<button class="btn btn-primary btn-sm" ' + accionHTML('esp.verInv', i.token) + '>Ver invitación</button>'
             + '</div>';
         }).join('')
       + '</div>';
@@ -432,3 +433,18 @@ window.renderEspacioUsuario = renderEspacioUsuario;
 window._espInyectarCtaProductora = _espInyectarCtaProductora;
 window._espInyectarHerramientas = _espInyectarHerramientas;
 window._espInyectarInvitaciones = _espInyectarInvitaciones;
+
+// D2 · acciones delegadas (cta*/abrirInvitacionRecibida/abrirPrivacidadDatos vía window)
+registrarAcciones('esp', {
+  panel: function () { _swPanel(); },
+  cr: function (a) { _swControlRoom(a[0]); },
+  proy: function (a) { _swProyecto(a[0], a[1]); },
+  onbNext: function () { window._espOnbNext(); },
+  abrirProy: function (a) { _espAbrirProyecto(a[0], a[1]); },
+  entrar: function (a) { _espEntrarInterna(a[0], a[1]); },
+  perfil: function () { _espPerfil(); },
+  privacidad: function () { abrirPrivacidadDatos(); },
+  ctaCerrar: function () { ctaProdCerrar(); },
+  ctaSaberMas: function () { ctaProdSaberMas(); },
+  verInv: function (a) { abrirInvitacionRecibida(a[0]); },
+});

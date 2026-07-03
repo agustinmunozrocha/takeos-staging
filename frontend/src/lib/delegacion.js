@@ -55,6 +55,9 @@ function despachar(ev) {
 ['click', 'input', 'change', 'keydown', 'dblclick', 'mousedown', 'paste', 'submit', 'dragover', 'dragleave', 'drop'].forEach(function (t) {
   document.addEventListener(t, despachar);
 });
+['focus', 'blur'].forEach(function (t) {   // no burbujean: captura
+  document.addEventListener(t, despachar, true);
+});
 
 /* Acciones universales compartidas (el patrón modal aparece en TODOS los
    módulos): backdrop cierra SOLO si el click fue directo sobre él — la

@@ -707,3 +707,27 @@ window.setCurrentUser = setCurrentUser;
 registrarAcciones('boot', {
   cgEnter: function (args, el, ev) { if (ev.key === 'Enter') { var b = document.getElementById('cgEntrar'); if (b) b.click(); } },
 });
+
+// D2 · acciones de los 35 estáticos de index.html (mini-boot). Las que no
+// están importadas resuelven vía window (bridges vigentes hasta D3).
+registrarAcciones('app', {
+  modulo: function (a, el) { navigateToModule(el.dataset.module); },
+  controlRoom: function () { navigateToControlRoom(); },
+  swToggle: function (a, el, ev) { _swToggle(ev); },
+  buscar: function (a, el, ev) {
+    if (ev.type === 'keydown') globalSearchKey(ev);
+    else if (ev.type === 'blur') setTimeout(_gsearchHide, 160);
+    else globalSearchInput(el.value);
+  },
+  config: function () { openConfigPanel(); },
+  undo: function () { undoLast(); },
+  importSave: function (a, el) { importSaveFromInput(el); },
+  bell: function () { bellToggle(); },
+  notifTodas: function () { notifMarcarTodas(); },
+  logout: function () { confirmLogout(); },
+  importProyectoBtn: function () { document.getElementById('importProjectFileInput').click(); },
+  importProyecto: function (a, el) { importSingleProjectFromInput(el); },
+  papelera: function () { openTrash(); },
+  cfo: function () { openGlobalCFO(); },
+  nuevoProyecto: function () { newProject(); },
+});
