@@ -256,7 +256,7 @@ function renderPresupuestoHistorico(project, version) {
     ${detalle}`;
 }
 
-function renderPresupuesto() {
+export function renderPresupuesto() {
   const project = STATE.currentProject;
   if (!project) return;
   // V8.3.4: si la versión de cotización activa es histórica, mostrar SU presupuesto bloqueado.
@@ -369,7 +369,7 @@ function toggleDept(key) {
 
 /* ─── SERVICIOS (con sub-departamentos) ────────────────────────────── */
 
-function renderServiciosBody() {
+export function renderServiciosBody() {
   const project = STATE.currentProject;
   const d = project.data.servicios;
   const showReal = window.STATES_WITH_REAL_COST.includes(project.state);
@@ -567,7 +567,7 @@ function openVisualizacionPanel() {
 
 /* ─── GASTOS / EQUIPOS / TALENTOS (sin sub-departamentos) ──────────── */
 
-function renderSimpleSection(sectionKey) {
+export function renderSimpleSection(sectionKey) {
   const project = STATE.currentProject;
   if (sectionKey === 'gastos') _syncGastosCostoReal(project);   // 4a · Costo Real derivado de los gastos
   const items = project.data[sectionKey];
@@ -841,7 +841,7 @@ function renderRoleRow(sectionKey, dept, item, idx, showReal) {
 
 /* ─── MUTACIONES DEL MODELO ─────────────────────────────────────────── */
 
-function updateRowField(sectionKey, dept, idx, field, value) {
+export function updateRowField(sectionKey, dept, idx, field, value) {
   const project = STATE.currentProject;
   if (sectionKey === 'servicios') {
     project.data.servicios[dept][idx][field] = value;
@@ -1129,7 +1129,7 @@ function _budgetRestoreScroll(m) {
    permanente: se accede con el botón ✎ de la fila. Sirve para explicar
    decisiones (ej. "va en $0 porque el cliente provee el recurso"). No
    aparece en la cotización ni en documentos al cliente. */
-function _rowNoteItem(sectionKey, dept, idx) {
+export function _rowNoteItem(sectionKey, dept, idx) {
   const project = STATE.currentProject;
   if (!project) return null;
   return sectionKey === 'servicios'
@@ -1188,7 +1188,7 @@ function saveRowNote(sectionKey, dept, idx, clear) {
 /* CORE DEL BUG FIX: en lugar de renderPresupuesto(), hacemos updates
    granulares al DOM. Esto preserva el estado de inputs, scroll, foco y
    secciones colapsadas. */
-function afterRowChange(sectionKey, dept, idx) {
+export function afterRowChange(sectionKey, dept, idx) {
   const project = STATE.currentProject;
   const item = sectionKey === 'servicios'
     ? project.data.servicios[dept][idx]
@@ -1447,7 +1447,7 @@ function recalcDeptSummary(sectionKey) {
   `;
 }
 
-function recalcAllDeptSummaries() {
+export function recalcAllDeptSummaries() {
   recalcDeptSummary('servicios');
   recalcDeptSummary('gastos');
   recalcDeptSummary('equipos');
@@ -1878,7 +1878,7 @@ function toggleBudgetServiciosBreakdown() {
   renderSummaryFin();
 }
 
-function renderSummaryFin() {
+export function renderSummaryFin() {
   const project = STATE.currentProject;
   if (!project) return;
   const showReal = window.STATES_WITH_REAL_COST.includes(project.state);
@@ -2301,7 +2301,7 @@ function updateExtraIngresoMonto(idx, value) {
 function deleteExtraIngreso(idx) {
   STATE.currentProject.data.finanzas.extras.splice(idx, 1);
 }
-function recalcKPIs() {
+export function recalcKPIs() {
   renderSummaryFin();
 }
 

@@ -28,7 +28,7 @@ const MODULE_PERM_CODE = {
 /* Nivel para un código de módulo de BD. Fail-closed: null (no cargado) => 'none';
    código ausente en la matriz cargada => 'none' (la matriz se siembra densa: si
    falta una fila es anomalía, no un permiso legítimo => se niega por seguridad). */
-function authNivel(modCode) {
+export function authNivel(modCode) {
   if (!TAKEOS_ACCESO) return 'none';
   const n = TAKEOS_ACCESO[modCode];
   return n || 'none';

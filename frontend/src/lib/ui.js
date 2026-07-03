@@ -54,7 +54,7 @@ function _modalCancel() {
   if (fn) fn();
 }
 
-function closeModal() {
+export function closeModal() {
   document.getElementById('modalRoot').innerHTML = '';
 }
 

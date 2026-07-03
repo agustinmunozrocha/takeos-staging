@@ -2,6 +2,19 @@
 // El estado de las calculadoras (_calc*, _crc*, _he*) vive en window: los
 // handlers inline del HTML generado lo ESCRIBEN directamente (onchange="window._calcTipo=...").
 
+// D1a · imports reales. NO importar jamás (línea roja #1): IVA / FACTOR_BOLETA
+// (window-props puros de rates.js, reasignados por dalBootTaxRates — importarlos
+// congelaría las tasas tributarias en silencio).
+import { escapeHtml, showToast } from '../lib/helpers.js';
+import { STATE } from '../lib/state.js';
+import { DTE_OPTIONS, dteTieneRetencion, factorRetencionDte, montoNetoDesde, montoBrutoDesde } from '../lib/data.js';
+import { authNivel } from '../lib/auth.js';
+import { fmtMoney, parseMoneyCLP, displayMoneyInputValue } from '../lib/calc.js';
+import { closeModal } from '../lib/ui.js';
+import { renderPresupuesto, renderServiciosBody, renderSimpleSection, updateRowField, _rowNoteItem, afterRowChange, recalcAllDeptSummaries, renderSummaryFin, recalcKPIs } from './presupuesto-cotizacion.js';
+import { markDirty } from './persistencia-local.js';
+import { _markRowDirty } from './info-proyecto.js';
+
 /* ─── CALCULADORA TRIBUTARIA ────────────────────────────────────────
    Recuperada del Master Sheet V2.4.1 (M2:O9 de la pestaña PRESUPUESTO).
    Convierte entre líquido y bruto según tipo de documento.
