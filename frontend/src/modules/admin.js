@@ -4,7 +4,7 @@
 // por dal), ORG_ID — siguen vía window.
 import { showToast, escapeHtml } from '../lib/helpers.js';
 import { sb } from '../lib/supabase.js';
-import { STATE, STATES_WITH_LOCKED_BUDGET, TAKEOS_VERSION } from '../lib/state.js';
+import { STATE, STATES_WITH_LOCKED_BUDGET, TAKEOS_VERSION, ORG_ID, TAKEOS_PERFIL } from '../lib/state.js';
 import { authEsAdmin } from '../lib/auth.js';
 import { showModal, closeModal, fireConfetti } from '../lib/ui.js';
 import { navigateToModule } from '../lib/nav.js';

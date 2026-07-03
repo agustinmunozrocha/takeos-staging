@@ -10,7 +10,7 @@ import { abrirPerfilUsuario } from './perfil-onboarding.js';
 import { _setOrgActiva, _bootCoverShow, arrancarTakeOS, resolverEspacioYArrancar } from '../lib/boot.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
-import { setTieneEmpresa } from '../lib/state.js';
+import { setTieneEmpresa, ORG_ID } from '../lib/state.js';
 /* ════════════════════════════════════════════════════════════════════
    V11.3.0 · SISTEMA DE INVITACIONES (frontend)
    ════════════════════════════════════════════════════════════════════

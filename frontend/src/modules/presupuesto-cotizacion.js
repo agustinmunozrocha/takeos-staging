@@ -3,7 +3,7 @@
 // Extraído de frontend/index.html (V5 → V10, ~200 funciones).
 // Acoplamiento bidireccional: presupuesto llama a cot*, cot* llama a calcSummaryFin.
 // ════════════════════════════════════════════════════════════════════════════
-import { STATE } from '../lib/state.js';
+import { STATE, TAKEOS_PERFIL } from '../lib/state.js';
 import { escapeHtml, showToast, safeUrl } from '../lib/helpers.js';
 // D1e · imports reales (fusionado con los preexistentes de la era C — lección #12).
 // DIFERIDOS anti-ciclo (quedan vía window): boot (applyModuleReadonly/orgNombre),
@@ -19,6 +19,7 @@ import { markDirty } from './persistencia-local.js';
 
 // ── A0: cotizadoLocked (disperso, línea 1583)
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
+import { IVA } from '../lib/rates.js';
 function cotizadoLocked(project) {
   if (!project) return false;
   return window.STATES_WITH_LOCKED_BUDGET.includes(project.state);

@@ -13,7 +13,7 @@
 // (_firstVisibleModule: no arrastrar boot a 16 por 1 símbolo). VETADOS:
 // currentUser, _TIENE_EMPRESA (window mutables).
 import { escapeHtml, showToast } from '../lib/helpers.js';
-import { PROJECTS, STATE, TRASH } from '../lib/state.js';
+import { PROJECTS, STATE, TRASH, ORG_ID, PROJECTS_SOURCE, TAKEOS_PERFIL } from '../lib/state.js';
 import { buildProjectData } from '../lib/modelo.js';
 import { _authBlockWriteToast, authNivel, authPuedeVer } from '../lib/auth.js';
 import { formatCLP } from '../lib/calc.js';

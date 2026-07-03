@@ -14,7 +14,7 @@
 // IVA (rates.js), sb, PROJECTS, PROJECTS_SOURCE, EMPRESA_PERFIL, BD_PERSONAS,
 // DTE_CON_RETENCION, DTE_LABEL_SHORT, authNivel.
 
-import { STATE, PROJECTS, BD_PERSONAS, EMPRESA_PERFIL } from '../lib/state.js';
+import { STATE, PROJECTS, BD_PERSONAS, EMPRESA_PERFIL, PROJECTS_SOURCE } from '../lib/state.js';
 // D1c · imports reales. VETADOS: IVA (tasa viva), PROJECTS_SOURCE, _notifCfg
 // (el módulo lo escribe). Bridge DTE_CON_RETENCION se conserva (calc lo lee
 // vía window). Hoist: persistencia-local 28→17 (top-level sin imports, inerte).
@@ -30,6 +30,7 @@ import { escapeHtml, showToast } from '../lib/helpers.js';
 // ── Sistema A · variables internas del panel ──────────────────────────────────
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
+import { IVA } from '../lib/rates.js';
 let NOTIF = [];
 let _NOTIF_TIMER = null;
 let _NOTIF_OUTSIDE = false;

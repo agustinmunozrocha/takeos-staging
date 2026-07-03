@@ -9,6 +9,7 @@
 // D1e · imports reales (regla lib-precede: solo de libs anteriores en main.js)
 import { buildDefaultProjectData } from './modelo.js';
 
+import { FACTOR_BOLETA, FACTOR_BTE } from './rates.js';
 export const LOC_ORIENTACIONES = ['—', 'Norte', 'Sur', 'Oriente', 'Poniente', 'Nororiente', 'Norponiente', 'Suroriente', 'Surponiente'];
 export const LOC_ESTADOS = { candidata: 'Candidata', confirmada: 'Confirmada', descartada: 'Descartada' }; window.LOC_ESTADOS = LOC_ESTADOS;
 /* V8.3.3 — Regiones de Chile (orden norte→sur). Ciudad y Comuna quedan libres

@@ -9,6 +9,7 @@
 // D1e · imports reales (regla lib-precede: solo de libs anteriores en main.js)
 import { showToast } from './helpers.js';
 
+import { TAKEOS_PERFIL, TAKEOS_ACCESO } from './state.js';
 const MODULE_PERM_CODE = {
   'info-proyecto': 'info_proyecto',
   'bd-personas': 'bd',

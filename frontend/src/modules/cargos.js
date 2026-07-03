@@ -7,7 +7,7 @@
 // window hasta su tranche — bridges :405-420 INTOCABLES.
 import { escapeHtml, showToast } from '../lib/helpers.js';
 import { sb } from '../lib/supabase.js';
-import { STATE, BD_CONTACTOS, BD_PERSONAS } from '../lib/state.js';
+import { STATE, BD_CONTACTOS, BD_PERSONAS, ORG_ID, PROJECTS_SOURCE, TAKEOS_PERFIL, _TOPE_COLAB, _TOPE_COLAB_ORG } from '../lib/state.js';
 import { closeModal } from '../lib/ui.js';
 import { _normKey } from './bd-excel.js';
 import { openEmpresaPerfil, _empShowSub, _empPerfilesOrg } from './config.js';

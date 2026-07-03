@@ -5,7 +5,7 @@
 // quedan vía window): plan-rodaje importará locaciones — no cerrar el ciclo.
 // VETADO: LOCATIONS_SOURCE (dal lo escribe). Hoists: bd 22→19, boot 24→19.
 import { escapeHtml, safeUrl, showToast } from '../lib/helpers.js';
-import { BD_LOC, BD_PERSONAS, STATE } from '../lib/state.js';
+import { BD_LOC, BD_PERSONAS, STATE, ORG_ID, LOCATIONS_SOURCE } from '../lib/state.js';
 import { ensureProjectLoc, normLocName } from '../lib/modelo.js';
 import { LOC_ESTADOS, LOC_ORIENTACIONES } from '../lib/data.js';
 import { normalizeTime24 } from '../lib/calc.js';

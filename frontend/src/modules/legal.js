@@ -14,7 +14,7 @@
 // window para nav y dal — bridge intocable.
 import { escapeHtml, showToast } from '../lib/helpers.js';
 import { sb } from '../lib/supabase.js';
-import { STATE, BD_CONTACTOS, BD_LEGAL, BD_LEGAL_TPL, BD_LOC, EMPRESA_PERFIL } from '../lib/state.js';
+import { STATE, BD_CONTACTOS, BD_LEGAL, BD_LEGAL_TPL, BD_LOC, EMPRESA_PERFIL, ORG_ID, LEGAL_SOURCE } from '../lib/state.js';
 import { montoNetoDesde } from '../lib/data.js';
 import { showModal, closeModal, _toISODate } from '../lib/ui.js';
 import { _fechaCorta } from './notificaciones.js';

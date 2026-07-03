@@ -6,7 +6,7 @@
 // bd-excel/nav/dal (bridge intocable). Hoist: gastos 24→22 (goWire necesita
 // nav 15 — seguro).
 import { escapeHtml, safeUrl, showToast } from '../lib/helpers.js';
-import { BD_CONTACTOS, BD_EMPRESAS, BD_EMPRESAS_BYID, BD_LOC, BD_PERSONAS, BD_TALENTOS, PROJECTS, STATE } from '../lib/state.js';
+import { BD_CONTACTOS, BD_EMPRESAS, BD_EMPRESAS_BYID, BD_LOC, BD_PERSONAS, BD_TALENTOS, PROJECTS, STATE, ORG_ID } from '../lib/state.js';
 import { _buildPerfilPago, _buildPerfilTalento, _genId, normLocName, syncLegacyFromContactos } from '../lib/modelo.js';
 import { DTE_LABEL, DTE_LABEL_SHORT, DTE_OPTIONS } from '../lib/data.js';
 import { authNivel } from '../lib/auth.js';

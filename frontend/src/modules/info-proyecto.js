@@ -6,7 +6,7 @@
 // allá — este lado no se cierra.
 import { escapeHtml, showToast } from '../lib/helpers.js';
 import { sb } from '../lib/supabase.js';
-import { STATE, BD_PERSONAS, PROJECTS, BD_EMPRESAS, BD_EMPRESAS_BYID, TRASH } from '../lib/state.js';
+import { STATE, BD_PERSONAS, PROJECTS, BD_EMPRESAS, BD_EMPRESAS_BYID, TRASH, ORG_ID, PROJECTS_SOURCE } from '../lib/state.js';
 import { buildDefaultProjectData } from '../lib/modelo.js';
 import { authNivel } from '../lib/auth.js';
 import { fmtMoney, calcProjectTotals, fmtDelta, deltaClassCosto } from '../lib/calc.js';

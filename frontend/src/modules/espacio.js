@@ -16,7 +16,7 @@ import { TAKEOS_MARCA, _ctaProdEvento, _ctaProdDescartado } from './plan-limites
 import { _setOrgActiva, _bootCoverShow, _bootCoverHide, arrancarTakeOS } from '../lib/boot.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
-import { setTieneEmpresa } from '../lib/state.js';
+import { setTieneEmpresa, USER_NOMBRE, USER_APELLIDO } from '../lib/state.js';
 /* ── FRENTE C · C3 · Selector "Cambiar de espacio" (topbar) ──────────────────
    Cambia el contexto de organización activa desde la barra superior. Lista:
    Panel personal · tus productoras (Control Room, interno) · proyectos externos

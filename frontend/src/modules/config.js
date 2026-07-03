@@ -8,7 +8,7 @@
 // espacio (verificado: renderEspacioUsuario lo consume boot, no config).
 // Hoists: boot 29→24, invitaciones 36→24, perfil-onboarding 29→24 (inertes).
 import { escapeHtml, safeUrl, showToast } from '../lib/helpers.js';
-import { BD_CONTACTOS, EMPRESA_PERFIL, PROJECTS, STATE, setTieneEmpresa } from '../lib/state.js';
+import { BD_CONTACTOS, EMPRESA_PERFIL, PROJECTS, STATE, setTieneEmpresa, ORG_ID, USER_NOMBRE, USER_APELLIDO, TAKEOS_PERFIL } from '../lib/state.js';
 import { authEsAdmin } from '../lib/auth.js';
 import { fmtMoney } from '../lib/calc.js';
 import { closeModal, getStoredTheme, showModal, slugify, updateThemeButton } from '../lib/ui.js';

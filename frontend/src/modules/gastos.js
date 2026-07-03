@@ -9,7 +9,7 @@
 // _syncGastosCostoReal vía window hasta d1e. VETADO: currentUser (window).
 // goWire sigue leyendo MODULES en eval: nav (15) siempre antes que gastos.
 import { escapeHtml, safeUrl, showToast } from '../lib/helpers.js';
-import { BD_PERSONAS, EMPRESA_PERFIL, PROJECTS, STATE, STATES_WITH_REAL_COST } from '../lib/state.js';
+import { BD_PERSONAS, EMPRESA_PERFIL, PROJECTS, STATE, STATES_WITH_REAL_COST, ORG_ID, PROJECTS_SOURCE, TAKEOS_PERFIL } from '../lib/state.js';
 import { _clientUuid } from '../lib/modelo.js';
 import { montoNetoDesde } from '../lib/data.js';
 import { calcCostoEmpresa, fmtMoney } from '../lib/calc.js';

@@ -7,7 +7,7 @@
 // vía window hasta la tranche de nav.
 import { escapeHtml, showToast } from '../lib/helpers.js';
 import { sb } from '../lib/supabase.js';
-import { STATE, PROJECTS } from '../lib/state.js';
+import { STATE, PROJECTS, ORG_ID, PROJECTS_SOURCE } from '../lib/state.js';
 import { _puedeEditarTareas } from '../lib/auth.js';
 import { navigateToModule, MODULES, renderModule } from '../lib/nav.js';
 import { navigateToProject, renderMetrics, renderKanban } from './kanban.js';

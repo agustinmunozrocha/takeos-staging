@@ -8,7 +8,7 @@
 // VETADO: _TIENE_EMPRESA (boot lo escribe).
 import { supabaseInit } from './supabase.js';
 import { dalBootTaxRates } from './rates.js';
-import { BD_CONTACTOS, BD_EMPRESAS, BD_EMPRESAS_BYID, BD_LEGAL, BD_LEGAL_TPL, BD_LOC, BD_PERSONAS, BD_TALENTOS, EMPRESA_PERFIL, PROJECTS, STATE, TAKEOS_VERSION, TRASH, setOrgId, setSource, setTakeosAcceso, setTieneEmpresa, setUserNombre, setUserApellido, setUsuarioActual } from './state.js';
+import { BD_CONTACTOS, BD_EMPRESAS, BD_EMPRESAS_BYID, BD_LEGAL, BD_LEGAL_TPL, BD_LOC, BD_PERSONAS, BD_TALENTOS, EMPRESA_PERFIL, PROJECTS, STATE, TAKEOS_VERSION, TRASH, setOrgId, setSource, setTakeosAcceso, setTieneEmpresa, setUserNombre, setUserApellido, setUsuarioActual, TAKEOS_PERFIL } from './state.js';
 import { authNivel, authNivelModulo, authPuedeVer } from './auth.js';
 import { applyStoredTheme, setupTooltipListeners, showModal } from './ui.js';
 import { newProject, renderKanban, renderMetrics } from '../modules/kanban.js';

@@ -16,6 +16,7 @@ import { markDirty } from './persistencia-local.js';
 import { _markRowDirty } from './info-proyecto.js';
 
 import { registrarAcciones } from '../lib/delegacion.js';
+import { IVA, FACTOR_BOLETA } from '../lib/rates.js';
 /* ─── CALCULADORA TRIBUTARIA ────────────────────────────────────────
    Recuperada del Master Sheet V2.4.1 (M2:O9 de la pestaña PRESUPUESTO).
    Convierte entre líquido y bruto según tipo de documento.

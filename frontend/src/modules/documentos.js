@@ -4,7 +4,7 @@
 // mientras otros consumidores window existan; ver Plan de Desacople v1.1)
 import { escapeHtml, safeUrl, showToast } from '../lib/helpers.js';
 import { sb } from '../lib/supabase.js';
-import { STATE } from '../lib/state.js';
+import { STATE, ORG_ID, PROJECTS_SOURCE } from '../lib/state.js';
 import { showModal } from '../lib/ui.js';
 import { dalTouchProyecto } from './dal.js';
 import { markDirty, autosaveNow } from './persistencia-local.js';
