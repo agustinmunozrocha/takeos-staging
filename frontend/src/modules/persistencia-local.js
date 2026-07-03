@@ -14,6 +14,7 @@ import { hydrateContactStore } from '../lib/modelo.js';
 import { showModal } from '../lib/ui.js';
 import { navigateToModule } from '../lib/nav.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 let UNDO_STACK = [];
 let UNDO_BASELINE = null;
 const UNDO_MAX = 30;
@@ -327,8 +328,8 @@ export function openSnapshotsModal() {
             <div style="color:#8a8d95;font-size:11px;margin-top:2px;">${escapeHtml(when)} · ${kb} KB</div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button onclick="restoreSnapshot(${i})" style="padding:6px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">Revertir</button>
-            <button onclick="deleteSnapshotFromModal(${i})" style="padding:6px 10px;background:transparent;color:#8a8d95;border:1px solid #3a3a3e;border-radius:6px;font-size:12px;cursor:pointer;" title="Eliminar">✕</button>
+            <button ${accionHTML('snap.revertir', i)} style="padding:6px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">Revertir</button>
+            <button ${accionHTML('snap.borrar', i)} style="padding:6px 10px;background:transparent;color:#8a8d95;border:1px solid #3a3a3e;border-radius:6px;font-size:12px;cursor:pointer;" title="Eliminar">✕</button>
           </div>
         </div>`;
       }).join('') + '</div>';
@@ -629,3 +630,9 @@ window.exportSingleProject          = exportSingleProject;          // kanban.js
 window.captureUndoBaseline          = captureUndoBaseline;          // kanban.js
 window.pushSnapshot                 = pushSnapshot;                 // bd-excel.js
 window.restoreLocalLocPhotos        = restoreLocalLocPhotos;        // dal.js:321
+
+// D2 · acciones delegadas
+registrarAcciones('snap', {
+  revertir: function (args) { restoreSnapshot(args[0]); },
+  borrar: function (args) { deleteSnapshotFromModal(args[0]); },
+});

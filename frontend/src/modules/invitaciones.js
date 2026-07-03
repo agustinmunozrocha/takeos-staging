@@ -9,6 +9,7 @@ import { sb } from '../lib/supabase.js';
 import { abrirPerfilUsuario } from './perfil-onboarding.js';
 import { _setOrgActiva, _bootCoverShow, arrancarTakeOS, resolverEspacioYArrancar } from '../lib/boot.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 /* ════════════════════════════════════════════════════════════════════
    V11.3.0 · SISTEMA DE INVITACIONES (frontend)
    ════════════════════════════════════════════════════════════════════
@@ -36,7 +37,7 @@ export async function dalInvitar(email, tipo, perfilCodigo, cargoId, projectId) 
 export function _invMostrarResultado(res) {
   const link = invitacionLink(res.token || '');
   const registrado = !!res.registrado;
-  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()" style="max-width:560px;">'
+  document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop" data-accion="ui.backdrop"><div class="modal" style="max-width:560px;">'
     + '<div class="modal-header"><div class="modal-title">Invitación creada</div></div>'
     + '<div class="modal-body">'
     +   '<p style="margin:0 0 10px;font-size:13px;color:var(--ink-secondary);line-height:1.55;">Invitación para <strong>' + escapeHtml(res.email || '') + '</strong>'
@@ -44,11 +45,11 @@ export function _invMostrarResultado(res) {
     +   '</p>'
     +   '<div style="display:flex;gap:8px;align-items:center;">'
     +     '<input class="input" id="invLinkOut" readonly value="' + escapeHtml(link) + '" style="flex:1;font-size:12px;">'
-    +     '<button class="btn btn-primary btn-sm" onclick="invCopiarLink()">Copiar</button>'
+    +     '<button class="btn btn-primary btn-sm" data-accion="inv.copiar">Copiar</button>'
     +   '</div>'
     +   '<p style="margin:10px 0 0;font-size:11.5px;color:var(--ink-faint);line-height:1.5;">El envío automático por correo se activa cuando esté listo el canal de email (dominio en resolución). Por ahora, comparte este link por el medio que prefieras. Vence en 14 días.</p>'
     + '</div>'
-    + '<div class="modal-footer"><button class="btn btn-primary" onclick="closeModal()">Listo</button></div>'
+    + '<div class="modal-footer"><button class="btn btn-primary" data-accion="ui.cerrar">Listo</button></div>'
     + '</div></div>';
 }
 function invCopiarLink() {
@@ -125,10 +126,10 @@ async function abrirInvitacionRecibida(token) {
     +     (info.requiere_aprobacion_correo ? ('<div class="iwarn">⚠ Esta invitación se envió a <strong>' + escapeHtml(info.email_invitado || 'otro correo') + '</strong> y tú iniciaste sesión como <strong>' + escapeHtml(_miEmail || 'tu correo actual') + '</strong>. Si continúas, <strong>' + escapeHtml(info.org_nombre || 'la productora') + '</strong> deberá <strong>aprobar el cambio de correo</strong> antes de darte acceso al proyecto.</div>') : '')
     +     '<div style="margin-top:16px;font-size:12px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;font-weight:600;">Antes de aceptar — uso de tus datos (Ley 21.719)</div>'
     +     '<div class="iterms">' + escapeHtml(info.terms_texto || '') + '</div>'
-    +     '<label class="iconsent"><input type="checkbox" id="invConsentCk" onchange="document.getElementById(\'invBtnAceptar\').disabled = !this.checked"> He leído y autorizo el uso de mis datos personales descrito arriba, en los términos de la Ley 21.719.</label>'
+    +     '<label class="iconsent"><input type="checkbox" id="invConsentCk" data-accion="inv.consent" data-on="change"> He leído y autorizo el uso de mis datos personales descrito arriba, en los términos de la Ley 21.719.</label>'
     +     '<div class="iacts">'
-    +       '<button class="btn btn-secondary" onclick="invRechazar(\'' + escapeHtml(token) + '\')">Rechazar</button>'
-    +       '<button class="btn btn-primary" id="invBtnAceptar" disabled onclick="invAceptar(\'' + escapeHtml(token) + '\', \'' + escapeHtml(String(info.org_id || '')) + '\')">' + (info.requiere_aprobacion_correo ? 'Solicitar acceso' : 'Aceptar y colaborar') + '</button>'
+    +       '<button class="btn btn-secondary" ' + accionHTML('inv.rechazar', token) + '>Rechazar</button>'
+    +       '<button class="btn btn-primary" id="invBtnAceptar" disabled ' + accionHTML('inv.aceptar', token, String(info.org_id || '')) + '>' + (info.requiere_aprobacion_correo ? 'Solicitar acceso' : 'Aceptar y colaborar') + '</button>'
     +     '</div>'
     +   '</div>'
     +   '<p style="font-size:11.5px;color:var(--ink-faint);margin-top:14px;line-height:1.5;">Versión de términos: ' + escapeHtml(info.terms_version || '') + '. Tu aceptación queda registrada con esta versión, fecha y un respaldo del texto.</p>'
@@ -200,7 +201,13 @@ async function invRechazar(token) {
 // ── Window bridges (3 barridos func+const) ──
 window.abrirInvitacionRecibida = abrirInvitacionRecibida;
 window.dalInvitar = dalInvitar;
-window.invAceptar = invAceptar;
-window.invCopiarLink = invCopiarLink;
-window.invRechazar = invRechazar;
 window.invitacionLink = invitacionLink;
+
+// D2 · acciones delegadas (token/org viajan como JSON en data-args: fin de la
+// familia de escaping de comillas en handlers concatenados)
+registrarAcciones('inv', {
+  copiar: function () { invCopiarLink(); },
+  consent: function (a, el) { document.getElementById('invBtnAceptar').disabled = !el.checked; },
+  rechazar: function (a) { invRechazar(a[0]); },
+  aceptar: function (a) { invAceptar(a[0], a[1]); },
+});

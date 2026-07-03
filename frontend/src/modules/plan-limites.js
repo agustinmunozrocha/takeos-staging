@@ -5,6 +5,7 @@ import { showToast, escapeHtml } from '../lib/helpers.js';
 import { sb } from '../lib/supabase.js';
 import { showModal } from '../lib/ui.js';
 
+import { registrarAcciones } from '../lib/delegacion.js';
 /* ════════════════════════════════════════════════════════════════════
    V11.8.0 · CTA "¿Tienes una productora?" (land-and-expand)
    Para usuarios persona natural SIN productora (cero membresías activas).
@@ -69,7 +70,7 @@ function _planModuloBloqueado(recurso) {
     + '<div style="font-size:30px;margin-bottom:14px;opacity:.65;">🔒</div>'
     + '<h2 style="font-size:19px;font-weight:700;margin:0 0 10px;color:var(--ink-primary);">' + escapeHtml(info.titulo) + '</h2>'
     + '<p style="font-size:13.5px;color:var(--ink-secondary);line-height:1.6;margin:0 0 22px;">' + escapeHtml(info.frase) + '</p>'
-    + '<button class="btn btn-primary" onclick="_planVerPlanes()">Ver planes</button>'
+    + '<button class="btn btn-primary" data-accion="plan.verPlanes">Ver planes</button>'
     + '</div>';
 }
 /* D.1 · MANEJADOR CENTRAL. Dado un error de la base: si trae un código de plan,
@@ -96,10 +97,14 @@ export function manejarErrorPlan(err) {
 }
 
 // ── Window bridges (3 barridos func+const) ──
-window._planVerPlanes = _planVerPlanes;
 window.manejarErrorPlan = manejarErrorPlan;
 
 // D0 · puentes que faltaban desde la Etapa C (barrido 3 re-ejecutado): los
 // handlers on* generados los invocan como globales.
 window.ctaProdCerrar = ctaProdCerrar;
 window.ctaProdSaberMas = ctaProdSaberMas;
+
+// D2 · acciones delegadas de este módulo
+registrarAcciones('plan', {
+  verPlanes: function () { _planVerPlanes(); },
+});

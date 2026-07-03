@@ -17,6 +17,7 @@ import { autosaveNow, markDirty, redoLast, undoLast } from '../modules/persisten
 import { dalBootContactos, dalBootLegal, dalBootLocaciones, dalBootPerfil, dalBootPersonasExternos, dalBootProyectos, dalFlushProyectos, dalLoadPermisos, dalResetOrg, dalResolveIdentidad, dalTouchProyecto } from '../modules/dal.js';
 import { openGlobalCFO } from '../modules/gastos.js';
 
+import { registrarAcciones } from './delegacion.js';
 function currentUser() {
   if (USUARIO_ACTUAL && String(USUARIO_ACTUAL).trim()) return USUARIO_ACTUAL;
   const ep = (typeof EMPRESA_PERFIL !== 'undefined') ? EMPRESA_PERFIL : {};
@@ -459,7 +460,7 @@ export async function cloudGate(onUnlock) {
         style="width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #2a2c33;border-radius:8px;background:#16171c;color:#fff;font-size:14px;margin-bottom:9px;">
       <input id="cgPass" type="password" placeholder="Contraseña" autocomplete="current-password"
         style="width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #2a2c33;border-radius:8px;background:#16171c;color:#fff;font-size:14px;margin-bottom:11px;"
-        onkeydown="if(event.key==='Enter'){var b=document.getElementById('cgEntrar'); if(b) b.click();}">
+        data-accion="boot.cgEnter" data-on="keydown">
       <button id="cgEntrar"
         style="width:100%;box-sizing:border-box;padding:12px;border:none;border-radius:8px;background:var(--accent,#c2410c);color:#fff;font-weight:600;font-size:14px;cursor:pointer;">Entrar</button>
       <div id="cloudGateErr" style="color:#e0533d;font-size:12px;margin-top:12px;min-height:14px;"></div>
@@ -701,3 +702,8 @@ window.orgNombre = orgNombre;
 window.renderTopbarUser = renderTopbarUser;
 window.resolverEspacioYArrancar = resolverEspacioYArrancar;
 window.setCurrentUser = setCurrentUser;
+
+// D2 · acciones delegadas
+registrarAcciones('boot', {
+  cgEnter: function (args, el, ev) { if (ev.key === 'Enter') { var b = document.getElementById('cgEntrar'); if (b) b.click(); } },
+});

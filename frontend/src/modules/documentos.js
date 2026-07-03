@@ -9,6 +9,7 @@ import { showModal } from '../lib/ui.js';
 import { dalTouchProyecto } from './dal.js';
 import { markDirty, autosaveNow } from './persistencia-local.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 /* ════════════════════════════════════════════════════════════════════
    V6.7 — MÓDULO DOCUMENTOS / CREATIVE HUB (V1)
    Centro documental del proyecto: reemplaza el rol de Milanote/Excel para
@@ -34,10 +35,10 @@ function renderDocumentos() {
      adjunta un archivo, un link, o deja solo el registro (documento pendiente). */
   const items = (docs.items || []).slice().sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
   content.innerHTML = `
-    <div id="docDropZone" ondragover="docDragOver(event)" ondragleave="docDragLeave(event)" ondrop="docDrop(event)" style="border-radius:12px;transition:outline .15s;outline:2px dashed transparent;outline-offset:6px;">
+    <div id="docDropZone" data-accion="doc.zona" data-on="dragover dragleave drop" style="border-radius:12px;transition:outline .15s;outline:2px dashed transparent;outline-offset:6px;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:var(--space-4);flex-wrap:wrap;">
       <p style="margin:0;font-size:13px;color:var(--ink-secondary);line-height:1.5;max-width:62ch;">Repositorio de documentación del proyecto: producción, creativo, legal, cliente, referencias o gestión interna. Cada documento lleva nombre libre, descripción y, si corresponde, un archivo adjunto (PDF, imágenes, Office, hasta 15 MB) o un link. <strong>También puedes arrastrar archivos aquí</strong>: cada uno crea su documento.</p>
-      <button class="btn btn-primary" onclick="docAdd()">+ Agregar documento</button>
+      <button class="btn btn-primary" data-accion="doc.add">+ Agregar documento</button>
     </div>
     ${items.length
       ? `<div style="display:flex;flex-direction:column;gap:10px;">${items.map(d => docRowHTML(d)).join('')}</div>`
@@ -52,22 +53,22 @@ function docRowHTML(d) {
   const estado = tieneArchivo ? '' : (tieneLink ? '' : '<span style="font-size:10.5px;font-weight:600;color:var(--warning);border:1px solid var(--warning);border-radius:999px;padding:1px 8px;">pendiente de adjunto</span>');
   return `<div style="border:1px solid var(--rule);border-radius:10px;padding:14px;background:var(--bg-surface);">
     <div style="display:flex;gap:8px;align-items:center;">
-      <input class="input" style="flex:1;font-weight:600;" value="${escapeHtml(d.titulo || '')}" placeholder="Nombre del documento (ej. Brief cliente, Moodboard, Guion aprobado…)" onchange="docSet('${d.id}','titulo',this.value)">
+      <input class="input" style="flex:1;font-weight:600;" value="${escapeHtml(d.titulo || '')}" placeholder="Nombre del documento (ej. Brief cliente, Moodboard, Guion aprobado…)" ${accionHTML('doc.set', d.id, 'titulo', { on: 'change' })}>
       ${estado}
-      <button class="btn btn-danger btn-sm" onclick="docDelete('${d.id}')">Eliminar</button>
+      <button class="btn btn-danger btn-sm" ${accionHTML('doc.borrar', d.id)}>Eliminar</button>
     </div>
-    <textarea class="cot-input" style="margin-top:8px;min-height:48px;" placeholder="Descripción / contexto / instrucciones…" onchange="docSet('${d.id}','notas',this.value)">${escapeHtml(d.notas || '')}</textarea>
+    <textarea class="cot-input" style="margin-top:8px;min-height:48px;" placeholder="Descripción / contexto / instrucciones…" ${accionHTML('doc.set', d.id, 'notas', { on: 'change' })}>${escapeHtml(d.notas || '')}</textarea>
     <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
       ${tieneArchivo ? `<span style="font-size:12.5px;color:var(--ink-secondary);">📎 ${escapeHtml(d.archivo.nombre || 'documento')} <span style="color:var(--ink-faint);">(${docFmtSize(d.archivo.size)})</span></span>
-        <button class="btn btn-secondary btn-sm" onclick="docOpenArchivo('${d.id}')">Abrir ↗</button>
-        <button class="btn btn-secondary btn-sm" style="color:#d08;border-color:rgba(210,0,80,.4);" onclick="docRemoveArchivo('${d.id}')">Quitar archivo</button>`
-      : `<label class="btn btn-secondary btn-sm" style="cursor:pointer;">📎 Adjuntar archivo<input type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" style="display:none" onchange="docAttachPDF('${d.id}', this)"></label>
+        <button class="btn btn-secondary btn-sm" ${accionHTML('doc.abrir', d.id)}>Abrir ↗</button>
+        <button class="btn btn-secondary btn-sm" style="color:#d08;border-color:rgba(210,0,80,.4);" ${accionHTML('doc.quitar', d.id)}>Quitar archivo</button>`
+      : `<label class="btn btn-secondary btn-sm" style="cursor:pointer;">📎 Adjuntar archivo<input type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" style="display:none" ${accionHTML('doc.adjuntar', d.id, { on: 'change' })}></label>
          <span style="font-size:11px;color:var(--ink-faint);">PDF, imágenes, Office, texto o ZIP · hasta 15 MB.</span>`}
     </div>
     <details style="margin-top:8px;font-size:12px;color:var(--ink-secondary);" ${tieneLink ? 'open' : ''}>
       <summary style="cursor:pointer;color:var(--ink-faint);font-size:11.5px;">Link externo (opcional)</summary>
       <div style="display:flex;gap:8px;margin-top:6px;">
-        <input class="input" style="flex:1;" value="${escapeHtml(d.url || '')}" placeholder="https://… (Drive, Dropbox, Milanote…)" onchange="docSet('${d.id}','url',this.value)">
+        <input class="input" style="flex:1;" value="${escapeHtml(d.url || '')}" placeholder="https://… (Drive, Dropbox, Milanote…)" ${accionHTML('doc.set', d.id, 'url', { on: 'change' })}>
         ${tieneLink ? `<a class="btn btn-secondary btn-sm" href="${safeUrl(d.url)}" target="_blank" rel="noopener">Abrir ↗</a>` : ''}
       </div>
     </details>
@@ -206,13 +207,15 @@ function docRemoveArchivo(id) {
 
 
 // ── Window bridges (3 barridos: externos, auto-consumo, nombre-string) ──
-window.docAdd = docAdd;
-window.docAttachPDF = docAttachPDF;
-window.docDelete = docDelete;
-window.docDragLeave = docDragLeave;
-window.docDragOver = docDragOver;
-window.docDrop = docDrop;
-window.docOpenArchivo = docOpenArchivo;
-window.docRemoveArchivo = docRemoveArchivo;
-window.docSet = docSet;
 window.renderDocumentos = renderDocumentos;
+
+// D2 · acciones delegadas
+registrarAcciones('doc', {
+  zona: function (a, el, ev) { if (ev.type === 'dragover') docDragOver(ev); else if (ev.type === 'dragleave') docDragLeave(ev); else docDrop(ev); },
+  add: function () { docAdd(); },
+  set: function (a, el) { docSet(a[0], a[1], el.value); },
+  borrar: function (a) { docDelete(a[0]); },
+  abrir: function (a) { docOpenArchivo(a[0]); },
+  quitar: function (a) { docRemoveArchivo(a[0]); },
+  adjuntar: function (a, el) { docAttachPDF(a[0], el); },
+});

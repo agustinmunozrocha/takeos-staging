@@ -16,6 +16,7 @@ import { openGlobalCFO } from './gastos.js';
 import { exportSave, openSnapshotsModal } from './persistencia-local.js';
 import { _applyAdminUI, requestAdminPassword, _puedeModoAdmin } from './admin.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 /* ════════════════════════════════════════════════════════════════════
    V7.11 · BUSCADOR GLOBAL (barra superior)
    Busca proyectos, destinos de Configuración, módulos del proyecto abierto
@@ -68,7 +69,7 @@ function globalSearchInput(q) {
   const box = document.getElementById('gsearchResults'); if (!box) return;
   if (!q || !q.trim()) { box.hidden = true; box.innerHTML = ''; return; }
   if (!GSEARCH_CUR.length) { box.innerHTML = `<div class="gsearch-empty">Sin resultados para “${escapeHtml(q)}”.</div>`; box.hidden = false; return; }
-  box.innerHTML = GSEARCH_CUR.map((r, i) => `<div class="gsearch-item ${i === 0 ? 'sel' : ''}" onmousedown="event.preventDefault(); _gsearchGo(${i})"><span class="gsearch-ic">${r.icon || '•'}</span><span class="gsearch-tx"><span class="gsearch-lb">${escapeHtml(r.label)}${r.adminRequired ? ' <span class="gsearch-lock">🔒</span>' : ''}</span><span class="gsearch-sb">${escapeHtml(r.sub || '')}</span></span></div>`).join('');
+  box.innerHTML = GSEARCH_CUR.map((r, i) => `<div class="gsearch-item ${i === 0 ? 'sel' : ''}" ${accionHTML('buscador.ir', i, { on: 'mousedown' })}><span class="gsearch-ic">${r.icon || '•'}</span><span class="gsearch-tx"><span class="gsearch-lb">${escapeHtml(r.label)}${r.adminRequired ? ' <span class="gsearch-lock">🔒</span>' : ''}</span><span class="gsearch-sb">${escapeHtml(r.sub || '')}</span></span></div>`).join('');
   box.hidden = false;
 }
 function globalSearchKey(ev) {
@@ -89,3 +90,8 @@ window.globalSearchInput = globalSearchInput;  // topbar oninput/onfocus
 window.globalSearchKey   = globalSearchKey;    // topbar onkeydown
 window._gsearchHide      = _gsearchHide;       // topbar onblur
 window._gsearchGo        = _gsearchGo;         // onmousedown en resultados generados
+
+// D2 · acciones delegadas
+registrarAcciones('buscador', {
+  ir: function (args, el, ev) { ev.preventDefault(); _gsearchGo(args[0]); },
+});

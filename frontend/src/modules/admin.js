@@ -14,6 +14,7 @@ import { openConfigPanel } from './config.js';
 import { dalTouchProyecto } from './dal.js';
 import { collectApprovalBlockers, renderInfoProyecto } from './info-proyecto.js';
 
+import '../lib/delegacion.js';
 /* V11.3.0 · la contraseña compartida del Modo Admin fue eliminada. El permiso
    depende del perfil (solo Administrador); el modo se mantiene como barrera
    operacional consciente, con advertencia, no como autenticación. */
@@ -34,8 +35,8 @@ export function requestAdminPassword(onOk) {
   }
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width:460px;">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width:460px;">
         <div class="modal-header"><div class="modal-title">Activar Modo administrador</div></div>
         <div class="modal-body">
           <p style="margin:0 0 10px;color:var(--ink-secondary);font-size:13px;line-height:1.55;">Vas a entrar a una zona delicada. Con el Modo Admin activo quedan disponibles acciones de alto impacto, por ejemplo:</p>
@@ -48,7 +49,7 @@ export function requestAdminPassword(onOk) {
           <p style="margin:0;color:var(--ink-faint);font-size:12px;line-height:1.5;">El modo queda activo solo en esta sesión y puedes desactivarlo desde el mismo botón. Tener permiso no reemplaza el criterio: estas acciones pueden ser irreversibles.</p>
         </div>
         <div class="modal-footer">
-          <button class="btn" onclick="closeModal()">Cancelar</button>
+          <button class="btn" data-accion="ui.cerrar">Cancelar</button>
           <button class="btn btn-primary" id="adminPwBtn">Entiendo, activar</button>
         </div>
       </div>

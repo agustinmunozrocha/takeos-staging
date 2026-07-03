@@ -5,6 +5,7 @@ import { escapeHtml, showToast } from '../lib/helpers.js';
 import { STATE } from '../lib/state.js';
 import { showModal } from '../lib/ui.js';
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 /* ════════════════════════════════════════════════════════════════════
    ════════════════════════════════════════════════════════════════════
    V5.3 · CAPA 3 — MÓDULO: RODAJES
@@ -74,7 +75,7 @@ function renderRodajes() {
       </div>
       <div class="kpi-cell">
         <div class="kpi-label">Acciones</div>
-        <button class="btn btn-primary btn-sm" style="margin-top: 4px;" onclick="addRodaje()">
+        <button class="btn btn-primary btn-sm" style="margin-top: 4px;" data-accion="rodajes.add">
           + Agregar día de rodaje
         </button>
       </div>
@@ -90,7 +91,7 @@ function renderRodajes() {
         <div class="empty-state">
           <div class="empty-state-icon">🎬</div>
           <p class="empty-state-text">Todavía no hay días de rodaje. Agrega el primero para poder construir la Hoja de Llamado.</p>
-          <button class="btn btn-primary btn-sm" onclick="addRodaje()">+ Agregar día de rodaje</button>
+          <button class="btn btn-primary btn-sm" data-accion="rodajes.add">+ Agregar día de rodaje</button>
         </div>
       ` : `
         <div style="overflow-x: auto;">
@@ -124,25 +125,25 @@ function renderRodajeRow(r, idx) {
       <td>
         <input type="date" class="cell-input"
                value="${r.fecha || ''}"
-               onchange="updateRodajeField(${idx}, 'fecha', this.value); recalcRodajesKPI();">
+               ${accionHTML('rodajes.campo', idx, 'fecha', { on: 'change' })}>
         ${r.activo && r.fecha ? `<div class="rodaje-fecha-larga">${escapeHtml(fmtFechaLarga(r.fecha))}</div>` : ''}
       </td>
       <td class="ctr">
         <input type="checkbox" ${r.activo ? 'checked' : ''}
-               onchange="toggleRodajeActivo(${idx}, this.checked);">
+               ${accionHTML('rodajes.activo', idx, { on: 'change' })}>
       </td>
       <td>
         <input class="cell-input ${r.descripcion ? '' : 'is-empty'}"
                value="${escapeHtml(r.descripcion || '')}"
                placeholder="Algo breve para dar contexto del día"
-               onchange="updateRodajeField(${idx}, 'descripcion', this.value);">
+               ${accionHTML('rodajes.campo', idx, 'descripcion', { on: 'change' })}>
       </td>
       <td>
         <span class="dia-id-badge ${r.activo ? '' : 'muted'}">${escapeHtml(r.diaId)}</span>
       </td>
       <td>
         <button class="row-delete" title="Eliminar día (preferible desactivar)"
-                onclick="deleteRodaje(${idx})">×</button>
+                ${accionHTML('rodajes.borrar', idx)}>×</button>
       </td>
     </tr>
   `;
@@ -218,3 +219,11 @@ window.updateRodajeField = updateRodajeField;
 // D0 · puentes que faltaban desde la Etapa C (barrido 3 re-ejecutado): los
 // handlers on* generados los invocan como globales.
 window.recalcRodajesKPI = recalcRodajesKPI;
+
+// D2 · acciones delegadas
+registrarAcciones('rodajes', {
+  add: function () { addRodaje(); },
+  campo: function (a, el) { updateRodajeField(a[0], a[1], el.value); if (a[1] === 'fecha') recalcRodajesKPI(); },
+  activo: function (a, el) { toggleRodajeActivo(a[0], el.checked); },
+  borrar: function (a) { deleteRodaje(a[0]); },
+});

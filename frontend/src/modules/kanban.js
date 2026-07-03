@@ -27,6 +27,7 @@ import { captureUndoBaseline, markDirty } from './persistencia-local.js';
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
+import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 export const STATES = {
   'venta':         { name: 'Venta',          color: 'var(--state-sale)',   order: 1 },
   'preproduccion': { name: 'Preproducción',  color: 'var(--state-prep)',   order: 2 },
@@ -186,10 +187,10 @@ export function navigateToProject(projectId) {
   const _esExterno = typeof window.TAKEOS_PERFIL !== 'undefined' && window.TAKEOS_PERFIL && window.TAKEOS_PERFIL.tipo === 'externo';
 
   document.getElementById('breadcrumb').innerHTML = _esExterno
-    ? `<span class="breadcrumb-link" onclick="irAlPanelPersonal()">Mis proyectos</span>
+    ? `<span class="breadcrumb-link" data-accion="kanban.panel">Mis proyectos</span>
        <span class="breadcrumb-sep">›</span>
        <span class="breadcrumb-current">${project.client} · ${project.name}</span>`
-    : `<span class="breadcrumb-link" onclick="navigateToControlRoom()">Control Room</span>
+    : `<span class="breadcrumb-link" data-accion="kanban.controlRoom">Control Room</span>
        <span class="breadcrumb-sep">›</span>
        <span class="breadcrumb-current">${project.client} · ${project.name}</span>`;
 
@@ -201,7 +202,7 @@ export function navigateToProject(projectId) {
       ${STATES[project.state].name}
     </div>
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft);">
-      <button onclick="exportSingleProject('${project.id}')"
+      <button ${accionHTML('kanban.exportar', project.id)}
               title="Exporta este proyecto solo a .json. No toca la BD ni los demás proyectos."
               style="width:100%;padding:8px 12px;background:transparent;color:var(--ink-secondary);border:1px solid var(--border-soft);border-radius:6px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -229,15 +230,15 @@ export function newProject() {
       <div style="display:flex; flex-direction:column; gap:12px;">
         <div>
           <label class="field-label">Nombre del proyecto *</label>
-          <input class="input" oninput="window._npDraft.nombre = this.value" placeholder="Ej: Lanzamiento Primavera">
+          <input class="input" ${accionHTML('kanban.npDraft', 'nombre', { on: 'input' })} placeholder="Ej: Lanzamiento Primavera">
         </div>
         <div>
           <label class="field-label">Cliente *</label>
-          <input class="input" oninput="window._npDraft.cliente = this.value" placeholder="Ej: Watt's">
+          <input class="input" ${accionHTML('kanban.npDraft', 'cliente', { on: 'input' })} placeholder="Ej: Watt's">
         </div>
         <div>
           <label class="field-label">Productor Ejecutivo</label>
-          <input class="input" oninput="window._npDraft.pe = this.value" placeholder="Ej: Agustín Muñoz">
+          <input class="input" ${accionHTML('kanban.npDraft', 'pe', { on: 'input' })} placeholder="Ej: Agustín Muñoz">
         </div>
         <p style="font-size:12px; color:var(--ink-faint); margin:0;">Se crea en estado <strong>Venta</strong>, con la estructura de presupuesto por defecto lista para cotizar.</p>
       </div>`,
@@ -282,8 +283,8 @@ export function deleteProjectFlow(id) {
   window._delExpected = proj.name;
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal" onclick="event.stopPropagation()" style="max-width: 520px; border: 1px solid var(--negative);">
+    <div class="modal-backdrop" data-accion="ui.backdrop">
+      <div class="modal" style="max-width: 520px; border: 1px solid var(--negative);">
         <div class="modal-header">
           <div class="modal-title" style="color: var(--negative);">⚠ Eliminar proyecto</div>
           <div style="font-size: 12px; color: var(--ink-muted); margin-top: 4px;">Esto es <strong>irreversible</strong>: se borra “${escapeHtml(proj.name)}” y todos sus datos de esta sesión. Si no exportaste un guardado, no hay vuelta atrás.</div>
@@ -292,11 +293,11 @@ export function deleteProjectFlow(id) {
           <label class="field-label">Para confirmar, escribe el nombre exacto del proyecto:</label>
           <div style="font-family: monospace; background: var(--accent-bg); color: var(--ink-primary); padding: 6px 10px; border-radius: 6px; margin: 8px 0; user-select: all;">${escapeHtml(proj.name)}</div>
           <input class="input" id="delConfirmInput" placeholder="Escribe el nombre aquí" autocomplete="off"
-                 oninput="document.getElementById('delConfirmBtn').disabled = (this.value.trim() !== window._delExpected);">
+                 data-accion="kanban.delCheck" data-on="input">
         </div>
         <div class="modal-footer">
-          <button class="btn" onclick="closeModal()">Cancelar</button>
-          <button class="btn btn-danger" id="delConfirmBtn" disabled onclick="confirmDeleteProject('${id}')">Eliminar definitivamente</button>
+          <button class="btn" data-accion="ui.cerrar">Cancelar</button>
+          <button class="btn btn-danger" id="delConfirmBtn" disabled ${accionHTML('kanban.delConfirm', id)}>Eliminar definitivamente</button>
         </div>
       </div>
     </div>`;
@@ -353,3 +354,13 @@ window.deleteProjectFlow       = deleteProjectFlow;
 window.confirmDeleteProject    = confirmDeleteProject;
 window._lastViewSave           = _lastViewSave;
 window._lastViewLeer           = _lastViewLeer;
+
+// D2 · acciones delegadas (panel/exportar llaman vía window: aristas diferidas de D1)
+registrarAcciones('kanban', {
+  panel: function () { irAlPanelPersonal(); },
+  controlRoom: function () { navigateToControlRoom(); },
+  exportar: function (a) { exportSingleProject(a[0]); },
+  npDraft: function (a, el) { window._npDraft[a[0]] = el.value; },
+  delCheck: function (a, el) { document.getElementById('delConfirmBtn').disabled = (el.value.trim() !== window._delExpected); },
+  delConfirm: function (a) { confirmDeleteProject(a[0]); },
+});
