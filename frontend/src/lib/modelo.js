@@ -5,6 +5,7 @@
 // D1e · imports reales (regla lib-precede: solo de libs anteriores en main.js)
 import { BD_CONTACTOS, BD_EMPRESAS, BD_EMPRESAS_BYID, BD_LOC, BD_PERSONAS, BD_TALENTOS } from './state.js';
 
+import { DEFAULT_DEPARTAMENTOS, DEFAULT_EQUIPOS, DEFAULT_GASTOS, DEFAULT_TALENTOS, COTIZACION_CONDICIONES_DEFAULTS, LOC_ESTADO_RANK, ROLES_OPERATIVOS } from './catalogos.js';
 /* ── DTE: texto del Excel/Form ("Boleta de Honorarios") → código interno ── */
 function _tipoDTEaCodigo(tipo) {
   const t = String(tipo || '').toLowerCase();
