@@ -1,4 +1,5 @@
-// D2 · Delegación de eventos — el reemplazo de los ~991 handlers on*= inline.
+// D2 · Delegación de eventos — el reemplazo de los handlers on*= inline
+// (991 en la era del monolito; los últimos 47, la familia drag&drop, migraron en HF).
 //
 // UN listener por tipo de evento a nivel documento; los módulos registran
 // acciones con registrarAcciones(ns, mapa) y el HTML generado las invoca con
@@ -34,9 +35,14 @@ export function accionHTML(accion) {
 
 function despachar(ev) {
   var el = ev.target && ev.target.closest ? ev.target.closest('[data-accion]') : null;
+  /* Ascenso (HF): si el [data-accion] más cercano no escucha este tipo de evento,
+     seguir subiendo — paridad con el burbujeo nativo que tenían los on*=. Caso real:
+     el handle de drag (data-on="dragstart dragend") vive DENTRO de la fila que
+     escucha dragover/drop; sin ascenso, el dragover que nace sobre el handle moriría ahí. */
+  while (el && (el.dataset.on || 'click').split(/\s+/).indexOf(ev.type) < 0) {
+    el = el.parentElement && el.parentElement.closest ? el.parentElement.closest('[data-accion]') : null;
+  }
   if (!el) return;
-  var tipos = (el.dataset.on || 'click').split(/\s+/);
-  if (tipos.indexOf(ev.type) < 0) return;
   var punto = el.dataset.accion.indexOf('.');
   var fn = ACCIONES[el.dataset.accion.slice(0, punto)] && ACCIONES[el.dataset.accion.slice(0, punto)][el.dataset.accion.slice(punto + 1)];
   if (!fn) { console.error('[delegacion] acción sin registrar:', el.dataset.accion); return; }
@@ -47,11 +53,9 @@ function despachar(ev) {
   try { fn(args, el, ev); } catch (e) { console.error('[delegacion] acción', el.dataset.accion, e); }
 }
 
-/* Fase burbuja (paridad con los on*= inline durante la convivencia de la
-   migración: un stopPropagation inline aguas abajo sigue frenando esto).
-   Tipos que no burbujean (blur/focus/toggle) se agregan con captura cuando
-   una tranche los necesite. */
-['click', 'input', 'change', 'keydown', 'dblclick', 'mousedown', 'paste', 'submit', 'dragover', 'dragleave', 'drop'].forEach(function (t) {
+/* Fase burbuja. Tipos que no burbujean (blur/focus) van con captura.
+   dragstart/dragend/mouseup entraron en HF con la migración del drag&drop. */
+['click', 'input', 'change', 'keydown', 'dblclick', 'mousedown', 'mouseup', 'paste', 'submit', 'dragstart', 'dragend', 'dragover', 'dragleave', 'drop'].forEach(function (t) {
   document.addEventListener(t, despachar);
 });
 ['focus', 'blur'].forEach(function (t) {   // no burbujean: captura
