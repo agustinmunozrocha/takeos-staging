@@ -7,7 +7,8 @@
     "dev": "vite --mode staging",
     "build": "vite build",
     "build:staging": "vite build --mode staging",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gate": "node scripts/check-inline-handlers.mjs && node scripts/check-free-idents.mjs"
   },
   "devDependencies": {
     "vite": "^7.0.0"
