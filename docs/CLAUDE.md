@@ -1,10 +1,11 @@
 # CLAUDE.md — TakeOS
 
-> Este archivo son las **instrucciones permanentes** para Claude Code en este repositorio. Vive en la raíz del proyecto; Claude Code lo lee solo al iniciar cada sesión. Es la "biblia de producción" del agente. Mantenerlo corto y de alta señal.
+> Este archivo son las **instrucciones permanentes** para Claude Code en este repositorio. Es la "biblia de producción" del agente. Mantenerlo corto y de alta señal. *(Nota: hoy vive en `docs/CLAUDE.md`. Para que Claude Code lo auto-cargue cada sesión debe estar en la raíz del repo o del workspace — mientras siga solo en `docs/`, hay que apuntárselo a mano.)*
 >
-> **Versión:** borrador 0.2 · **Mantiene:** Agustín (arbitra) / Redactor (consolida). Cuando suban de versión los canónicos, actualizar las referencias de abajo.
+> **Versión:** borrador 0.3 · **Mantiene:** Agustín (arbitra) / Redactor (consolida). Cuando suban de versión los canónicos, actualizar las referencias de abajo.
 >
-> **v0.2 (jun 2026):** alineado a los canónicos vigentes (PRD V3.6 · ADR v1.9 · Roadmap v1.8 · Arquitectura v1.5 · + hub de Seguridad OWASP v1.3). Cambios de fondo: nuevo flujo «BD en código» (Orden A, *merge = deploy* por Branching de Supabase; se retira el `supabase db push` manual a producción), equipo de dos con Juan de la Cuadra (CTO) y trabajo en ramas + PR, modularización del frontend con Vite (en curso, hoy en el repo de staging) y estado de deuda actualizado.
+> **v0.3 (jul 2026):** el frontend modular está **DESACOPLADO Y COMPLETO en staging** (Desacople D0-D4 + FASE HF: delegación de eventos, ganchos, estado con dueños, CSP estricta sin `unsafe-inline`, cero `on*=` inline). Producción sigue en el monolito hasta el corte (Lote 4). Actualizado §2 (stack real modular), §6 (se edita `frontend/src/`, no el HTML; compuerta `npm run gate`), §8 (14 migraciones, deuda del informe de arquitectura). Referencias canónicas a ADR v1.10 y Arquitectura v1.6. Informe técnico completo: [ARQUITECTURA.md](ARQUITECTURA.md).
+> **v0.2 (jun 2026):** flujo «BD en código» (Orden A, *merge = deploy* por Branching de Supabase), equipo de dos con Juan de la Cuadra (CTO) y trabajo en ramas + PR.
 
 ---
 
@@ -16,22 +17,26 @@ Lo construye **Agustín Muñoz Rocha** (Primate Films / La Hectárea SpA), funda
 
 ## 2. Stack técnico
 
-- **Frontend:** **JavaScript puro** (sin framework), hoy un monolito de ~23.000 líneas. **En producción corre el monolito**: `index.html` vive en la **raíz** del repo y GitHub Pages publica desde ahí (la carpeta `frontend/` de producción solo tiene un `.gitkeep`). **La modularización con Vite está EN CURSO, y vive en el repo de staging**: Etapas 0 y 1 hechas (CSS extraído + un «cimiento» de 12 funciones en `frontend/src/lib/`); el grueso —la **Etapa 2**, los módulos de negocio, ~88% del trabajo— sigue pendiente, y el **corte de producción** a la build de Vite también. Patrón de migración: cada función movida a un módulo se **puentea a `window`** para no romper los `onclick` inline. *No reescribir el monolito de golpe: se extrae un módulo a la vez. Detalle en Arquitectura §3.4 y §7.*
+- **Frontend:** **JavaScript puro con ES Modules, sin framework**, bundleado con **Vite** (Rollup). **Dos realidades conviven, y es crítico saber en cuál trabajas:**
+  - **Producción (`origin/main` → GitHub Pages) TODAVÍA corre el monolito** — un `index.html` de ~28.600 líneas en la raíz del repo. El corte a la build de Vite (**Lote 4**) está pendiente; hasta entonces, cualquier hotfix directo a producción se hace sobre ese monolito.
+  - **Staging (`etapa4-integracion`) corre la arquitectura modular, ya DESACOPLADA Y COMPLETA** — 40 archivos en `frontend/src/` (14 `lib/` + 25 `modules/`, ~25.300 líneas). **Es donde se trabaja hoy.**
+- **Arquitectura del cliente modular** (lo que Claude edita): tres mecanismos de intercomunicación con roles disjuntos — **imports ESM** (dependencias hacia abajo) · **delegación de eventos** (`lib/delegacion.js`: un listener por tipo a nivel `document`, la UI se cablea con `data-accion`/`data-args`; **CERO handlers `on*=` inline**) · **ganchos** (`lib/ganchos.js`: `define`/`gancho`/`valor` para aristas hacia arriba, sin ciclos ESM ni `window`). Estado con dueños en `lib/state.js`/`lib/rates.js` (**los setters son la única vía de escritura**). **CSP estricta: `script-src` sin `unsafe-inline`** — el navegador rehúsa ejecutar cualquier JS inline (nuestro o inyectado). *El patrón viejo de "puentear a `window` para no romper los `onclick`" quedó extinto: window bajó de 962 a 73 residuales. No reintroducir bridges ni `on*=`.*
 - **Backend:** **Supabase** — PostgreSQL (base), Supabase Auth (identidad), Supabase Storage (archivos), RLS + GRANT (acceso) y **RPCs / Edge Functions para la lógica crítica**.
-- **Multi-tenant:** `organization_id` en toda tabla de negocio.
+- **Multi-tenant:** `organization_id` en toda tabla de negocio; en el cliente, cambiar de organización resetea modelo **y** vista, con una "época" (`_ORG_EPOCA`) que cancela el trabajo async obsoleto para no cruzar datos entre tenants.
 
 ## 3. Documentos canónicos (la autoridad)
 
 La verdad del proyecto vive en tres documentos. **Léelos antes de proponer cambios de fondo.** Si un cambio contradice uno de ellos, **levanta la contradicción, no la resuelvas en silencio.**
 
 - **PRD** (`TakeOS_PRD_V3_6.md`) — qué es TakeOS y por qué. **Manda en producto y dominio.**
-- **ADR** (`TakeOS_ADR_Backend_v1_9.md`) — cómo se construye técnicamente y por qué. **Manda en lo técnico.**
+- **ADR** (`TakeOS_ADR_Backend_v1_10.md`) — cómo se construye técnicamente y por qué. **Manda en lo técnico.**
 - **Roadmap** (`TakeOS_Roadmap_Operativo_v1_8.md`) — en qué orden, cuándo y quién. **Manda en ejecución.**
 
 Ante choque: PRD en producto → ADR en técnica → **Agustín arbitra.**
 
 > **Documentos relacionados (no son del trío de autoridad):**
-> - `TakeOS_Arquitectura_y_Flujo_de_Trabajo_v1_5.md` — la **infraestructura** (BD en código, entornos producción/staging, despliegue, modularización del frontend con Vite) y el **flujo de equipo** (Git, ramas, Pull Requests, quién hace qué). Consúltalo para *cómo* se construye y se publica.
+> - `TakeOS_Arquitectura_y_Flujo_de_Trabajo_v1_6.md` — la **infraestructura** (BD en código, entornos producción/staging, despliegue, modularización del frontend con Vite) y el **flujo de equipo** (Git, ramas, Pull Requests, quién hace qué). Consúltalo para *cómo* se construye y se publica.
+> - `ARQUITECTURA.md` (+ carpeta `arquitectura/`) — **informe técnico del cliente modular** (topología, arranque, intercomunicación, estado, persistencia, grafo de dependencias, seguridad/CSP, censo, y el registro de los 4 bugs de regresión ya reparados). Es la foto de *cómo está construido* hoy `frontend/src/`.
 > - `TakeOS_Seguridad_OWASP_Top_10_2025_v1_3.md` — **hub de seguridad**: mapea las 10 categorías OWASP 2025 al stack de TakeOS y deja veredicto. Subordinado al PRD (producto) y al ADR (técnica); alimenta el Gate C y el pentest.
 >
 > Ninguno de estos manda sobre producto/técnica/ejecución (eso sigue siendo PRD/ADR/Roadmap).
@@ -45,7 +50,7 @@ Estas no se negocian. Si una tarea te empuja a romper una, **detente y avisa**.
 1. **Nunca confiar en el cliente** (ADR-001/002/017). El frontend es público y manipulable. La lógica crítica corre **server-side**, tratando todo dato entrante como potencialmente falso.
 2. **Regla de oro de dónde va la lógica:** si la operación **mueve plata**, **decide permisos sensibles**, o **debe ser atómica** → **server-side (RPC)**. Si es una lectura o un CRUD simple sobre datos del propio tenant → directo con **RLS**.
 3. **Autorización en el servidor, por perfil vía membresía** (ADR-004). Los permisos cuelgan del usuario (membresía interno/externo × perfil), **no del rol por proyecto**. Toda escritura sensible se verifica **dentro del RPC** + RLS. El frontend solo refleja; nunca es la autoridad.
-4. **Lógica y tasas tributarias SOLO en la tabla `tax_rates`** (ADR-018), nunca hardcodeadas en el cliente. El cliente las **lee** al iniciar sesión. Cambiar una tasa = **insertar fila nueva** con su `vigente_desde`. **Cualquier hardcodeo tributario en el HTML es un error de severidad alta.**
+4. **Lógica y tasas tributarias SOLO en la tabla `tax_rates`** (ADR-018), nunca hardcodeadas en el cliente. El cliente las **lee** al iniciar sesión (viven en `frontend/src/lib/rates.js`, pobladas por `dalBootTaxRates`). Cambiar una tasa = **insertar fila nueva** con su `vigente_desde`. **Cualquier hardcodeo tributario en el cliente es un error de severidad alta.**
 5. **Modelo relacional, fuente única de verdad** (ADR-005). Relaciones por referencia, **no por copia**. **Soft delete** + campos de auditoría (`created_at`/`updated_at`/`deleted_at`). **GRANT al rol `authenticated` después de CADA tabla nueva** (Supabase no la expone sola; olvidarlo = 403).
 6. **Versionar en vez de eliminar; la última manda** (principio 9 / §20). Documentos versionables (cotización, legal, hoja de llamado, plan de rodaje) no se borran. Filas de presupuesto/gastos/tareas/contactos tienen su ciclo propio con soft delete.
 7. **El backend recalcula los valores derivados** (ADR-002). Retenciones, totales, etc.: el servidor los recalcula desde los insumos y **rechaza** entradas inválidas (no las "arregla"). La validación en el frontend es **solo UX**.
@@ -64,7 +69,8 @@ Estas no se negocian. Si una tarea te empuja a romper una, **detente y avisa**.
 
 ## 6. Cómo trabajar en este repo (reglas para Claude Code)
 
-- **Ediciones quirúrgicas.** Cambia **solo** lo pedido. **No toques lo que funciona.** El frontend es un HTML de ~25k líneas: **edita la zona exacta con reemplazos puntuales; NUNCA reescribas el archivo entero.**
+- **Ediciones quirúrgicas.** Cambia **solo** lo pedido. **No toques lo que funciona.** El frontend son ~40 módulos en `frontend/src/` (más el monolito `index.html` que aún vive en producción): **edita la zona exacta con reemplazos puntuales; NUNCA reescribas un archivo entero.**
+- **Respeta los tres mecanismos de intercomunicación, y córrelos por su compuerta.** Un evento de UI se cablea con `data-accion` + `registrarAcciones` — **jamás `on*=` inline** (la CSP lo mata en silencio). Una dependencia hacia arriba (módulo temprano → tardío) va por `gancho`/`define`, **no** por `window`. Un símbolo cross-módulo se **importa**. **Antes de commitear cambios de frontend, corre `npm run gate`** (cero `on*=` ejecutables · cero identificadores libres): es la red que caza la clase de bug que ni `node --check` ni el build ven porque solo detona en runtime. Contexto en [ARQUITECTURA.md §2](ARQUITECTURA.md).
 - **Features grandes, pasos chicos.** Una tarea grande (integrar un flujo o módulo nuevo, por ejemplo) es un objetivo **válido y bienvenido**. Lo que nunca se hace es ejecutarla en un **solo bloque imposible de revisar**. Ante una tarea grande: primero propón un **plan** que la descomponga en pasos chicos y revisables (Plan Mode), espera la aprobación del plan, y ejecútala **paso a paso**, commiteando cada uno. Lo que debe ser chico es **cada cambio que se revisa**, no la feature.
 - **Equipo de dos · ramas + Pull Request.** Desde junio 2026 el equipo es Agustín (producto/dominio) y **Juan de la Cuadra (CTO, responde por todo el código)**. El flujo formal es **rama de feature → PR → revisión** (Juan revisa infra/integración; Agustín, producto/dominio) → merge a `main`. **Features grandes o arriesgadas van siempre en rama dedicada**, nunca directo en `main`; se prueban completas (en staging) y se fusionan solo cuando funcionan. *Matiz de Agustín: para cambios menores y de bajo riesgo, `main` directo es aceptable — el flujo de PR no es sagrado para lo trivial.*
 - **Cambios de base de datos: «en código», repo primero (Orden A).** Todo cambio de BD es un **archivo de migración** en `supabase/migrations/`. Secuencia canónica única: **migración en una rama → PR + prueba (preview branch; el *required check* impide mergear si la migración falla) → revisión de Juan → merge a `main` → la integración de Branching de Supabase aplica la migración a producción AL MERGEAR** (*merge = deploy*). **No** se corre `supabase db push` manual a producción (lo aplica el merge; hacerlo a mano la duplica). **Nunca** se toca producción directo por el conector MCP ni por el editor SQL: eso desincroniza la base respecto del código (fue la causa del incidente del 17-jun; el «Orden B», prod-primero, quedó descartado). El conector MCP de Supabase es solo para **inspección de lectura** y pruebas en transacción revertida (`BEGIN … ROLLBACK`). *(Detalle: ADR-023 · Arquitectura §2.2 · Roadmap §5.1. Reglas: **R1** merge = deploy; **R2** la excepción «solo/rápido» relaja la revisión, nunca el orden, y solo para migraciones aditivas/reversibles que no toquen RLS, policies, auth, aislamiento de tenant, ni drops/renames/cambios de tipo/backfills; **R3** no se salta la prueba en staging.)*
@@ -81,8 +87,10 @@ Estas no se negocian. Si una tarea te empuja a romper una, **detente y avisa**.
 
 ## 8. Estado actual y deuda técnica conocida
 
-(Lista móvil — confirmar contra el estado real antes de actuar. Build de producción: **V11.16.0** (monolito). Base: **7 migraciones**, 77 tablas, todas con RLS.)
+(Lista móvil — confirmar contra el estado real antes de actuar. **Producción:** monolito en `origin/main`. **Staging (`etapa4-integracion`):** cliente modular V11.14.0, **Desacople D0-D4 + FASE HF cerrados**. Base: **14 migraciones**, 72 tablas, todas con RLS.)
 
+- **Desacople del frontend — COMPLETO en staging, NO reabrir:** D0 (fixes multi-org: reset de vista, época `_ORG_EPOCA`, rescate de guardado) · D1 (imports ESM reales) · D2 (delegación de eventos, cero `on*=`) · D3 (estado con dueños + **CSP `script-src` sin `unsafe-inline`**) · D4 (`window` 962→73) · **FASE HF** (4 bugs de regresión del propio desacople reparados + 2 compuertas `npm run gate`). Registro completo: [ARQUITECTURA.md](ARQUITECTURA.md). **Pendiente: el corte a producción (Lote 4).**
+- **Deuda priorizada del informe de arquitectura (aún abierta):** **P1 seguridad** — (a) el soft-delete de proyectos desde el cliente (`kanban.js`, UPDATE de `deleted_at`) **elude el permiso `eliminar_proyecto`** en RLS; debe pasar por la RPC `eliminar_proyecto`/`restaurar_proyecto`. (b) El aislamiento de `contacts` frente a usuarios **externos** es convención, no policy (ninguna política mira `memberships.tipo`). **P2** — sin tests/lint/CI reales (solo `npm run gate` a mano); promesas async sin `.catch` global; changelog de ~1.230 líneas viajando dentro de `index.html`; 11 guardas `typeof X` que dependen de bridges `window` residuales.
 - **Gate A — CERRADO:** Firebase apagado y retirado (V10), Supabase Pro con backups validados, `currentUser()` conectado a la sesión real.
 - **Gate B — casi cerrado:** motor de organización activa construido (`_setOrgActiva`). Falta el **RLS real por organización y rol** (reemplazar las políticas `mvp_`) y su **validación con varias organizaciones** (tests de cruce de tenant que deben fallar).
 - **Gate C — por delante (crítico antes del beta):** hoy es sobre todo **legal** —los cinco flujos de derechos del titular ya están **construidos en UI**; faltan los **textos aprobados** por abogado (Ley 21.719, deadline 1-dic-2026)— más el header `frame-ancestors` del hosting y el endurecimiento del aislamiento multi-tenant. *(Mapa de seguridad: hub OWASP.)*
@@ -91,4 +99,4 @@ Estas no se negocian. Si una tarea te empuja a romper una, **detente y avisa**.
 
 ---
 
-*Borrador 0.1 · No es canónico — es el manual de operación del agente. Se versiona y consolida como el resto. Primate Films / La Hectárea SpA.*
+*Borrador 0.3 · No es canónico — es el manual de operación del agente. Se versiona y consolida como el resto. Primate Films / La Hectárea SpA.*
