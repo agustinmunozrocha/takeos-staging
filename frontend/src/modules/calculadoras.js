@@ -453,13 +453,19 @@ function renderHorasExtraCalc() {
 
   let cuerpo;
   if (st.usaProyecto) {
+    const sinValorHora = !(st.valorHoraDefault > 0);
+    const avisoNoAplica = sinValorHora ? `
+      <div class="calc-note" style="color:var(--warning);border:1px solid var(--warning);border-radius:8px;padding:8px 10px;">
+        El cálculo por defecto no aplica a esta fila: necesita una unidad «Jornadas» con valor para derivar el valor hora (valor de la fila ÷ 10). Desmarca «Usar el cálculo por defecto del proyecto» y usa <strong>Tarifa plana</strong> o <strong>Fórmula propia</strong>.
+      </div>` : '';
     cuerpo = `
+      ${avisoNoAplica}
       <div class="field">
         <label class="field-label">N° de horas extra</label>
         <input type="number" step="0.5" min="0" class="input num" value="${st.horas || ''}" placeholder="0"
                data-accion="calc.hecHoras" data-on="input">
       </div>
-      <div class="calc-note">Valor de la hora sugerido: <strong>${st.valorHoraDefault ? fmtMoney(st.valorHoraDefault) : '—'}</strong>${st.esJornadas ? '' : ' <span style="color:var(--warning);">(la unidad de la fila no es «Jornadas»; ingresa un valor hora propio desacoplando del proyecto)</span>'} · Recargo del proyecto: <strong>${st.projRecargo}%</strong>. Para fijar el recargo por defecto usa el ⚙ del encabezado «Horas extra».</div>`;
+      <div class="calc-note">Valor de la hora sugerido: <strong>${st.valorHoraDefault ? fmtMoney(st.valorHoraDefault) : '—'}</strong> · Recargo del proyecto: <strong>${st.projRecargo}%</strong>. Para fijar el recargo por defecto usa el ⚙ del encabezado «Horas extra».</div>`;
   } else {
     const tabs = `
       <div class="he-tabs">
@@ -542,6 +548,13 @@ function _hecConfirm() {
     valorHora: (override && st.modo === 'formula' && Number(st.valorHora) > 0) ? Number(st.valorHora) : null,
     incluyeIVA: !!st.incluyeIVA
   };
+  // Modo por defecto en fila sin valor hora derivable (unidad ≠ «Jornadas» o sin
+  // valor): no hay costo posible. Avisar y mantener el modal abierto, en vez de
+  // descartar la configuración en silencio (decisión de producto, jul-2026).
+  if (!override && (Number(st.horas) || 0) > 0 && !(st.valorHoraDefault > 0)) {
+    showToast({ kind: 'warning', title: 'El cálculo por defecto no aplica', body: 'Esta fila no tiene un valor hora derivable (requiere unidad «Jornadas» con valor). Desmarca «Usar el cálculo por defecto» y usa Tarifa plana o Fórmula propia.' });
+    return;
+  }
   const costo = _heComputeCosto(cfg, item) || null;
   const esPlana = (override && cfg.modo === 'plana');
   if (!costo && !(esPlana && cfg.montoPlano)) {
