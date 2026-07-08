@@ -433,7 +433,7 @@ export function renderServiciosBody() {
 function _sanitizeDeptName(s) {
   return String(s == null ? '' : s).replace(/[<>"'`\\]/g, '').replace(/\s+/g, ' ').trim();
 }
-function addServiceDept() {
+async function addServiceDept() {
   const project = STATE.currentProject;
   const d = project.data.servicios;
   const raw = window.prompt('Nombre de la nueva sub-sección (ej: Sonido, Grip, Maquillaje):', '');
@@ -441,13 +441,18 @@ function addServiceDept() {
   const name = _sanitizeDeptName(raw);
   if (!name) { showToast({ kind: 'warning', title: 'Nombre inválido', body: 'Escribe un nombre para la sub-sección.' }); return; }
   if (d[name]) { showToast({ kind: 'warning', title: 'Ya existe', body: `Ya hay una sub-sección llamada «${name}».` }); return; }
+  let _deptId;
+  try { _deptId = await gancho('dalCrearDepartamento')(project.id, name); }
+  catch (e) { showToast({ kind: 'error', title: 'No se pudo crear', body: 'No se pudo guardar el departamento en el servidor. ' + (e && e.message ? e.message : '') }); return; }
   d[name] = [];
+  if (!project.data.serviciosDeptIds) project.data.serviciosDeptIds = {};
+  project.data.serviciosDeptIds[name] = { id: _deptId, projectId: project.id };
   markDirty();
   renderServiciosBody();
   recalcAllDeptSummaries();
   showToast({ kind: 'success', title: 'Sub-sección creada', body: `«${name}» agregada a Servicios. Usa "+ Agregar rol" para sumarle filas.` });
 }
-function _renameServiceDeptCore(idx, rawNew) {
+async function _renameServiceDeptCore(idx, rawNew) {
   const project = STATE.currentProject;
   const d = project.data.servicios;
   const names = Object.keys(d);
@@ -459,20 +464,26 @@ function _renameServiceDeptCore(idx, rawNew) {
   if (d[newName]) { showToast({ kind: 'warning', title: 'Ya existe', body: `Ya hay una sub-sección llamada «${newName}».` }); return false; }
   // Reconstruir preservando el orden (renombrar solo cambia la etiqueta;
   // los montos cotizados de las filas no se tocan → respeta la regla madre).
+  const _ids = project.data.serviciosDeptIds || {};
+  const _meta = _ids[oldName];
+  if (!_meta || _meta.projectId == null) { showToast({ kind: 'warning', title: 'No se puede renombrar', body: 'Los departamentos de fábrica no se pueden renombrar. Crea uno nuevo si necesitas otro nombre.' }); return false; }
+  try { await gancho('dalRenombrarDepartamento')(_meta.id, newName); }
+  catch (e) { showToast({ kind: 'error', title: 'No se pudo renombrar', body: (e && e.message ? e.message : 'Error en el servidor.') }); return false; }
   const rebuilt = {};
   names.forEach(n => { rebuilt[n === oldName ? newName : n] = d[n]; });
   project.data.servicios = rebuilt;
+  _ids[newName] = _meta; delete _ids[oldName];   // el id no cambia; solo la etiqueta (ya persistida por el RPC)
   (rebuilt[newName] || []).forEach(gancho('_markRowDirty'));   // Pasada 1 · cambió el departamento de estas filas → re-enviarlas (su department_id se resuelve por nombre en el RPC)
   markDirty();
   return { oldName, newName };
 }
-function renameServiceDept(idx) {
+async function renameServiceDept(idx) {
   const names = Object.keys(STATE.currentProject.data.servicios);
   const oldName = names[idx];
   if (!oldName) return;
   const raw = window.prompt('Nuevo nombre de la sub-sección:', oldName);
   if (raw === null) return;
-  const r = _renameServiceDeptCore(idx, raw);
+  const r = await _renameServiceDeptCore(idx, raw);
   if (!r) return;
   renderServiciosBody();
   recalcAllDeptSummaries();
@@ -536,8 +547,8 @@ function moveServiceDept(idx, dir) {
   recalcAllDeptSummaries();
   openVisualizacionPanel();   // re-pintar el panel con el nuevo orden
 }
-function vizRenameInput(idx, value) {
-  const r = _renameServiceDeptCore(idx, value);
+async function vizRenameInput(idx, value) {
+  const r = await _renameServiceDeptCore(idx, value);
   if (!r) { openVisualizacionPanel(); return; }   // inválido/duplicado/igual: restaurar el panel
   renderServiciosBody();
   recalcAllDeptSummaries();

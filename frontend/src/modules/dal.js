@@ -952,7 +952,8 @@ function _dalBudgetRow(r, esServicio) {
     heConfig: (r.he_config != null ? r.he_config : null),   // V10.5.0: inputs HE persistidos (jsonb); hora_extra es el cache del costo empresa
     clientUuid: r.client_uuid || null,   // Pasada 1 · identidad estable de fila (concurrencia por fila)
     version: (r.version != null ? r.version : null),   // Pasada 1 · sello de versión por fila (null = fila nueva sin guardar)
-    _contactId: r.contact_id || ''
+    _contactId: r.contact_id || '',
+    departmentId: (r.department_id != null ? r.department_id : null)
   };
   if (esServicio) row.rol = r.concepto || ''; else row.item = r.concepto || '';
   return row;
@@ -1133,7 +1134,7 @@ function _dalDocumentosPartes(p) {
   });
   return { items: items };
 }
-export function _dalProyectoPartes(p) {
+export function _dalProyectoPartes(p, deptList) {
   const asg = p.project_assignments || [];
   function porFuncion(fn) {
     const a = asg.find(x => x.project_functions && x.project_functions.nombre === fn);
@@ -1179,9 +1180,22 @@ export function _dalProyectoPartes(p) {
 
   const items = sortPos(p.budget_line_items);
   const servicios = {}, gastos = [], equipos = [], talentos = [];
+  // Departamentos (opción a): el esqueleto de grupos se arma desde la lista REAL de
+  // departamentos, no desde las filas → los custom vacíos sobreviven; los defaults
+  // vacíos se ocultan (su grupo se crea recién si tiene filas). serviciosDeptIds mapea
+  // nombre→{id,projectId} para guardar por id (department_id estable) en vez de por nombre.
+  const projDepts = (deptList || []).filter(function(x){ return x.project_id == null || x.project_id === p.id; });
+  const deptById = {}, serviciosDeptIds = {};
+  projDepts.forEach(function(x){ deptById[x.id] = x; serviciosDeptIds[x.nombre] = { id: x.id, projectId: (x.project_id != null ? x.project_id : null) }; });
+  // ¿qué departamentos tienen filas? (para ocultar los defaults vacíos)
+  const _conFilas = {};
+  items.forEach(function(r){ if (r.section === 'servicios' && r.department_id != null && deptById[r.department_id]) _conFilas[deptById[r.department_id].nombre] = true; });
+  // esqueleto en orden 'orden' (defaults primero, luego custom): custom siempre; default solo si tiene filas
+  projDepts.forEach(function(x){ if (x.project_id != null || _conFilas[x.nombre]) servicios[x.nombre] = servicios[x.nombre] || []; });
   items.forEach(function(r){
     if (r.section === 'servicios') {
-      const dep = (r.departments && r.departments.nombre) ? r.departments.nombre : 'Sin departamento';
+      const dm = (r.department_id != null && deptById[r.department_id]) ? deptById[r.department_id] : null;
+      const dep = dm ? dm.nombre : ((r.departments && r.departments.nombre) ? r.departments.nombre : 'Sin departamento');
       (servicios[dep] = servicios[dep] || []).push(_dalBudgetRow(r, true));
     } else if (r.section === 'gastos') gastos.push(_dalBudgetRow(r, false));
     else if (r.section === 'tecnica') equipos.push(_dalBudgetRow(r, false));   // 'tecnica' (BD) == 'equipos' (cliente)
@@ -1197,7 +1211,7 @@ export function _dalProyectoPartes(p) {
     operaciones4b: _dalOperaciones4bPartes(p),
     operaciones4c: _dalOperaciones4cPartes(p),
     documentos: _dalDocumentosPartes(p),
-    dataParcial: { infoProyecto: info, finanzas: finanzas, servicios: servicios, gastos: gastos, equipos: equipos, talentos: talentos }
+    dataParcial: { infoProyecto: info, finanzas: finanzas, servicios: servicios, serviciosDeptIds: serviciosDeptIds, gastos: gastos, equipos: equipos, talentos: talentos }
   };
 }
 
@@ -1212,6 +1226,7 @@ export function _dalFusionarProyecto(target, partes) {
   d.infoProyecto = partes.dataParcial.infoProyecto;
   d.finanzas = partes.dataParcial.finanzas;
   d.servicios = partes.dataParcial.servicios;
+  d.serviciosDeptIds = partes.dataParcial.serviciosDeptIds || {};
   d.gastos = partes.dataParcial.gastos;
   d.equipos = partes.dataParcial.equipos;
   d.talentos = partes.dataParcial.talentos;
@@ -1294,6 +1309,16 @@ export async function dalLoadProyectos(soloBorrados) {
    trae versiones frescas (cabecera y por fila) y reinicia la línea base (_snap,
    _headerVersion, _budgetPendingDeletes y marcas de sucio). Usado por "Recargar
    ahora" al resolver un conflicto. */
+async function _dalCargarDepartamentos() {
+  if (!sb || !ORG_ID) return [];
+  try {
+    const { data, error } = await sb.from('departments')
+      .select('id,nombre,orden,project_id').eq('organization_id', ORG_ID).order('orden', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  } catch (e) { console.error('[dal] cargar departamentos', e); return []; }
+}
+
 async function dalReloadProyecto(id) {
   if (!sb || !id) return false;
   try {
@@ -1304,7 +1329,8 @@ async function dalReloadProyecto(id) {
     if (!row) return false;
     const tgt = PROJECTS.find(function (x) { return x.id === id; });
     if (!tgt) return false;
-    _dalFusionarProyecto(tgt, _dalProyectoPartes(row));
+    const _depsR = await _dalCargarDepartamentos();
+    _dalFusionarProyecto(tgt, _dalProyectoPartes(row, _depsR));
     DAL_KNOWN_PROJECT_IDS.add(id);
     return true;
   } catch (e) { console.error('[dal] recargar proyecto', id, e); return false; }
@@ -1317,8 +1343,9 @@ export async function dalBootProyectos() {
   if (!rows) { try { renderMetrics(); renderKanban(); } catch (e) {} gancho('_bootCoverHide')(); return; }   // error o sin red -> se pinta el estado actual (post-reset: tablero vacío honesto, no fantasmas de la org anterior)
   if (!rows.length) { setSource('projects', 'supabase'); try { renderMetrics(); renderKanban(); } catch (e) {} gancho('_bootCoverHide')(); return; }   // org sin proyectos: la nube respondió -> escritura habilitada y tablero vacío real (sin esto el flag quedaba 'pending' y nada sincronizaba)
   let aplicados = 0;
+  const _depsB = await _dalCargarDepartamentos();
   rows.forEach(function(p){
-    const partes = _dalProyectoPartes(p);
+    const partes = _dalProyectoPartes(p, _depsB);
     let tgt = PROJECTS.find(function(x){ return x.id === p.id; });
     if (!tgt) {
       tgt = { id: p.id, name: partes.nombre, client: partes.cliente, state: partes.estado, pe: partes.pe || '—', amount: 0, currency: 'CLP', alerts: 0, lastActivity: '', date: '—', data: buildDefaultProjectData() };
@@ -1498,6 +1525,7 @@ function _dalProyectoPayload(project) {
     upserts.push({
       clientUuid: r.clientUuid, version: (r.version != null ? r.version : null),
       section: section, departamento: dep || null,
+      departamentoId: (section === 'servicios' && d.serviciosDeptIds && d.serviciosDeptIds[dep] && d.serviciosDeptIds[dep].id != null) ? d.serviciosDeptIds[dep].id : null,
       contactId: _dalResolveContactId(r.nombre, r._contactId), nombre: r.nombre || '',
       concepto: concepto, valor: (r.valor != null ? r.valor : null), cantidad: (r.cantidad != null ? r.cantidad : 0),
       unidad: r.unidad || '', dte: r.dte || null, confirmado: !!r.confirmado, costoReal: (r.costoReal != null ? r.costoReal : null),
@@ -1894,6 +1922,19 @@ export async function dalFlushProyectos() {
 // ── Window bridges DAL (3 barridos: consumo externo, auto-consumo, nombre-string) ──
 
 // D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
+async function dalCrearDepartamento(projectId, nombre) {
+  if (!sb) throw new Error('sin conexión');
+  const { data, error } = await sb.rpc('crear_departamento', { p_project_id: projectId, p_nombre: nombre });
+  if (error) throw error;
+  return data;   // int id (nuevo, o el default/custom existente reusado)
+}
+async function dalRenombrarDepartamento(departmentId, nombre) {
+  if (!sb) throw new Error('sin conexión');
+  const { error } = await sb.rpc('renombrar_departamento', { p_department_id: departmentId, p_nombre: nombre });
+  if (error) throw error;
+}
 define('_dalEmpresaSaveSoon', _dalEmpresaSaveSoon);
 define('_dalPerfilSaveSoon', _dalPerfilSaveSoon);
 define('dalGuardarEmpresa', dalGuardarEmpresa);
+define('dalCrearDepartamento', dalCrearDepartamento);
+define('dalRenombrarDepartamento', dalRenombrarDepartamento);

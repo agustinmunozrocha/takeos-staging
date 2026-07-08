@@ -219,7 +219,7 @@ export function comboboxAddEmpresaToBD(btn) {
   // Dejarla seleccionada en el input que disparó el alta.
   inp.value = BD_EMPRESAS_BYID[eid].nombreFantasia;
   if (dropdownDe(wrap)) dropdownDe(wrap).hidden = true;
-  inp.dispatchEvent(new Event('change'));
+  inp.dispatchEvent(new Event('change', { bubbles: true }));
 }
 function dropdownDe(wrap) { return wrap ? wrap.querySelector('.combobox-dropdown') : null; }
 export function comboboxOpen(inputEl) {
@@ -288,7 +288,7 @@ export function comboboxSelect(optEl, value) {
   input.value = value;
   dropdown.hidden = true;
   // Disparar change para que el modelo se actualice
-  input.dispatchEvent(new Event('change'));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 // legalComboboxFilter → movido a src/modules/legal.js (Etapa A1)
