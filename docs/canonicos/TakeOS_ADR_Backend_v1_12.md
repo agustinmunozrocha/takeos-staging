@@ -1,14 +1,38 @@
 # TakeOS — ADR de Backend (Architecture Decision Record)
 
-**Versión:** 1.10
-**Fecha:** Junio 2026
+**Versión:** 1.12
+**Fecha:** 8 de julio de 2026
 **Autor de las decisiones:** Agustín Ignacio Muñoz Rocha · Primate Films / La Hectárea SpA
 **Asesoría técnica:** sesión de arquitectura de backend
-**Estado del documento:** Borrador alineado al **PRD V3.6** (autoritativo), al **Roadmap Operativo v1.8**, al **Arquitectura y Flujo de Trabajo v1.6** y a los **handoffs de Flujo de Trabajo y Metodología (flujo BD en código), Dev (deltas de frontend), Code y la bitácora de modularización Vite (Juan + Code)**.
+**Estado del documento:** Borrador alineado al **PRD V3.6** (autoritativo), al **Roadmap Operativo v1.10**, al **Arquitectura y Flujo de Trabajo v1.8** y al hub **Seguridad OWASP Top 10:2025 v1.5**. Consolida el **Informe Técnico de Arquitectura (6-jul, rama `staging/main` @ `4c8067b`, con addenda del 6 al 8-jul)** y el cierre del **handoff de Code (21-jun) — grants de `service_role`**, además de los **handoffs de Flujo de Trabajo y Metodología (flujo BD en código), Dev (deltas de frontend), Code (modularización Vite, endurecimiento de grants `anon`)**.
 
-> **Autoridad documental.** Donde el PRD y este ADR hablen del mismo tema, **el PRD manda en lo conceptual y de producto; el ADR manda en lo técnico**. El PRD V3.6 es la fuente de verdad de las decisiones; este documento detalla el *cómo* y el *porqué* técnico. El **Roadmap Operativo v1.8** define la secuencia de ejecución y el modelo de trabajo entre chats; el **Arquitectura y Flujo de Trabajo v1.6** documenta la infraestructura (BD en código, entornos, flujo de despliegue, modularización del frontend) y el flujo de equipo.
+> **Eje transversal desde v1.12 — estado dual producción ↔ staging.** Los dos remotos del repo ya **no son el mismo software** y divergieron **189 commits**: `origin/main` sirve el **monolito** (producción real: `index.html` de 28.649 líneas, 549 handlers inline, CSP con `unsafe-inline`); `staging/main` sirve la **arquitectura modular** que describe el Informe Técnico. Desde esta versión, **toda cifra viva y todo estado de frontend se leen etiquetados por rama**. El "corte a producción" deja de ser "pasar a la build de Vite" y pasa a ser **cortar toda la reescritura modular** — ver ADR-015 y el nuevo riesgo abierto.
+
+> **Autoridad documental.** Donde el PRD y este ADR hablen del mismo tema, **el PRD manda en lo conceptual y de producto; el ADR manda en lo técnico**. El PRD V3.6 es la fuente de verdad de las decisiones; este documento detalla el *cómo* y el *porqué* técnico. El **Roadmap Operativo v1.10** define la secuencia de ejecución y el modelo de trabajo entre chats; el **Arquitectura y Flujo de Trabajo v1.8** documenta la infraestructura (BD en código, entornos, flujo de despliegue, modularización del frontend) y el flujo de equipo.
 
 ---
+
+## Changelog — v1.11 → v1.12
+
+Consolida el **Informe Técnico de Arquitectura (6-jul, `staging/main` @ `4c8067b`, + addenda 6–8-jul)** y cierra el **handoff de Code (21-jun) — grants de `service_role`**. Es la consolidación más grande desde que la base entró en código: el estado real saltó muy por delante de lo que registraban los canónicos. **Quedan cuatro puntos abiertos** a resolver con Agustín, marcados abajo con ⚠.
+
+- **Estado dual producción ↔ staging (nuevo eje).** Ver la nota del encabezado. Los dos remotos divergieron 189 commits; producción = monolito, staging = modular. El corte a producción pasa a ser cortar la reescritura completa.
+- **ADR-005 (cifras vivas) — ahora dual.** Producción (último censo conocido, 16–21 jun, DB `zplcgetquwxybkrpmcvl`): 77 tablas / 147 policies / ~71 funciones / **8 migraciones** (→ **9** con el cierre de `service_role` de Code). Staging (censo del informe, contado con comando citado @ `4c8067b`): **72 tablas · 157 policies RLS · 76 funciones `SECURITY DEFINER` · 14 migraciones · 9.349 líneas SQL**. ⚠ Dos diferencias señaladas para verificar: las tablas **bajan** (77→72, atípico) y el conteo de funciones cambia de marco (totales vs. `SECURITY DEFINER`); falta confirmar si el censo de staging refleja la DB de producción o una branch.
+- **ADR-023 (tabla de migraciones) — conteo actualizado, filas pendientes.** El informe cuenta **14 migraciones** en staging; los canónicos tenían 8, y Code sumaba la 9.ª (`…140000_revoke_service_role_funciones_sensibles`, PR #4). La 9.ª de Code se agrega a la tabla. ⚠ Entre la 9.ª y la 14.ª hay **~5 migraciones sin handoff**: se sube el conteo pero **no se enumeran esas filas** hasta tener sus nombres (no se inventan).
+- **ADR-024 (endurecimiento) — patrón completo + dos cierres.** (a) El patrón canónico pasa a `REVOKE … FROM PUBLIC, anon, service_role` (antes solo `anon`); revocar `service_role` es **fidelidad de build** (paridad de ACL con prod), **no** seguridad (`service_role` es llave de backend que ignora RLS por diseño). (b) Hallazgo de Code: el fix sistémico (`ALTER DEFAULT PRIVILEGES … REVOKE … FROM anon, service_role`) **no se puede por migración** —`postgres` no es superusuario ni miembro de `supabase_admin` (*permission denied*)—; el deny-by-default real va por dashboard/soporte de Supabase. (c) El objetivo de quitar `'unsafe-inline'` del CSP **ya se cumplió en staging** para `script-src` (queda `style-src`, deuda "proyecto S"). Detalle en el hub OWASP A02/A05.
+- **ADR-026 (nuevo) — Arquitectura de frontend modular: delegación, ganchos y época.** La reescritura modular (en staging) resuelve toda intercomunicación por tres canales —imports ESM, **ganchos** (inversión de control) y **delegación de eventos** (`data-accion`, que reemplaza los `onclick` inline y **habilita el CSP sin `unsafe-inline`**)—, con estado de dueños (setters como única escritura) y aislamiento multi-org por **época** (`_ORG_EPOCA`).
+- **`npm run gate` — compuertas de integridad de build.** Nace `npm run gate` versionado (cero `on*=`, cero identificadores libres). Cruza OWASP A03/A08. Pendiente: atarlo a pre-push/CI real y sumar checkers de biyección y de despacho de 2.º nivel (ver ADR-023/ADR-024).
+- **Seguridad — dos huecos nuevos de control de acceso (A01), detalle en el hub OWASP.** (i) El **borrado blando** de proyectos (`UPDATE deleted_at` directo por PostgREST) **elude el permiso `eliminar_proyecto`**: las RPC endurecidas existen y el frontend no las llama. (ii) "El externo no lee `contacts`" es **convención, no invariante**: ninguna policy mira `memberships.tipo`. Ambos son bloqueantes de A01 (beta). Se registran aquí por referencia.
+- **⚠ ADR-F (abierto) — Departamentos de servicios por productora.** Las filas de servicios guardan el departamento **por nombre**; `guardar_proyecto` lo mapea a `department_id` y da NULL si no está en `departments` → los departamentos personalizados se pierden al recargar. Fix de fondo **acordado con el BD Expert** (mandar `department_id`, crear el departamento explícito, ajustar la RPC). **La decisión de diseño —departamentos por-productora— la arbitra Agustín; queda abierta.**
+- **⚠ CLAUDE.md** (fuera de estos cinco canónicos): el informe confirma que está desactualizado ("~88% pendiente") y fuera de su ubicación declarada. **No se toca aquí**; pendiente derivarlo a Juan/Code o autorizarlo explícitamente.
+
+## Changelog — v1.10 → v1.11
+
+Consolida el **handoff de Code (21-jun) — endurecimiento de grants `anon` + rebuild de staging**. Cambio resuelto y desplegado a producción (PR #3; no-op de grants en prod).
+- **ADR-023 (actualizado) — 8.ª migración.** Se agrega `20260621120000_revoke_anon_funciones_sensibles` a la tabla de migraciones (ahora **8**, eran 7). Cierra un **hueco de "BD en código"**: el dump base no capturaba los REVOKE de `anon`, así que un reset limpio de staging dejaba **42** funciones anon-ejecutables vs. **23** en producción. Se registra el aprendizaje de flujo: "reset reconstruye fiel" asume CLI **y** que las migraciones capturen los grants.
+- **ADR-024 (actualizado) — endurecimiento de `anon` completo.** `…144834` cubrió 7 RPC de escritura; `…120000` cubre las **19 funciones sensibles restantes** → **26 en total**. Se documenta el **patrón canónico** (`REVOKE … FROM PUBLIC, anon`) y la **causa** (Supabase otorga `EXECUTE` a `anon` por *default privileges*, con grant **explícito**; por eso `FROM PUBLIC` solo no basta). Se registra una recomendación sistémica de horizonte (`ALTER DEFAULT PRIVILEGES … REVOKE … FROM anon`).
+- **ADR-005 (actualizado):** cifras vivas → **8 migraciones**.
+- *Detalle de seguridad (el patrón y la causa) también en el hub OWASP A02; aquí queda el porqué técnico.*
 
 ## Changelog — v1.9 → v1.10
 
@@ -262,7 +286,19 @@ La autorización se aplica **server-side y vía RLS, en cada request**. El front
 
 **Actualización v1.5 — el esquema creció más allá de las 24 tablas.** Se incorporaron las tablas de **identidad global** (`user_profiles`, `user_bank_accounts` — ADR-019), **consentimiento** (`data_consents` — ADR-020) y **notificaciones** (`notification_templates`, `notification_sends`, `notification_send_recipients` — ADR-021).
 
-**Actualización v1.8 — cifras vivas del esquema.** Conviene distinguir dos cosas: el **modelo de dominio conceptual** (las ≈24 tablas de negocio que estructuran este ADR) y el **conteo vivo de la base**, que incluye además las tablas de infraestructura, permisos, catálogos globales, auditoría y soporte. Verificado contra producción el 16 jun 2026: **77 tablas / 77 con RLS / 147 políticas / ~71 funciones / 31 triggers / 6 extensiones**. A junio 2026 hay **7 migraciones** registradas (ADR-023; las dos últimas, del 17-jun: endurecimiento y cupo por proyecto). El cambio de cupo **deprecó `rpc_assert_cupo_colaborador`** y movió el límite a `guardar_cargos` (ver ADR-004). El número grande de tablas no contradice el modelo de ≈24: son las mismas entidades de negocio más todo lo que las rodea.
+**Actualización v1.11 — cifras vivas del esquema.** Conviene distinguir dos cosas: el **modelo de dominio conceptual** (las ≈24 tablas de negocio que estructuran este ADR) y el **conteo vivo de la base**, que incluye además las tablas de infraestructura, permisos, catálogos globales, auditoría y soporte. Verificado contra producción el 21 jun 2026: **77 tablas / 77 con RLS / 147 políticas / ~71 funciones / 31 triggers / 6 extensiones**. A junio 2026 hay **8 migraciones** registradas (ADR-023; la última, `…120000` del 21-jun: revoca `anon` en las 19 funciones sensibles que el dump no capturaba). El cambio de cupo **deprecó `rpc_assert_cupo_colaborador`** y movió el límite a `guardar_cargos` (ver ADR-004). El número grande de tablas no contradice el modelo de ≈24: son las mismas entidades de negocio más todo lo que las rodea.
+
+**Actualización v1.12 — cifras vivas DUALES (producción ↔ staging).** Con los dos remotos divergidos 189 commits (ver encabezado), las cifras se leen **etiquetadas por rama**:
+
+| | **Producción** (`origin/main` · monolito) | **Staging** (`staging/main` @ `4c8067b` · modular) |
+|---|---|---|
+| Tablas | 77 (77 con RLS) | **72** |
+| Policies RLS | 147 | **157** |
+| Funciones | ~71 (totales) | **76 `SECURITY DEFINER`** |
+| Migraciones | **8 → 9** (con el cierre de `service_role` de Code) | **14** (9.349 líneas SQL) |
+| Triggers / extensiones | 31 / 6 | — |
+
+> **Base de cada columna.** Producción: último censo conocido contra la DB `zplcgetquwxybkrpmcvl` (16–21 jun). Staging: censo del **Informe Técnico**, contado con comando citado @ `4c8067b`. ⚠ **Dos diferencias abiertas:** (1) las tablas **bajan** (77→72), atípico en un esquema que crece —¿consolidación de tablas o diferencia de método de conteo?—; (2) el conteo de funciones cambia de marco (totales vs. `SECURITY DEFINER`), no comparable directo. Falta confirmar **si el censo de staging refleja la DB de producción o una branch de Supabase con migraciones no mergeadas** — hasta entonces no se colapsan las dos columnas en una sola cifra viva.
 
 **Hallazgos del build a registrar:**
 - `organizations` tiene `slug` (NOT NULL) y `plan` (default `'free'`), previendo la distinción de plan desde el esquema (ver PRD §22 y ADR-022).
@@ -413,6 +449,8 @@ La autorización se aplica **server-side y vía RLS, en cada request**. El front
 - **Despliegue de frontend (con Vite, v1.9):** en staging, el frontend se **construye con Vite** (`vite build` → `dist/`) con **`base: './'`** (rutas relativas → la misma build sirve en producción y staging sin tocar nada; arreglo de fondo del 404) y **credenciales por entorno vía `import.meta.env`** (`VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY`), no por edición manual de dos líneas. **Pendiente:** el **corte de producción** a esta build (hoy producción aún corre el monolito servido directo) y el **diagnóstico del "404 real"** de ese corte, ambos en `PENDIENTES_Migracion_Vite.md`. El detalle de la estructura (`frontend/src/`, el "puente" `main.js`, el cimiento en `src/lib/`) vive en **Arquitectura §3.4 y §7**.
 - *Deuda:* la observabilidad (logs/métricas/alertas) sigue pendiente (ver hub OWASP A09).
 
+**Actualización v1.12 — los dos remotos divergieron; el "corte a producción" cambió de tamaño.** El Informe Técnico halló que los **dos remotos del repo ya no son el mismo software**: `origin/main` (`fa008d5`) sirve el **monolito** (producción real), `staging/main` (`4c8067b`) sirve la **arquitectura modular**, y entre ellos hay **189 commits de deriva**. Consecuencia: el "corte de producción" que la v1.9 anotaba como "pasar a la build de Vite" es en realidad **cortar a producción toda la reescritura modular** (delegación de eventos, CSP endurecida, purga de `window`, 25 módulos). Es un cambio de magnitud, no un ajuste de build, y hoy es el **riesgo abierto principal del proyecto** (una rama que la operación no usa y que acumula todo el trabajo nuevo). El plan de corte, su verificación y el diagnóstico del "404 real" pasan a ser un frente de primera clase (ver Arquitectura §5 y Roadmap §2).
+
 **Consecuencias.** Misma lógica que probar migraciones en copia (ADR-009): nunca se prueba sobre producción. La branch, al nacer de las migraciones, es fiel al esquema real.
 
 ---
@@ -529,7 +567,7 @@ LIMIT 1;
 
 **Contexto.** Hasta junio 2026, toda la base (las 77 tablas, RLS, RPCs, triggers) existía **solo en el servidor vivo de Supabase**, construida a mano en el editor web, con **cero migraciones**. No había forma de recrearla si se corrompía, ni historia de cambios, ni revisión previa, ni un entorno de prueba que se mantuviera fiel en el tiempo. Era el mayor riesgo silencioso del proyecto (ver Arquitectura y Flujo de Trabajo §2.2).
 
-**Decisión.** La base pasa a estar **"en código"**: el esquema se captura como migración base y, de ahí en adelante, **cada cambio de base de datos es un archivo de migración versionado** en el repositorio, aplicado con la Supabase CLI. A junio 2026 hay **7 migraciones** registradas:
+**Decisión.** La base pasa a estar **"en código"**: el esquema se captura como migración base y, de ahí en adelante, **cada cambio de base de datos es un archivo de migración versionado** en el repositorio, aplicado con la Supabase CLI. **Conteo dual (v1.12):** la rama de producción tiene **9 migraciones** registradas (las 8 de abajo + la de `service_role` de Code); el **Informe Técnico cuenta 14 en `staging/main`** (9.349 líneas SQL). ⚠ Entre la 9.ª y la 14.ª hay **~5 migraciones sin handoff**: no se enumeran aquí hasta tener sus nombres. Las **9 conocidas** son:
 
 | Migración | Qué hace |
 |---|---|
@@ -540,6 +578,11 @@ LIMIT 1;
 | `…170000_seed_permisos_autocontenido` | Los 5 catálogos globales `default_*`, 144 filas (ver ADR-022). |
 | `20260617144834_endurecimiento_anon_y_search_path` | Cierre del backlog de endurecimiento: REVOKE de `anon` en las RPC de escritura, `search_path` en ~11 utilitarias, policy/COMMENT de `app_config` (ver ADR-024). |
 | `20260617160000_fix_cupo_colaboradores_por_proyecto` | El límite de colaboradores pasa a ser **por proyecto** en `guardar_cargos`; `invitar_a_organizacion` deja de medir cupo; `rpc_assert_cupo_colaborador` deprecada (ver ADR-004 y PRD §22). |
+| `20260621120000_revoke_anon_funciones_sensibles` | Revoca `anon` (y `PUBLIC`) en las **19 funciones sensibles** que el dump base no capturaba; cierra el hueco que dejaba 42 anon-ejecutables tras un reset limpio vs. 23 en prod. **No-op en producción** (ya estaban revocadas; solo sincroniza el código con la base). Ver ADR-024. |
+| `20260621140000_revoke_service_role_funciones_sensibles` | Revoca `service_role` en las ~48 funciones sensibles (PR #4, handoff de Code). **No es seguridad, es fidelidad de build:** deja el reset de staging idéntico a prod a nivel de ACL (`anon`/`service_role` == baseline {authenticated, postgres} = 23). **No-op en producción.** Ver ADR-024. |
+| *(~5 migraciones ⚠ pendientes de enumerar)* | El Informe Técnico cuenta 14 en `staging/main`; faltan los nombres de las que van entre la 9.ª y la 14.ª. No se inventan filas. |
+
+> **Lección de reproducibilidad (21-jun).** "Reset reconstruye una base fiel a producción" es cierto **solo si las migraciones capturan todo el estado** — incluidos los grants. El dump base capturaba `REVOKE … FROM PUBLIC` pero **no** la ausencia del grant explícito de `anon` (que Supabase otorga por *default privileges*). Resultado: un reset limpio de staging (o un preview branch, o una recuperación ante desastre) reproducía un estado **menos seguro** que prod. Por eso el cierre fue **una migración** (no un ajuste manual en prod): lo que no está en una migración, no es reproducible. *(El patrón correcto y la causa, en ADR-024.)*
 
 **Flujo permanente (regla, no excepción) — Orden A, ratificado.** Todo cambio de BD entra **al repo antes que a producción**. Secuencia canónica única:
 
@@ -563,13 +606,25 @@ LIMIT 1;
 ---
 
 ## ADR-024 — Endurecimiento de permisos de ejecución de funciones *(NUEVO en v1.7)*
-**Estado:** revocación de funciones internas **hecha**; backlog de advisors **cerrado** (migración `…144834`, 17-jun); pendiente solo el header `frame-ancestors` del hosting · **Etapa:** Seguridad basal
+**Estado:** revocación de funciones internas **hecha**; backlog de advisors **cerrado** (`…144834`, 17-jun); **endurecimiento de `anon` completo** (`…120000`, 21-jun); **`service_role` revocado por fidelidad** (`…140000`, 21-jun — Code); CSP **sin `unsafe-inline` en `script-src`** logrado en staging; pendiente el header `frame-ancestors` del hosting · **Etapa:** Seguridad basal
 
 **Contexto.** En PostgreSQL/Supabase una función puede ser ejecutable por `anon` (público) o `authenticated`. Varias funciones **internas** (de trigger y utilitarias con prefijo `_`) quedaban invocables desde internet sin necesidad, y el linter de seguridad de Supabase levantó un conjunto de avisos (ninguno crítico, pero a cerrar antes de exponer el producto a terceros).
 
 **Decisión.**
 - **Funciones internas sin acceso público (hecho).** La migración `revoke_funciones_internas` revoca `EXECUTE` a `public`/`anon`/`authenticated` sobre **20 funciones internas** (14 de trigger + 6 con prefijo `_`). **Convención hacia adelante:** toda función interna nace ya revocada (la migración la crea sin GRANT público).
 - **Backlog de endurecimiento — ejecutado (migración `…144834`, 17-jun).** ✅ (a) Revocado a `anon` el `EXECUTE` en las RPC de **escritura** como capa externa —cada función ya valida `auth.uid()` por dentro; **los flujos de invitación quedaron anon-ejecutables**—; ✅ (b) `search_path` explícito fijado en ~11 funciones utilitarias; ✅ (c) decidida la **policy de `app_config`** (se documentó vía COMMENT). Se aplicó **como migración**, por el flujo del ADR-023. **Pendiente (no es migración):** el header **`frame-ancestors`** (anti-clickjacking) del hosting, antes del beta externo.
+- **Endurecimiento de `anon` completo (migración `…120000`, 21-jun).** Reconstruyendo staging fiel a prod se detectó que `…144834` solo cubría **7** RPC de escritura; quedaban **19 funciones sensibles** anon-ejecutables tras un reset limpio (42 vs. 23 en prod). `…120000` las revoca → **26 funciones sensibles** revocadas en total. Las 19: `asignar_cargo_a_miembro`, `cancelar_eliminacion_cuenta`, `exportar_herramienta`, `exportar_mis_datos`, `guardar_cargos`, `guardar_consentimiento_cookies`, `guardar_pagos_cliente`, `invitaciones_de_organizacion`, `marcar_notificaciones_leidas`, `mis_organizaciones_como_unico_admin`, `personas_de_mis_proyectos`, `procesar_eliminaciones_vencidas`, `resolver_rebind`, `revocar_consentimiento`, `rpc_assert_cupo_colaborador`, `rpc_assert_cupo_proyecto`, `rpc_assert_plan`, `solicitar_eliminacion_cuenta`, `transferir_administracion`.
+- **Revocación de `service_role` — fidelidad de build, NO seguridad (migración `…140000`, 21-jun — handoff de Code, PR #4).** El mismo rebuild mostró que a `service_role` también le quedaba `EXECUTE` sobre las ~48 sensibles en un reset limpio, mientras que en prod ya estaba revocado. `…140000` lo revoca → el reset queda **idéntico a prod a nivel de ACL** (`anon`/`service_role` == baseline {authenticated, postgres} = 23 ejecutables). **Distinción clave que NO se debe borrar al leer esto:** revocar `anon` cerró un **hueco de seguridad real** (un anónimo podía ejecutar funciones sensibles en un build fresco); revocar `service_role` es solo **fidelidad/paridad de build** — `service_role` es la llave de backend que **ignora RLS por diseño y nunca sale del servidor**, así que quitarle acceso no cierra ninguna puerta que un atacante pueda usar. Por eso en el hub OWASP el `service_role` **no** figura como "otro hueco cerrado" sino como integridad de build (A08).
+- **CSP sin `unsafe-inline` en `script-src` — logrado en staging.** La reescritura modular reemplazó los `onclick` inline por **delegación de eventos** (ver ADR-026), lo que permitió endurecer la CSP de staging a `script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com` — **el navegador ya rechaza todo JS inline, propio o inyectado**. Era el "premio de seguridad" del refactor (cruza OWASP A05). Queda `style-src` con `unsafe-inline` (deuda dimensionada, "proyecto S"). **Producción, en cambio, sigue con el monolito y `unsafe-inline` en `script-src`** hasta el corte.
+
+> **Patrón canónico (v1.12 — a respetar en toda migración que crea o recrea una función sensible en `public`, incluido cualquier `DROP+CREATE`):**
+> ```sql
+> REVOKE ALL ON FUNCTION public.<fn>(<args>) FROM PUBLIC, anon, service_role;
+> GRANT EXECUTE ON FUNCTION public.<fn>(<args>) TO authenticated;  -- si corresponde
+> ```
+> Se agrega `service_role` al patrón (antes solo `anon`): por **fidelidad de build**, para que un reset limpio deje la ACL idéntica a prod. La razón de **seguridad** sigue siendo `anon`.
+> **Causa (por qué `FROM PUBLIC` solo no basta):** Supabase otorga `EXECUTE` a `anon` (y `authenticated`, `service_role`) a cada función nueva en `public` mediante **DEFAULT PRIVILEGES**, como grant **explícito** (no heredado de `PUBLIC`). `REVOKE … FROM PUBLIC` no toca ese grant explícito; hay que nombrar a cada rol. Probado en transacción revertida: tras `REVOKE FROM PUBLIC` `anon` aún puede; tras `REVOKE FROM PUBLIC, anon`, no.
+> **Recomendación sistémica — por qué NO se puede por migración (hallazgo de Code, 21-jun).** El fix de fondo sería un `ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE ON FUNCTIONS FROM anon, service_role` para el rol que crea funciones, para que **nazcan** sin acceso (deny-by-default real). **Pero no se puede aplicar por migración:** el rol `postgres` (con el que corre el CLI) **no es superusuario ni miembro de `supabase_admin`** → *permission denied* al intentar el `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin`. Si se quiere deny-by-default real, va por **dashboard/soporte de Supabase**, no por código; requiere además auditar que las funciones que SÍ deben ser anon (flujos de invitación) tengan su `GRANT … TO anon` explícito. Por ahora se cierra **por función** (disciplina por migración, con el patrón de arriba).
 
 **Consecuencias.** La superficie de ataque de las funciones se reduce a lo necesario. El control de acceso de datos ya estaba cubierto por RLS + RPC; esto es endurecimiento de la capa de ejecución, no un hueco abierto. Se cierra antes de abrir el beta a productoras externas.
 
@@ -588,7 +643,40 @@ LIMIT 1;
 
 ---
 
+## ADR-026 — Arquitectura de frontend modular: delegación, ganchos y época multi-org *(NUEVO en v1.12)*
+**Estado:** Aceptada · **implementada en `staging/main`**, pendiente el corte a producción (ADR-015) · **Etapa:** Ambas *(detalle vivo en Arquitectura §3 y §7)*
+
+**Contexto.** El monolito (`index.html` de ~28.000 líneas con cientos de `onclick` inline) hacía imposible endurecer la CSP y trabajar en paralelo. La reescritura modular (rama `staging/main`) lo reemplazó por 40 archivos ES Modules (25.327 líneas en `frontend/src/`: 14 en `lib/` + 25 en `modules/`), y con eso hubo que fijar **cómo se comunican los módulos** sin recrear un monolito ni caer en ciclos de import.
+
+**Decisión.** Toda intercomunicación se resuelve por **exactamente tres canales**, elegidos por dirección de la arista y momento de uso:
+- **Imports ESM** — dependencias *hacia abajo*, en tiempo de evaluación (364 aristas únicas). Se usan cuando el destino evalúa antes y no hay ciclo.
+- **Ganchos** (`lib/ganchos.js`: `define`/`gancho`/`valor`) — **inversión de control** para aristas *hacia arriba* (de un módulo temprano a uno tardío) que un import volvería un ciclo. Un nombre sin `define` **grita en consola**, nunca falla en silencio.
+- **Delegación de eventos** (`lib/delegacion.js`) — la UI llama al código vía **un solo listener por tipo de evento** a nivel `document`, que despacha por `data-accion="ns.nombre"`. **Esto reemplaza los `onclick` inline y es lo que habilita el CSP sin `unsafe-inline`** (ADR-024). Firma universal `(args, el, ev)`.
+
+**Invariantes (verificados con comando, no estimados):**
+- **Biyección de acciones:** 364 acciones registradas ≡ 364 referenciadas, 0 huérfanas en ninguna dirección.
+- **Estado con dueños:** `state.js` posee el estado global; **los setters exportados son la única vía de escritura** (cero asignaciones directas fuera del dueño). `rates.js` posee las 6 tasas tributarias; `catalogos.js`, las constantes sin ciclo.
+- **Residuo `window` acotado:** 73 asignaciones sobre 68 propiedades, **65 solo-escritura** (API de consola/legado); solo 3 con lectura interna real (`_ORG_EPOCA`, `__TAKEOS_USER`, `_persisResetOrg`).
+- **Aislamiento multi-org por época** (`_ORG_EPOCA`): al cambiar de organización se hace un reset total; todo trabajo async **compara época tras cada `await` y aborta si la organización cambió**. La RPC resuelve la organización en servidor → **cruzar datos entre organizaciones es imposible** aunque un async quede colgando.
+
+**Deuda registrada (ver hub OWASP y §4-§5 del Informe):** 11 guardas `typeof X === 'function'` sobre identificadores que solo existen como espejos `window` — si la purga de `window` sigue, degradan a **no-op silencioso** (el mismo mecanismo que produjo bugs de identificador libre); deben consultar el registro de ganchos. Y las compuertas `npm run gate` (cero `on*=`, cero identificadores libres) hoy **se corren a mano**: falta atarlas a un pre-push/CI real y sumar un checker de despacho de 2.º nivel (los mapas `_*_FN` no tienen compuerta).
+
+**Consecuencias.** El refactor destraba el trabajo en paralelo y **entrega el CSP endurecido**, pero **vive en staging**: hasta el corte (ADR-015), producción sigue siendo el monolito. La disciplina de los tres canales y las compuertas es lo que impide que la arquitectura se degrade.
+
+---
+
 # Parte 2 — Decisiones abiertas (se espera la opinión del desarrollador)
+
+## ADR-F — Departamentos de servicios: por-productora vs. catálogo global *(NUEVO en v1.12 · ⚠ ABIERTA · arbitraje de Agustín)*
+**Estado:** Abierta · **bug activo en el módulo de presupuesto** · **Etapa:** MVP-relevante ya
+
+**Contexto.** Reportado por Agustín (7–8 jul) y adjudicado con el BD Expert: **las filas de servicios pierden su departamento al recargar.** Causa raíz: las filas guardan el departamento **por nombre**; el RPC `guardar_proyecto` lo mapea a `department_id` contra la tabla `departments` y da **NULL** si el nombre no está ahí. Además `_dalBudgetRow` descarta el `department_id` en memoria — el departamento vive **solo como la clave del grupo `d.servicios`**. Los departamentos personalizados o renombrados nunca se insertan en `departments` → sus filas caen a NULL. La primera hipótesis (upsert por nombre) fue **refutada**: ensuciaría el catálogo.
+
+**Fix de fondo acordado (técnico).** Mandar **`department_id` (entero), no el nombre**, + creación explícita del departamento + ajuste del RPC para aceptar id. Coordinación frontend+backend pendiente.
+
+**Lo que decide Agustín (diseño de producto).** El fix técnico presupone un modelo: **¿los departamentos son por-productora (cada organización define/renombra los suyos) o un catálogo global compartido?** Esa decisión de diseño la arbitra Agustín y condiciona la implementación (y, si resulta una regla de producto, tocaría PRD §22). **Hasta que se decida, queda como ítem abierto, no resuelto.**
+
+---
 
 ## ADR-A — Acceso del fundador / conflicto de interés competitivo
 **Estado:** Abierta · **Crítica para la adopción** · **Etapa:** SaaS *(reflejado en PRD §17)*

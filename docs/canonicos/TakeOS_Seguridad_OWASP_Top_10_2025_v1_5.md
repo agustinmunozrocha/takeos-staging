@@ -1,10 +1,10 @@
 # TakeOS — Línea Base de Seguridad: OWASP Top 10:2025
 
-**Versión:** 1.3
-**Fecha:** Junio 2026
+**Versión:** 1.5
+**Fecha:** 8 de julio de 2026
 **Autor de las decisiones:** Agustín Ignacio Muñoz Rocha · Primate Films / La Hectárea SpA
 **Responsable técnico de seguridad:** Juan de la Cuadra (CTO) — el pentest ofensivo es su actividad (sobre base consolidada); lo defensivo lo define **Cib,Seg**.
-**Estado del documento:** Canónico · *hub* transversal de seguridad · alineado al **PRD V3.6** (autoritativo), al **ADR de Backend v1.9**, al **Roadmap Operativo v1.8** y al **Arquitectura y Flujo de Trabajo v1.5**.
+**Estado del documento:** Canónico · *hub* transversal de seguridad · alineado al **PRD V3.6** (autoritativo), al **ADR de Backend v1.12**, al **Roadmap Operativo v1.10** y al **Arquitectura y Flujo de Trabajo v1.8**.
 **Fuente externa:** OWASP Top 10:2025 — <https://owasp.org/Top10/2025/> · Licencia Creative Commons Attribution 3.0 (CC BY 3.0). Las descripciones de cada categoría están **parafraseadas y adaptadas** a TakeOS; no reproducen el texto original.
 
 > **Autoridad documental.** Este documento **no manda sobre el PRD ni sobre el ADR**: es la **referencia de seguridad** (el *hub*) que consumen el **Gate C** (endurecimiento antes del beta externo) y la **actividad de pentest** de Juan. Cuando este documento y el ADR de Backend hablen del mismo control técnico, **manda el ADR**; aquí solo se traduce ese control al lenguaje del estándar y se le pone veredicto. El estado real de cada gate vive en el Roadmap Operativo y en Arquitectura §6.
@@ -14,6 +14,24 @@
 ---
 
 ## Changelog
+
+### v1.5 — 8 de julio de 2026 (Informe Técnico de Arquitectura: CSP endurecido en staging, dos huecos nuevos de A01, `npm run gate`)
+Consolida el **Informe Técnico de Arquitectura (6-jul, `staging/main` @ `4c8067b`, + addenda 6–8-jul)** y el cierre del handoff de Code de `service_role`. **Recordatorio de eje (ADR v1.12):** producción y staging divergieron 189 commits; los avances de seguridad de abajo son de **staging** salvo que se diga lo contrario, y llegan a producción **con el corte** (ver Arquitectura §5).
+- **A05 / A02 — ✅ `'unsafe-inline'` fuera de `script-src` (logrado en staging).** La **delegación de eventos** retiró todos los `onclick` inline, y con eso el CSP de staging quedó en `script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com` — **sin `'unsafe-inline'`**: el navegador rechaza todo JS inline, propio o inyectado. Era el premio del refactor. Queda `style-src` con `'unsafe-inline'` (deuda "proyecto S"). **Producción sigue con `'unsafe-inline'`** hasta el corte.
+- **A03 — showToast como vector de inyección de marcado.** `showToast` inyecta su `body` sin escapar y **13 call-sites le pasan `e.message` del servidor** → marcado/estilo inyectable (no JS, gracias al CSP endurecido). A sanear con `escapeHtml`.
+- **A01 — ⚠ dos huecos nuevos de control de acceso (suman al bloqueante del beta).** (1) **Borrado blando que elude el permiso:** `kanban.js` hace `UPDATE` directo de `deleted_at` (autorizado por la policy de `info_proyecto`) en vez de llamar la RPC endurecida `eliminar_proyecto` → un Ejecutivo con `eliminar_proyecto='none'` **igual borra (soft) proyectos** vía PostgREST. Las RPC seguras existen; el frontend no las usa. (2) **"El externo no lee `contacts`" es convención, no invariante:** ninguna policy mira `memberships.tipo`, un externo con perfil 3–6 **lee toda la tabla de contactos**. (3) **Snapshots/airbag no segregan por organización** → restaurar un snapshot de la org A estando en B reintroduce datos cruzados en memoria. Fixes en ADR-024/R4 y §A01.
+- **A03 — cadena de suministro (detalle).** Cero SRI en los 3 CDN; `supabase-js@2` con **major flotante** (el runtime de prod puede cambiar sin commit); `xlsx` cargado **dos veces** (eager jsdelivr + lazy cdnjs). Pin exacto + SRI + eliminar la doble carga.
+- **A08 — `npm run gate` como integridad de build.** Nace `npm run gate` versionado (`check-inline-handlers` = cero `on*=`; `check-free-idents` = cero identificadores libres). Es el control que faltaba. Pendiente: atarlo a pre-push/CI real (hoy se corre a mano) y sumar un checker de despacho de 2.º nivel.
+- **A10 — red async sin fondo.** 35 fire-and-forget + 12 `.then` sin `.catch`, sin handler `unhandledrejection`, y el antipatrón `try { fnAsync(); } catch {}` que aparenta protección sin darla → errores de producción que nadie ve. Falta manejo de excepciones y un `unhandledrejection` global.
+- **`service_role` — integridad de build, NO nuevo hueco (A08, no A01).** El cierre de Code (`…140000`) revoca `service_role` en las sensibles: **fidelidad de build** (paridad de ACL con prod), no seguridad — `service_role` ignora RLS por diseño y no sale del servidor. No cuenta como "hueco cerrado" de A01.
+- **Referencias de versión:** PRD V3.6, ADR v1.12, Roadmap v1.10, Arquitectura v1.8.
+
+### v1.4 — Junio 2026 (endurecimiento de `anon` completo + patrón canónico)
+- **A02 / A01 — endurecimiento de `anon` completo.** La migración previa (`…144834`) solo cubría **7** RPC de escritura. Reconstruyendo staging fiel a prod se detectó que quedaban **19 funciones sensibles** anon-ejecutables tras un reset limpio (**42** vs. **23** en prod). La migración `…120000` (21-jun, ya en producción, no-op de grants) las cierra → **26 funciones sensibles revocadas**. 
+- **Patrón canónico documentado:** toda migración que crea o recrea una función sensible en `public` debe hacer `REVOKE ALL … FROM PUBLIC, anon` (no solo `FROM PUBLIC`). **Causa:** Supabase otorga `EXECUTE` a `anon` por *default privileges* como grant **explícito**, que `FROM PUBLIC` no revoca. Detalle en ADR-024.
+- **Hueco de reproducibilidad cerrado:** el dump base no capturaba la ausencia del grant de `anon`, así que un reset (staging, preview branch, recuperación) reproducía un estado **menos seguro** que prod. Se cerró con migración (lo que no está en una migración, no es reproducible). Cruza con A08 (integridad del proceso de build/deploy).
+- **Recomendación de horizonte:** `ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE … FROM anon` para que las funciones nazcan sin acceso anon (deny-by-default real). Decisión de arquitectura de seguridad, no implementada.
+- **Referencias de versión:** PRD V3.6, ADR v1.11, Roadmap v1.9, Arquitectura v1.7.
 
 ### v1.3 — Junio 2026 (modularización Vite: efecto en A03 y A05)
 - **A03 (Cadena de suministro) — ahora con lockfile y build tool real.** La modularización introdujo **Vite** y un **`package-lock.json`** (antes no había gestor de dependencias ni lockfile). Es un avance parcial de A03: ya existe la base para fijar/escanear dependencias. Las dependencias siguen siendo mínimas (Vite como dev-dependency) y los scripts externos (supabase-js, xlsx) se cargan por CDN (`cdn.jsdelivr.net`) **sin SRI** todavía → el escaneo de dependencias en CI y el SRI siguen pendientes.
@@ -85,16 +103,16 @@ El ciclo, en orden: **Cib,Seg define → BD Expert/Code implementa → Cib,Seg v
 
 | # | Categoría (2025) | Cambio vs 2021 | Riesgo para TakeOS | Estado hoy | Dónde se cierra |
 |---|------------------|----------------|--------------------|------------|-----------------|
-| **A01** | Broken Access Control | Sigue #1; absorbe SSRF y CSRF | **Alto** — es el corazón del multi-tenant | 🟡 Parcial: RPC sólidas, RLS aún `mvp_` | Gate B + Gate C |
-| **A02** | Security Misconfiguration | Sube de A05 | **Medio-alto** | 🟢 Backlog ejecutado (17-jun); solo `frame-ancestors` pendiente | Gate C (ADR-024) |
-| **A03** | Software Supply Chain Failures | Sube de A06 y se amplía | **Medio** — equipo chico, npm/Vite/CDN | 🟡 Lockfile + Vite ya; falta escaneo en CI + SRI | Gate C + horizonte |
+| **A01** | Broken Access Control | Sigue #1; absorbe SSRF y CSRF | **Alto** — es el corazón del multi-tenant | 🔴 Parcial + **2 huecos nuevos** (borrado blando elude permiso; externo lee `contacts`) + snapshots sin segregar org; RLS aún `mvp_` | Gate B + Gate C |
+| **A02** | Security Misconfiguration | Sube de A05 | **Medio-alto** | 🟢 Backlog ejecutado; **CSP sin `'unsafe-inline'` en `script-src` (staging)**; solo `frame-ancestors` + corte a prod | Gate C (ADR-024) |
+| **A03** | Software Supply Chain Failures | Sube de A06 y se amplía | **Medio** — equipo chico, npm/Vite/CDN | 🟡 Lockfile + Vite + `npm run gate`; falta SRI, pin de `supabase-js`, quitar doble `xlsx` | Gate C + horizonte |
 | **A04** | Cryptographic Failures | Baja de A02 | **Bajo-medio** — lo gestiona la plataforma | 🟢 Cubierto por Supabase + ADR-011 | Mantenimiento |
-| **A05** | Injection (incl. XSS) | Baja de A03 | **Bajo** — RPC parametrizadas, `safeUrl` | 🟢 XSS cerrado; `search_path` hecho (17-jun) | Gate C (ADR-024) |
+| **A05** | Injection (incl. XSS) | Baja de A03 | **Bajo** — RPC parametrizadas, `safeUrl` | 🟢 XSS cerrado; **`'unsafe-inline'` fuera de `script-src` (staging)**; `showToast` a sanear | Gate C (ADR-024) |
 | **A06** | Insecure Design | Baja de A04 | **Bajo** — diseño explícitamente fuerte | 🟢 ADR como spec; contrato de estado completo | Mantenimiento |
 | **A07** | Authentication Failures | Renombrada (era "Identification and…") | **Medio** | 🟡 Supabase Auth; email+pass provisional, Google OAuth destino | Gate B/C |
-| **A08** | Software or Data Integrity Failures | Sin cambio de número | **Bajo-medio** | 🟢 Audit inmutable, base en código; SRI/firma pendiente | Gate C |
+| **A08** | Software or Data Integrity Failures | Sin cambio de número | **Bajo-medio** | 🟢 Audit inmutable, base en código; **`npm run gate`** (correr a mano); SRI/firma pendiente | Gate C |
 | **A09** | Security Logging **and Alerting** Failures | Renombrada ("Monitoring"→"Alerting") | **Medio** | 🟡 Audit inmutable ✓; **alertas y observabilidad pendientes** | Gate C + horizonte |
-| **A10** | Mishandling of Exceptional Conditions | **NUEVA** | **Medio-alto** | 🟡 `authNivelModulo` fail-closed (hecho); falta centralizar errores | Gate B/C |
+| **A10** | Mishandling of Exceptional Conditions | **NUEVA** | **Medio-alto** | 🟡 `authNivelModulo` fail-closed (hecho); **red async sin `.catch`** (35 fire-and-forget); falta centralizar errores | Gate B/C |
 
 Leyenda de estado: 🟢 cubierto / 🟡 parcial / 🔴 sin proceso formal todavía.
 
@@ -117,6 +135,12 @@ Leyenda de estado: 🟢 cubierto / 🟡 parcial / 🔴 sin proceso formal todav�
 
 Lo que **falta**, y es lo que importa: el **RLS real por organización y por rol todavía no está**. Las políticas vigentes son en buena parte `mvp_` (permiten todo a cualquier usuario autenticado). El Roadmap y Arquitectura lo dicen sin eufemismos: hoy el aislamiento **"depende de que un solo tenant use el sistema"**. Y, crítico: **no existen aún los tests que intenten cruzar de un tenant a otro y deban fallar**. Sin esos tests, no se puede afirmar que el aislamiento funciona; solo se puede afirmar que nadie lo ha probado a romper.
 
+> **⚠ Dos huecos concretos hallados por el Informe Técnico (6-jul) — suman a A01.** Más allá del `mvp_` genérico, el análisis encontró dos aristas específicas de control de acceso roto, ya con evidencia `archivo:línea`:
+> 1. **El borrado blando elude el permiso a nivel de BD.** `kanban.js:320` hace un `UPDATE` directo de `deleted_at` (autorizado por la policy de `info_proyecto`) en lugar de llamar la RPC endurecida `eliminar_proyecto`. Resultado: un perfil **Ejecutivo con `eliminar_proyecto='none'` igual puede borrar (soft) proyectos** por PostgREST. Las RPC seguras (`eliminar_proyecto`/`restaurar_proyecto`) **existen y el frontend no las llama**. Es el patrón clásico de A01: la autoridad está en el servidor, pero un camino alternativo la esquiva. **Fix (R4):** que kanban use las RPC.
+> 2. **"El externo no lee `contacts`" es convención, no invariante.** Ninguna policy consulta `memberships.tipo`; un **externo invitado con perfil 3–6 lee la tabla de contactos completa** de la organización. La regla de negocio existe en la cabeza del equipo, no en una policy. **Fix (R4):** policy que restrinja `contacts` para `memberships.tipo='externo'`.
+>
+> Además, **A01-adyacente:** los **snapshots/airbag no segregan por organización** — restaurar un snapshot de la org A estando activa la B reintroduce datos cruzados **en memoria** (no en la BD, pero sí en lo que ve el usuario). Ver Arquitectura §6 y el detalle en el Informe Técnico (cap. 12, H1/H2).
+
 **Qué hacer.**
 - **Cerrar Gate B**: reemplazar las `mvp_` por RLS que filtre por `organization_id` y por perfil/membresía, en cada tabla de negocio. Es el trabajo central del Handoff de Permisos.
 - **Escribir los tests de cruce de tenant** (Gate C): casos automatizados donde el usuario de A intenta leer/escribir filas de B **y la operación falla**. Mientras no fallen en verde, el aislamiento es una promesa, no un hecho.
@@ -135,6 +159,7 @@ Lo que **falta**, y es lo que importa: el **RLS real por organización y por rol
 
 **Estado en TakeOS (actualizado v1.2).** La **lista corta para el beta ya se cerró** (Arquitectura §6): contraseñas filtradas, toggle de registro, OAuth External, CSP, revocación de funciones internas, auditoría dirigida. Y el **backlog de endurecimiento ya se ejecutó** (migración `…144834`, 17-jun, por el flujo en código). Queda **un solo frente**:
 - **Backlog de endurecimiento — HECHO (migración `…144834`).** ✅ (a) revocado a `anon` el `EXECUTE` en las **RPC de escritura** como capa externa —cada una valida `auth.uid()` por dentro; **los flujos de invitación quedaron anon-ejecutables**—; ✅ (b) `search_path` explícito fijado en **~11 funciones utilitarias** (esto también cierra el pendiente de A05); ✅ (c) decidida la **policy de `app_config`** (documentada vía COMMENT).
+- **Endurecimiento de `anon` — COMPLETO (migración `…120000`, 21-jun).** Reconstruyendo staging fiel a prod se vio que `…144834` solo cubría **7** RPC de escritura: quedaban **19 funciones sensibles** anon-ejecutables tras un reset limpio (**42** vs. **23** en prod). `…120000` las cierra → **26 funciones sensibles revocadas** en total. Ya en producción (no-op de grants). **Patrón canónico** (a respetar siempre que se crea/recrea una función sensible): `REVOKE ALL … FROM PUBLIC, anon`, **no** solo `FROM PUBLIC`. **Causa:** Supabase otorga `EXECUTE` a `anon` por *default privileges* como grant **explícito** que `FROM PUBLIC` no toca. Detalle en ADR-024. *(Recomendación de horizonte: `ALTER DEFAULT PRIVILEGES … REVOKE … FROM anon` para deny-by-default real.)*
 - **Header `frame-ancestors`** (anti-clickjacking): pendiente. **Aquí hay una limitación de plataforma honesta**: GitHub Pages no te deja setear headers HTTP arbitrarios con comodidad. Esto conecta con la decisión de horizonte de mover el hosting a **Cloudflare Pages o Netlify** (per-PR previews + control de headers). El `frame-ancestors` por meta-tag de CSP es un sustituto parcial; el control real es el header.
 
 **Qué hacer.**
@@ -188,6 +213,9 @@ Lo que **falta**, y es lo que importa: el **RLS real por organización y por rol
 **Cómo aparece en TakeOS.** Dos focos: (1) **SQL** — las RPC reciben datos del cliente y arman operaciones; (2) **XSS** — el frontend vanilla JS pinta datos del usuario en el DOM (nombres de proyecto, datos de contactos, etc.) y maneja URLs.
 
 **Estado en TakeOS (actualizado v1.2).** **Bueno.** El **XSS ya está cerrado**: la función **`safeUrl` es robusta** y, según Arquitectura §6 y el estado del Gate B, **no requería parche** — esto es importante anotarlo porque circuló como pendiente y **no lo es**. En SQL, las escrituras pasan por RPC; el patrón correcto (parámetros, no concatenar entrada cruda) es la norma del backend. **El pendiente conectado** —de configuración más que de inyección activa— ya se **cerró**: el **`search_path` explícito** quedó fijado en las **~11 funciones utilitarias** (migración `…144834`, 17-jun; backlog ADR-024). Un `search_path` no fijado en una función `SECURITY DEFINER` es un vector clásico de escalamiento (alguien crea un objeto malicioso en un esquema que la función resuelve antes que el esperado); por eso era endurecimiento real, y ya está hecho.
+
+> **✅ Actualización v1.5 — `'unsafe-inline'` fuera de `script-src` (logrado en staging).** La defensa en profundidad contra XSS dio un salto: en la rama modular, la **delegación de eventos** (ADR-026) retiró todos los `onclick`/`<script>` inline, y con eso el CSP de staging quedó **sin `'unsafe-inline'` en `script-src`**. Esto significa que **aunque una inyección de XSS lograra colar un `<script>` inline, el navegador lo rechazaría** — es exactamente el endurecimiento que un CSP fuerte aporta sobre A05. Era el premio de seguridad de toda la modularización. Queda `style-src` con `'unsafe-inline'` (deuda "proyecto S"). **Producción sigue con `'unsafe-inline'`** hasta el corte (Arquitectura §5).
+> **⚠ Nuevo a sanear (A05, hallazgo del Informe):** `showToast` inyecta su `body` **sin escapar**, y **13 call-sites le pasan `e.message` del servidor**. No permite JS (el CSP endurecido lo bloquea), pero sí **marcado/estilo inyectable**. Fix: pasar el `body` por `escapeHtml`.
 
 **Qué hacer.**
 - ~~Cerrar `search_path` en las utilitarias como migración~~ → **HECHO** (migración `…144834`, backlog de A02/A05 a la vez).
@@ -248,7 +276,9 @@ Lo que **falta**, y es lo que importa: el **RLS real por organización y por rol
 - **Base en código** (ADR-023): el esquema es reproducible desde migraciones versionadas, no un estado vivo irrecuperable. Esto es integridad de la infraestructura: ✓ — y era *"el mayor riesgo silencioso del proyecto"* antes de cerrarse.
 - **Hash de integridad** en el export (`md5`): detecta corrupción del archivo (ver nota en A04).
 
-**El pendiente** es la integridad del **deploy** y de los **terceros**: la sincronización producción↔staging del `index.html` es **manual hoy** (frágil, deuda anotada en ADR-014), y no hay **SRI/firma** en los scripts de CDN (cruza con A03).
+**Avance v1.5 — `npm run gate` (compuertas de integridad de build).** Nace `npm run gate` versionado: `check-inline-handlers` (verifica **cero `on*=`**, o sea que la delegación no se rompa y el CSP endurecido siga válido) y `check-free-idents` (**cero identificadores libres**, la clase de error que tumba la app en runtime). Es el primer control **automatizado** de integridad del artefacto de frontend (antes los invariantes vivían en mensajes de commit y se revisaban a ojo). **Pendiente:** atarlo a un **pre-push/CI real** (hoy se corre a mano) y sumar un checker de despacho de 2.º nivel (los mapas `_*_FN` no tienen compuerta).
+
+**El pendiente** sigue siendo la integridad del **deploy** y de los **terceros**: el **corte a producción** de la rama modular está por hacer (y las ramas divergieron 189 commits — Arquitectura §5), y no hay **SRI/firma** en los scripts de CDN (cruza con A03).
 
 **Qué hacer.**
 - **SRI** en scripts de CDN (mismo ítem que A03).
@@ -286,6 +316,7 @@ Lo que **falta**, y es lo que importa: el **RLS real por organización y por rol
 - **A favor**: el principio de **fail-closed ya es doctrina** en el storage —sin prefijo `{organization_id}/`, el archivo es inaccesible (ADR-014)—; y el **patrón de pruebas SQL en transacción revertida** (`RAISE` al final para hacer rollback) **es exactamente** el "fail closed / revierte todo" que pide el estándar.
 - **Resuelto (V11.15.0)**: `authNivelModulo` **falla cerrado** — devuelve `'none'` para módulos no mapeados, en vez de conceder por defecto. Cierra el anti-patrón CWE-636 en el gate de **lectura** del cliente. **Excepción deliberada y registrada:** los gates de **escritura** del cliente siguen **fail-open a propósito**, porque la cerradura real de escritura es el RPC `SECURITY DEFINER` (Gate C). Es una decisión de diseño, no un descuido: el portero del cliente es UX; la seguridad vive en el servidor. **No "arreglar" esto** convirtiéndolo en fail-closed sin entender que rompería la UX sin agregar seguridad.
 - **A centralizar (pendiente)**: con la modularización Vite, definir **un solo manejador de errores**. Esto ya tiene un precedente bueno en producto: el handler central **`manejarErrorPlan(err)`** para los límites de plan (V11.16.0). Esa idea —un punto único, tono sobrio— es la que A10 pide para **todos** los errores, no solo los de plan.
+- **⚠ Hallazgo del Informe Técnico (v1.5) — red async sin fondo.** El análisis contó **35 llamadas fire-and-forget + 12 `.then` sin `.catch`**, sin handler global `unhandledrejection`, y el antipatrón `try { fnAsync(); } catch {}` que **aparenta protección sin darla** (el `catch` no atrapa el rechazo de la promesa). En la práctica, un error de red en producción = una consola que nadie mira, sin degradación controlada. Es A10 puro: no detectar ni responder a la condición excepcional. **Fix:** `.catch` en cada async con efecto de UI, un handler `unhandledrejection` global, y retirar el antipatrón. *(Es el mismo mecanismo de "falla en silencio" que produjo los bugs de identificador libre que `npm run gate` ahora ataca — ver ADR-026.)*
 
 **Qué hacer.**
 - ~~Empezar por `authNivelModulo`~~ → **HECHO** (falla cerrado, V11.15.0). Queda **auditar el resto** de los gates de autorización y confirmar que fallan **cerrado** (recordando la excepción deliberada de los gates de escritura del cliente, cuya cerradura es el RPC).
@@ -301,10 +332,10 @@ Lo que **falta**, y es lo que importa: el **RLS real por organización y por rol
 **Lo que está genuinamente fuerte** (y no es por quedar bien):
 - **Diseño (A06)**: el backend está bien pensado y documentado antes de construirse. No hay que reescribirlo; hay que ordenarlo y endurecerlo. Esto es raro y vale oro.
 - **Criptografía (A04)** e **integridad de datos básica (A08)**: la plataforma hace lo correcto y el proyecto no se mete a inventar criptografía propia. Audit y consentimiento inmutables. Base en código.
-- **Inyección (A05)**: XSS cerrado de verdad, RPC parametrizadas. Esto suele ser un foco de dolor en proyectos jóvenes y aquí está controlado.
+- **Inyección (A05)**: XSS cerrado de verdad, RPC parametrizadas. Esto suele ser un foco de dolor en proyectos jóvenes y aquí está controlado. **Y desde v1.5, en staging: `'unsafe-inline'` fuera de `script-src`** — el CSP ahora rechaza JS inline aunque una inyección lo cuele. Falta que llegue a producción con el corte.
 
 **Los riesgos que sí importan antes del beta externo**, en orden:
-1. **A01 — el aislamiento multi-tenant todavía no es real.** Hoy se sostiene sobre que hay un solo tenant. Las `mvp_` permiten todo a cualquier autenticado, y la *publishable key* es pública (segura solo si el RLS filtra de verdad). **Esto es lo único verdaderamente bloqueante.** Sin RLS real por organización/rol **y sin tests de cruce de tenant que deban fallar**, no se puede meter datos de una segunda productora. Y el beta es exactamente eso.
+1. **A01 — el aislamiento multi-tenant todavía no es real, y el Informe encontró dos huecos concretos.** Hoy se sostiene sobre que hay un solo tenant. Las `mvp_` permiten todo a cualquier autenticado, y la *publishable key* es pública (segura solo si el RLS filtra de verdad). **Esto es lo único verdaderamente bloqueante.** Y ya no es solo el `mvp_` genérico: el análisis del 6-jul halló que **el borrado blando elude el permiso `eliminar_proyecto`** (UPDATE directo por PostgREST) y que **el externo lee la tabla `contacts` completa** (ninguna policy mira `memberships.tipo`) — más snapshots que no segregan por org. Sin RLS real por organización/rol, sin cerrar esos dos caminos **y sin tests de cruce de tenant que deban fallar**, no se puede meter datos de una segunda productora. Y el beta es exactamente eso.
 2. **A10 — `authNivelModulo` ya falla cerrado (hecho); queda auditar el resto y centralizar.** El gate de lectura del cliente ya niega por defecto (V11.15.0), con la excepción deliberada de los gates de escritura (su cerradura es el RPC). Falta auditar los demás gates y unificar el manejo de errores con la modularización. Bajó de "a verificar" a "encaminado".
 3. **A02 — backlog de endurecimiento cerrado (hecho); queda `frame-ancestors`.** El REVOKE de `anon`, el `search_path` y la policy de `app_config` ya entraron como migración (17-jun). Solo resta el header `frame-ancestors` del hosting. No es crítico, es disciplina; pero "no crítico" no es "opcional antes de terceros".
 4. **A03 — formalizar la cadena de suministro.** Equipo chico + npm/Vite + CDN en un año de gusanos de npm. El control humano (PR de a dos) ya existe; falta el control automatizado (lockfile, escaneo, SRI).
@@ -328,16 +359,16 @@ Lo que **falta**, y es lo que importa: el **RLS real por organización y por rol
 
 | Categoría 2025 | ADR relevante | Gate | Acción principal pendiente |
 |---|---|---|---|
-| A01 Broken Access Control | ADR-001, 004, 005, 012, 014 | **B + C** | RLS real por org/rol + tests de cruce de tenant |
-| A02 Security Misconfiguration | ADR-024, 011 | **C** | Solo `frame-ancestors` (backlog de endurecimiento hecho 17-jun) |
-| A03 Supply Chain Failures | (nuevo frente) | **C + horizonte** | Lockfile, escaneo de deps, SRI, separación de funciones |
+| A01 Broken Access Control | ADR-001, 004, 005, 012, 014 | **B + C** | RLS real por org/rol + tests de cruce de tenant; **+ usar RPC `eliminar_proyecto` (borrado blando) + policy `contacts` para externos + segregar snapshots por org** |
+| A02 Security Misconfiguration | ADR-024, 011, 026 | **C** | `frame-ancestors` + **llevar el CSP endurecido (sin `'unsafe-inline'`) a producción con el corte** (hecho en staging) |
+| A03 Supply Chain Failures | ADR-026 (npm run gate) | **C + horizonte** | **SRI en los 3 CDN, pin exacto de `supabase-js`, quitar la doble carga de `xlsx`**; atar `npm run gate` a CI |
 | A04 Cryptographic Failures | ADR-011 | Mantenimiento | Revisar `md5`→`pgcrypto` según uso |
-| A05 Injection | ADR-024 (search_path) | **C** | `search_path` en ~11 utilitarias — **hecho (17-jun)**; sin pendiente activo |
+| A05 Injection | ADR-024, 026 | **C** | `'unsafe-inline'` fuera de `script-src` **hecho en staging**; **sanear `showToast` (escapeHtml)**; llevar el CSP a prod |
 | A06 Insecure Design | ADR-018, 025 (y todo el ADR) | Mantenimiento | Threat modeling del flujo multi-tenant |
 | A07 Authentication Failures | ADR-003 | **B/C** | Google OAuth + no confiar en sesión cacheada |
-| A08 Data Integrity Failures | ADR-012, 020, 023, 014 | **C** | SRI + reducir fragilidad del deploy manual |
+| A08 Data Integrity Failures | ADR-012, 020, 023, 014, 026 | **C** | **Corte a producción** (ramas divergidas) + SRI; atar `npm run gate` a pre-push/CI |
 | A09 Logging **and Alerting** | ADR-012, 014 (staging) | **C + horizonte** | Definir y conectar alertas; rate limiting |
-| A10 Mishandling of Exceptional Conditions | ADR-014 (fail-closed), 023 | **B/C** | `authNivelModulo` fail-closed **hecho**; auditar el resto + centralizar errores |
+| A10 Mishandling of Exceptional Conditions | ADR-014 (fail-closed), 023, 026 | **B/C** | `authNivelModulo` fail-closed **hecho**; **`.catch` en red async + handler `unhandledrejection`**; centralizar errores |
 
 ---
 

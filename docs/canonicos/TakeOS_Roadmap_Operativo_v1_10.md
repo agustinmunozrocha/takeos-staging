@@ -1,12 +1,34 @@
 # TakeOS — Roadmap Operativo y Modelo de Trabajo entre Chats
 
-**Versión:** 1.8
-**Fecha:** Junio 2026
+**Versión:** 1.10
+**Fecha:** 8 de julio de 2026
 **Autor:** Agustín Ignacio Muñoz Rocha · La Hectárea SpA / Primate Films
 **Asesoría:** arquitectura de backend
 **Estado:** Borrador para revisión.
 
-> **Documento canónico.** Versiónalo y consolídalo como el PRD y el ADR (ver §4). Esta es la v1.8.
+> **Documento canónico.** Versiónalo y consolídalo como el PRD y el ADR (ver §4). Esta es la v1.10.
+
+---
+
+## Changelog — v1.9 → v1.10
+
+Consolida el **Informe Técnico de Arquitectura (6-jul, `staging/main` @ `4c8067b`, + addenda 6–8-jul)** y el cierre del handoff de Code de `service_role`. **Quedan puntos abiertos** marcados con ⚠.
+
+- **⚠ Producción ≠ staging — nuevo riesgo #1 (§2 Prioridad #3, §6).** Los dos remotos del repo divergieron **189 commits**: `origin/main` = **monolito** (producción real), `staging/main` = **arquitectura modular completa**. El **corte a producción** deja de ser "pasar a la build de Vite" y pasa a ser **cortar toda la reescritura modular** — es el pendiente grande, y una rama que la operación no usa acumulando todo el trabajo nuevo es un riesgo por sí mismo.
+- **Prioridad #3 — modularización esencialmente completa en staging (no "88% pendiente").** El Informe corrige el estado: el monolito ya quedó reemplazado por **40 archivos / 25.327 líneas** (14 `lib/` + 25 módulos), con delegación de eventos, ganchos y época (ADR-026). **Lo que queda no es modularizar, es el corte a producción.** Las cifras "12 de ~1.290 / <1% / 88%" quedan superseded.
+- **Cifras vivas duales (§2, pie).** Producción (último censo): 77 tablas / 147 policies / **8→9 migraciones** (con la revocación de `service_role` de Code). Staging (censo del informe): **72 tablas · 157 policies · 76 funciones `SECURITY DEFINER` · 14 migraciones**. ⚠ Tablas bajan (77→72, a verificar); **~5 migraciones sin handoff** entre la 9.ª y la 14.ª, no enumeradas.
+- **Gate C / Track de Seguridad — dos huecos nuevos de A01 + cadena de suministro.** Al bloqueante de A01 (multi-tenant) se le suman dos aristas concretas: el **borrado blando elude el permiso `eliminar_proyecto`** y el **externo lee `contacts`** completo (+ snapshots sin segregar por org). Y entra **cadena de suministro** (A03): SRI, pin de `supabase-js`, doble `xlsx`. Detalle en el hub OWASP v1.5.
+- **`npm run gate` — control de integridad de build.** Nace CI versionado (cero `on*=`, cero identificadores libres); cruza A03/A08. Correr a mano todavía.
+- **CSP endurecido en staging.** `script-src` sin `'unsafe-inline'` (premio del refactor, OWASP A05); llega a producción con el corte.
+- **⚠ Abierto — bug de departamentos por productora (ADR-F).** Los departamentos de servicios se pierden al recargar (guardan por nombre → NULL); fix técnico acordado con el BD Expert, **la decisión de diseño la arbitra Agustín**. Y **CLAUDE.md** desactualizado/fuera de lugar, **no tocado**.
+
+---
+
+## Changelog — v1.8 → v1.9
+
+- **Cifras — 8 migraciones** (eran 7). Entra `20260621120000_revoke_anon_funciones_sensibles` (handoff de Code, 21-jun), ya en producción (no-op de grants).
+- **Endurecimiento de `anon` completo.** Reconstruyendo staging fiel a prod se detectó que la migración de endurecimiento previa solo cubría 7 RPC de escritura; quedaban 19 funciones sensibles anon-ejecutables tras un reset limpio (42 vs. 23 en prod). La nueva migración las cierra → 26 funciones sensibles revocadas. El patrón canónico (`REVOKE … FROM PUBLIC, anon`) y la causa (default-priv de Supabase) quedan en ADR-024 y en el hub OWASP A02. Es un agregado; no cambia ninguna decisión previa.
+- **Aprendizaje de flujo:** "reset reconstruye fiel" asume CLI **y** que las migraciones capturen los grants; el dump no capturaba los REVOKE de `anon`, por eso hubo que cerrarlo con migración (ADR-023). La branch `staging` sigue sin ligar a Git (mejora de horizonte).
 
 ---
 
@@ -137,7 +159,7 @@ Implementar el sistema de perfiles del handoff de permisos: `memberships`, `perm
 ### Fase C — Endurecer para multi-tenant + cumplimiento · *GATE CRÍTICO (recomendado, antes del beta)*
 **Esta fase es la intervención principal de este roadmap.** Es lo que hay que construir *antes* de que entre la primera productora externa, porque ahí los datos confidenciales de terceros (tu competencia) entran al sistema.
 
-- [ ] **Aislamiento multi-tenant endurecido y probado**: RLS filtrando por `organization_id` en serio, con tests que intenten cruzar tenants y fallen. (Hoy el aislamiento "depende de que un solo tenant use el sistema".)
+- [ ] **Aislamiento multi-tenant endurecido y probado**: RLS filtrando por `organization_id` en serio, con tests que intenten cruzar tenants y fallen. (Hoy el aislamiento "depende de que un solo tenant use el sistema".) **⚠ Suman aquí dos huecos concretos hallados el 6-jul (hub OWASP A01):** el **borrado blando elude el permiso `eliminar_proyecto`** (el frontend hace `UPDATE deleted_at` directo en vez de la RPC endurecida) y el **externo lee la tabla `contacts` completa** (ninguna policy mira `memberships.tipo`); más **snapshots que no segregan por org**. Cerrar los tres es parte de sellar A01.
 - [ ] **Audit log construido** (quién hizo/intentó qué, especialmente sobre datos bancarios). Es requisito legal (Ley 21.719) además de operativo.
 - [ ] **Protección de datos bancarios** (cerrar la limitación "Base de Datos todo-o-nada" del handoff): mínimo, que datos bancarios no sean visibles para perfiles que no los necesitan. Mínimo privilegio + ley.
 - [ ] **Decisión de acceso del fundador (ADR-A)** tomada: modelo de no-abuso (break-glass + audit + reputación + legal) y, idealmente, **separación societaria** de TakeOS + términos de servicio y consentimiento claros para las productoras beta.
@@ -345,8 +367,11 @@ Usado para mover y organizar archivos (ver el patrón del Coworker en §4.7). Re
 
 | Riesgo | Gravedad | Mitigación |
 |---|---|---|
+| **Divergencia producción ↔ staging (189 commits): la operación corre el monolito y todo el trabajo nuevo vive en una rama sin cortar** | **Alta** | Planificar y ejecutar el **corte a producción** de la rama modular como frente de primera clase (con verificación + diagnóstico del "404 real"); mientras no se corte, cada commit amplía la brecha. Ver Arquitectura §5 y ADR-015. |
 | Beta con datos de terceros antes del aislamiento/audit/acceso-fundador | **Alta** | Gate C antes de Fase D; o beta de alcance reducido. |
+| **Huecos concretos de A01 hallados el 6-jul (borrado blando elude permiso; externo lee `contacts`; snapshots sin segregar org)** | **Alta** | Usar RPC `eliminar_proyecto`; policy `contacts` para externos; segregar snapshots por org. Parte del Gate C / Track de Seguridad (hub OWASP A01). |
 | Datos bancarios visibles a perfiles que no los necesitan en multi-tenant | **Alta** | Cerrar "BD todo-o-nada" en Gate C (mínimo privilegio + ley). |
+| **Cadena de suministro (A03): CDN sin SRI, `supabase-js` con major flotante, `xlsx` doble** | Media | Pin exacto + SRI + quitar la doble carga; atar `npm run gate` a CI. |
 | Deriva entre documentos (contradicciones que se acumulan) | Media | Consolidación por ciclo + versionado + autoridad clara. |
 | Agustín como cuello de botella / burnout | Media | Proceso ligero; levantar chats solo con trabajo sostenido; no acumular handoffs. |
 | Bug de RLS multi-tenant (una productora ve a otra) | **Alta** | Tests de cruce de tenant que deben fallar; parte del Gate C. |
@@ -362,4 +387,4 @@ Terminar la migración con red (Gate A) → permisos reales para Primate (Gate B
 
 ---
 
-*Documento canónico · v1.8 · Junio 2026 · Primate Films / La Hectárea SpA. Versiónalo y consolídalo como el PRD y el ADR.*
+*Documento canónico · v1.10 · 8 de julio de 2026 · Primate Films / La Hectárea SpA. Versiónalo y consolídalo como el PRD y el ADR. **Cifras vivas duales** (producción monolito vs. staging modular, ver changelog y hub OWASP v1.5): producción 77 tablas / 147 policies / 8→9 migraciones; staging 72 tablas / 157 policies / 76 funciones `SECURITY DEFINER` / 14 migraciones / 40 archivos frontend. **Pendiente grande: el corte a producción** (las ramas divergieron 189 commits).*

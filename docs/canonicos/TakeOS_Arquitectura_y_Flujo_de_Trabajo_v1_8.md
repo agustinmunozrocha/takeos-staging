@@ -1,13 +1,27 @@
 # TakeOS — Arquitectura Técnica y Flujo de Trabajo de Equipo
 
-**Versión:** 1.6
-**Fecha:** 20 de junio de 2026
+**Versión:** 1.8
+**Fecha:** 8 de julio de 2026
 **Autor:** Chat de Profesor/Asesor de Software (Claude), por encargo de Agustín Muñoz Rocha
-**Estado:** **Aprobada y en ejecución** — Prioridad #1 y #2 **cerradas**; Prioridad #3 (modularización con Vite) **en curso: Etapas 0 y 1 hechas en staging, Etapa 2 pendiente (el grueso)**.
+**Estado:** **Aprobada y en ejecución** — Prioridad #1 y #2 **cerradas**; Prioridad #3 (modularización con Vite) **esencialmente completa en `staging/main`** (arquitectura modular de 25 módulos, delegación de eventos, CSP endurecida), **pendiente el corte a producción**, que hoy sigue en el monolito.
 **Para quién es:** Agustín (product owner) y Juan de la Cuadra (CTO del proyecto)
-**Documentos relacionados:** PRD V3.6 · ADR de Backend v1.10 · Roadmap Operativo v1.8
+**Documentos relacionados:** PRD V3.6 · ADR de Backend v1.12 · Roadmap Operativo v1.10 · Seguridad OWASP Top 10:2025 v1.5
 
-> **Cambios respecto a v1.5** (esta versión — consolida el handoff de Code del 20-jun):
+> **⚠ Eje transversal desde v1.8 — producción ≠ staging.** El Informe Técnico de Arquitectura (6-jul) halló que **los dos remotos del repo ya no son el mismo software** y divergieron **189 commits**: `origin/main` (`fa008d5`) sirve el **monolito** (producción real: `index.html` de 28.649 líneas, 549 handlers inline, CSP con `unsafe-inline`); `staging/main` (`4c8067b`) sirve la **arquitectura modular** que describe este documento. Salvo que se diga lo contrario, lo que sigue describe la **rama modular (staging)**; el estado de producción se marca aparte. Esta divergencia + el corte a producción son el **riesgo abierto principal** (§5).
+
+> **Cambios respecto a v1.7** (esta versión — consolida el **Informe Técnico de Arquitectura del 6-jul**, `staging/main` @ `4c8067b`, con addenda 6–8-jul, + el cierre del handoff de Code de `service_role`):
+> 1. **⚠ Producción ≠ staging (nuevo eje, encabezado + §2.4/§5).** Los dos remotos divergieron **189 commits**: producción = monolito, staging = modular. Todo estado de frontend y cifra viva se leen etiquetados por rama.
+> 2. **Modularización esencialmente completa en staging (§2.4/§3/§7).** No es "Etapa 2 pendiente / <1% hecho": el monolito quedó reemplazado por **40 archivos ES Modules (25.327 líneas en `frontend/src/`: 14 `lib/` + 25 `modules/`)**, con un sistema de **delegación de eventos** que retiró los `onclick` inline, **ganchos** (inversión de control) y **época** multi-org. Lo que queda es el **corte a producción**, no la modularización.
+> 3. **CSP endurecida en staging (§2.4).** `script-src` **sin `unsafe-inline`** (el premio del refactor); el navegador rechaza todo JS inline. Queda `style-src` (deuda "proyecto S"). Producción sigue con `unsafe-inline`.
+> 4. **Cifras vivas duales (§2.2 y pie).** Producción (último censo): 77 tablas / 147 policies / 8→9 migraciones. Staging (censo del informe): **72 tablas · 157 policies · 76 funciones `SECURITY DEFINER` · 14 migraciones · 40 archivos · 25.327 líneas**. ⚠ Tablas bajan (77→72, a verificar); ~5 migraciones sin nombrar.
+> 5. **Compuertas `npm run gate` (§6/glosario).** Nace CI versionado (cero `on*=`, cero identificadores libres). Cruza OWASP A03/A08.
+> 6. **Dos huecos nuevos de control de acceso (§6, detalle en el hub OWASP A01):** el **borrado blando** de proyectos elude el permiso `eliminar_proyecto` (UPDATE directo por PostgREST); el **externo lee `contacts`** completo (ninguna policy mira `memberships.tipo`). Bloqueantes de A01.
+> 7. **⚠ Abierto:** el bug de **departamentos de servicios por productora** (se pierden al recargar; fix técnico acordado, decisión de diseño de Agustín — ADR-F). Y **CLAUDE.md** desactualizado y fuera de su ubicación, **no tocado** aquí.
+>
+> **Cambios respecto a v1.6** (versión anterior — consolida el handoff de Code del 21-jun):
+> 1. **8.ª migración (§2.2 y pie):** se agrega `20260621120000_revoke_anon_funciones_sensibles` (ahora **8 migraciones**, eran 7). Cerró un hueco de "BD en código": el dump base no capturaba los REVOKE de `anon`, así que un reset limpio de staging dejaba 42 funciones anon-ejecutables vs. 23 en prod. Ya en producción (no-op de grants). El patrón y la causa, en ADR-024; la lección de reproducibilidad, en ADR-023.
+>
+> **Cambios respecto a v1.5** (versión anterior):
 > 1. **Estructura del repo (§3.4):** se agrega `supabase/queries/` como carpeta **hermana** de `supabase/migrations/` (queries reutilizables que el CLI **no** toca, separadas del historial de esquema). Ya commiteada en ambos repos.
 > 2. **Corrección de pie:** se arregla un número de versión viejo ("v1.4") que había quedado en la nota final.
 > *(El fix del IVA hardcodeado se corrigió en el ADR-018, v1.10 — no afecta este documento.)*
@@ -114,7 +128,7 @@ Hasta esta sesión, toda la base de datos existía **únicamente en el servidor 
 **Hoy la base está "en código" y es reproducible.** Qué se hizo (detalle de ejecución en §7):
 
 - Se montó el **monorepo** en el Mac de Agustín (`frontend/`, `supabase/`, `docs/`), ligado al proyecto de producción.
-- Se **capturó la base como migración base** y se verificó **reproducible** (se reconstruye desde cero con `db reset`). A junio 2026 hay **7 migraciones registradas**: el esquema completo, los triggers, el job de cron, la revocación de funciones internas, la provisión autocontenida, el **endurecimiento** (`anon`/`search_path`/`app_config`) y el **fix de cupo por proyecto** (las dos últimas, del 17-jun).
+- Se **capturó la base como migración base** y se verificó **reproducible** (se reconstruye desde cero con `db reset`). **Conteo dual (v1.8):** la rama de producción tiene **9 migraciones** (las 8 conocidas + la revocación de `service_role` de Code, 21-jun); el **Informe Técnico cuenta 14 en `staging/main`** (9.349 líneas SQL). ⚠ Entre la 9.ª y la 14.ª hay ~5 migraciones sin handoff, no enumeradas todavía (ADR-023). Las conocidas: esquema completo, triggers, cron, revocación de funciones internas, provisión autocontenida, **endurecimiento** (`anon`/`search_path`/`app_config`), **fix de cupo por proyecto**, **revocación de `anon`** en las 19 sensibles y **revocación de `service_role`** por fidelidad (ver ADR-023/ADR-024).
 - **Flujo nuevo, cerrado y en vigencia (regla permanente) — Orden A, repo primero.** Todo cambio de base de datos entra **al repositorio antes que a producción**, y producción se actualiza **sola al mergear** gracias a la integración de **Branching de Supabase** (merge = deploy). **Nunca** se aplica un cambio directo a producción por el conector MCP ni por el editor SQL.
 
 **El flujo, en una receta (la versión simple):** el repositorio (`main`) es el **libro de recetas oficial**; producción es **el plato que comen los clientes**. Solo cambiás el plato actualizando primero la receta; una vez que la receta entra al libro, una máquina recocina el plato sola. Nunca tocás el plato directo en la mesa —porque ahí el libro y el plato dirían cosas distintas (eso fue la desincronización del 17-jun)—.
@@ -153,9 +167,11 @@ Una **migración** es un archivo de texto que describe un cambio en la base de d
 
 La postura general de seguridad es **fuerte** (RLS en todas las tablas, escrituras por RPC, auditoría inmutable). La **lista corta de ajustes para el beta ya se cerró** en esta sesión (contraseñas filtradas, toggle de registro, OAuth External, CSP, revocación de funciones internas, auditoría dirigida; el XSS ya estaba cerrado de antes). El detalle, con lo hecho y lo que queda, está en la **sección 6**. Quedan dos pendientes antes de abrir el beta a terceros —el header `frame-ancestors` del hosting y un **backlog de endurecimiento**— y el endurecimiento continuo (pentesting sistemático que dirige Juan) sigue anotado como **horizonte**.
 
-### 2.4. El frontend: un monolito de ~26.700 líneas
+### 2.4. El frontend: monolito en producción, modular en staging
 
-El `index.html` que está hoy en producción es **un solo archivo de ~1,7 MB y ~26.700 líneas**. Adentro:
+> **⚠ Actualización v1.8 — dos frontends distintos.** Esta sección describía el monolito como "el frontend". Hoy hay **dos**, en dos remotos que divergieron 189 commits: **producción (`origin/main`) sigue siendo el monolito** descrito abajo; **staging (`staging/main`) es una arquitectura modular esencialmente completa** (25 módulos, delegación de eventos, CSP endurecida). Lo que sigue en este apartado describe **producción**; la arquitectura modular vive en §3 y §7, y el gran pendiente es **cortarla a producción** (§5).
+
+**Producción hoy — el monolito.** El `index.html` que está hoy en producción es **un solo archivo de ~1,7 MB y ~26.700 líneas** (el informe lo cuenta en 28.649 con 549 handlers inline). Adentro:
 
 - **Un único bloque de JavaScript de ~20.750 líneas** (líneas 4.703 a 25.462) que contiene **todos** los módulos juntos: Proyectos/Kanban, Info Proyecto, Cotización/Presupuesto, Legal, Notificaciones, Plan de Rodaje, y más. Un segundo bloque más chico (~1.190 líneas) maneja la vista de CFO.
 - **18 bloques `<style>`** de CSS dispersos por el archivo.
@@ -165,7 +181,9 @@ Esto **funcionó muy bien** para una sola persona construyendo rápido. Pero par
 
 Un detalle menor pero real: la **numeración de versiones está desordenada**. El archivo se identifica como V9.6.18, pero hay comentarios internos que mencionan V10.x y hasta V11.x. Conviene disciplinar esto (ver sección 9).
 
-Una nota tranquilizadora de seguridad: la clave de Supabase que está en el `index.html` es la **clave publicable/anónima**, que está *diseñada* para ser pública y vivir en el navegador —su seguridad la garantiza el RLS del backend—. No hay ninguna clave de tipo `service_role` (la peligrosa) expuesta. Y la **Content-Security-Policy (CSP) ya está agregada y commiteada** (sección 6): el matiz del "no hay CSP" quedó resuelto.
+Una nota tranquilizadora de seguridad: la clave de Supabase que está en el `index.html` es la **clave publicable/anónima**, que está *diseñada* para ser pública y vivir en el navegador —su seguridad la garantiza el RLS del backend—. No hay ninguna clave de tipo `service_role` (la peligrosa) expuesta.
+
+**Sobre el CSP — el logro está en staging.** En **producción** (monolito) la CSP existe pero conserva `'unsafe-inline'` en `script-src`, porque el monolito usa `onclick` inline. En **staging** (modular), la delegación de eventos retiró todos los `onclick` inline y permitió endurecer la CSP a `script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com` — **sin `unsafe-inline`**: el navegador ya rechaza todo JS inline, propio o inyectado. Era el "premio de seguridad" del refactor (OWASP A05). Queda `style-src` con `unsafe-inline` (deuda dimensionada, "proyecto S"). Ese endurecimiento **llega a producción con el corte** (§5); hasta entonces, producción sigue con la CSP permisiva.
 
 ### 2.5. Los gates: dónde estamos de verdad
 
@@ -269,27 +287,24 @@ takeos/
 
 > **`migrations/` vs. `queries/` — no confundirlas (regla para todos los chats de BD).** El Supabase CLI trata **todo** lo que está en `supabase/migrations/` con nombre `<timestamp>_nombre.sql` como una **migración a aplicar en orden** (`db push` / Branching). Por eso **nunca** se ponen consultas ad-hoc ahí: se aplicarían como cambios de esquema. Para eso está `supabase/queries/` (hermana, no anidada), donde viven las **consultas reutilizables y editables** (reportes, análisis, mantenimiento) que el CLI **no** toca. Convención de `queries/`: nombres `snake_case` **sin** timestamp, y cada `.sql` encabezado con un comentario de qué hace y cómo se usa. Resumen: **migración = historial de esquema (inmutable, secuencial); query = consulta reutilizable (editable)**.
 
-> **Estado real hoy (v1.6) vs. destino.** El árbol de arriba es el **destino** (post-modularización). **Hoy, en la rama de staging**, ya existe el esqueleto de Vite con esta forma real (Etapas 0 y 1):
+> **⚠ Estado real hoy (v1.8) — la modularización está esencialmente completa en staging.** La v1.7 decía "Etapas 0 y 1 hechas, el resto en la Etapa 2 pendiente". El Informe Técnico del 6-jul lo corrige: en `staging/main` el monolito **ya quedó reemplazado** por la arquitectura modular. Forma real medida (contada con comando):
 >
 > ```
-> frontend/
-> ├── index.html            # el monolito (~23.369 líneas), ya carga /src/main.js y /src/styles.css
-> ├── package.json          # "takeos-frontend", type: module, Vite ^7
-> ├── vite.config.js        # base: './'  (rutas relativas → mata el 404 en prod y staging)
-> └── src/
->     ├── main.js           # el "puente": importa lib/* y los re-expone en window
->     ├── styles.css        # CSS extraído del monolito (Etapa 0)
->     └── lib/              # el cimiento (Etapa 1), todo verificado en staging:
->         ├── helpers.js    #   escapeHtml, safeUrl, showToast
->         ├── supabase.js   #   cliente sb + supabaseInit (URL/KEY por import.meta.env)
->         ├── rates.js      #   IVA y tasas + dalBootTaxRates
->         ├── state.js      #   STATE (objeto) + ORG_ID, usuario, perfil, acceso, identidad/sesión
->         └── auth.js       #   authNivel, authNivelModulo, authPuedeVer/Editar, authEsAdmin, MODULE_PERM_CODE
+> frontend/src/                       40 archivos .js · 25.327 líneas
+> ├── main.js                         manifiesto: 11 lib + 25 módulos (boot.js último)
+> ├── styles.css                      hoja externa (3.230 líneas)
+> ├── lib/    (14 archivos, 3.313 líneas)   infraestructura: supabase, ganchos, rates,
+> │                                          helpers, delegacion, data, auth, catalogos,
+> │                                          state, nav, calc, modelo, boot, ui
+> └── modules/ (25 archivos, 22.041 líneas)  dominio: presupuesto-cotizacion (4.514),
+>                                            config, dal, gastos, plan-rodaje, bd, legal,
+>                                            locaciones, notificaciones, … , buscador
+> frontend/scripts/                   compuertas de `npm run gate`
 > ```
 >
-> Es decir: el CSS y el cimiento ya están afuera del monolito; el resto de la app (los **módulos de negocio** y el **pegamento de UI**) sigue dentro del `index.html` y se extrae en la **Etapa 2** (ver §7). **Producción todavía corre el monolito**: el corte de producción a la build de Vite está pendiente (§5).
+> Es decir: ya **no** queda un monolito en staging. La comunicación entre módulos se resuelve por los **tres canales** (imports ESM / ganchos / delegación de eventos — ADR-026 y §7), con estado de dueños y aislamiento multi-org por época. **Lo que queda no es modularizar, es el corte a producción** (§5): producción (`origin/main`) **todavía corre el monolito**, y las dos ramas divergieron 189 commits.
 
-Esta forma permite que **las dos personas trabajen en paralelo sin chocar**: Juan vive sobre todo en `supabase/`, `tests/` y `frontend/src/lib` (la infraestructura); el trabajo de módulos de Agustín entra en `frontend/src/modules/<módulo>` cuando arranque la Etapa 2.
+Esta forma permite que **las dos personas trabajen en paralelo sin chocar**: Juan vive sobre todo en `supabase/`, `tests/` y `frontend/src/lib` (la infraestructura); el trabajo de módulos de Agustín entra en `frontend/src/modules/<módulo>`.
 
 ---
 
@@ -369,7 +384,7 @@ Esta separación es el corazón del mandato de Juan, y ya **está montada y func
 ### 5.2. Cómo se trabaja y cómo accede otra persona
 
 - **Hacer un cambio en staging:** se edita el `index.html` en `/Software-staging` (no en `/Software`, que es producción), `git add/commit/push` a `main`, y GitHub Pages reconstruye en ~1–2 minutos (verificar con refresh duro, Cmd+Shift+R).
-- **Sincronizar producción ↔ staging:** **el modelo cambió con Vite (Etapa 0+).** En staging, el frontend ya **se construye con Vite** (`vite build` → carpeta `dist/`) con **`base: './'`** (rutas relativas, para que la misma build sirva en producción y en staging sin tocar nada — el arreglo de fondo del 404), y las credenciales de cada entorno entran por **`import.meta.env`** (`VITE_SUPABASE_URL` / `VITE_SUPABASE_KEY`), no editando dos líneas a mano. La BD se aplica por **Branching al mergear** (merge = deploy, §2.2). **Pendiente:** el **corte de producción** a esta build de Vite (hoy producción aún corre el monolito servido directo) y el **diagnóstico del "404 real"** de ese corte, ambos registrados en `PENDIENTES_Migracion_Vite.md`. Mientras tanto, producción y staging viven con modelos distintos: monolito directo vs. build de Vite.
+- **⚠ Sincronizar producción ↔ staging — hoy es el riesgo principal (actualizado v1.8).** El Informe Técnico halló que **los dos remotos ya no son el mismo software**: `origin/main` (`fa008d5`, producción) sirve el **monolito**; `staging/main` (`4c8067b`) sirve la **arquitectura modular completa** (delegación, CSP endurecida, 25 módulos). Divergencia: **189 commits**. Consecuencia: el **corte de producción** ya no es "pasar a la build de Vite" —es **cortar toda la reescritura modular a producción**—, y mientras no ocurra, todo el trabajo nuevo se acumula en una rama que la operación no usa. En staging el frontend se construye con **Vite** (`vite build` → `dist/`, `base: './'`, credenciales por `import.meta.env`) y la BD se aplica por **Branching al mergear** (merge = deploy, §2.2). **Pendientes del corte:** el corte en sí, su **verificación** y el **diagnóstico del "404 real"** (`PENDIENTES_Migracion_Vite.md`). Es un frente de primera clase, no un ajuste de build.
 - **Acceso por persona, no "por cuenta de Claude".** Para que Juan (u otro) trabaje el frontend, Agustín lo agrega como **colaborador** del repo en GitHub; cada quien clona el repo y autentica con **su propia cuenta de GitHub**. Si usa Claude Code, este opera con las credenciales de esa persona.
 
 > **Datos de prueba.** La base de staging se puebla con nombres ficticios tomados de **ambos mundos de ejemplo (El Señor de los Anillos y Game of Thrones)**, con montos reales pero RUTs y cuentas bancarias falseados. Nunca datos reales de terceros.
@@ -397,6 +412,14 @@ El backend ya es fuerte. La lista corta para el **beta** se trabajó completa en
 - **Header `frame-ancestors`** (anti-clickjacking): la CSP por `<meta>` no puede fijarlo; va como header del hosting (`frame-ancestors 'self'` o `X-Frame-Options: SAMEORIGIN`). GitHub Pages no deja headers custom con facilidad → puede requerir un proxy/hosting con headers, o aceptarse como limitación conocida del beta. **Es lo único que queda del endurecimiento.**
 
 > **Backlog de endurecimiento — HECHO (migración `…144834`, 17-jun).** Lo que antes figuraba pendiente del linter de Supabase ya entró como migración (flujo en código): ✅ revocado a `anon` el `EXECUTE` en las RPC de escritura (los flujos de invitación quedaron anon-ejecutables), ✅ `search_path` fijado en ~11 utilitarias, ✅ decidida la policy de `app_config`. Sin hallazgos críticos. *(El detalle de seguridad —auth gate fail-closed, fail-open deliberado de los guardas de escritura— vive en el hub OWASP A01/A05/A10, no se duplica acá.)*
+
+> **⚠ Hallazgos nuevos del Informe Técnico (v1.8) — dos huecos de control de acceso (A01).** El análisis del 6-jul encontró dos cosas que **suman al bloqueante de A01** (multi-tenant), detalladas en el hub OWASP:
+> 1. **El borrado blando elude el permiso a nivel de BD.** Al eliminar un proyecto, el frontend hace un `UPDATE` directo de `deleted_at` (autorizado por la policy de `info_proyecto`) en vez de llamar la RPC endurecida `eliminar_proyecto`. Un perfil **Ejecutivo con `eliminar_proyecto='none'` igual puede borrar (soft) proyectos** vía PostgREST. Las RPC seguras existen; el frontend no las usa. **Fix (R4):** llamar `eliminar_proyecto`/`restaurar_proyecto` desde kanban.
+> 2. **"El externo no lee `contacts`" es convención, no invariante.** Ninguna policy consulta `memberships.tipo`; un **externo invitado con perfil 3–6 lee la tabla de contactos completa** de la organización. **Fix (R4):** policy que restrinja `contacts` para `memberships.tipo='externo'`.
+>
+> Además: los **snapshots/airbag no segregan por organización** (restaurar un snapshot de la org A estando en B reintroduce datos cruzados en memoria) — A01-adyacente. Y aparece **cadena de suministro** (A03): sin SRI en los CDN, `supabase-js@2` con major flotante, `xlsx` cargado dos veces.
+
+> **`npm run gate` — compuertas de integridad de build (v1.8).** Nace `npm run gate` versionado: `check-inline-handlers.mjs` (verifica **cero `on*=`**, es decir que la delegación no se rompa) y `check-free-idents.mjs` (**cero identificadores libres**, semántica ESLint `no-undef`, sin dependencias). Es el control automatizado que faltaba (cruza OWASP A03/A08). **Pendiente:** atarlo a un pre-push/CI real (hoy se corre a mano) y sumar checkers de biyección de acciones/ganchos y de despacho de 2.º nivel (los mapas `_*_FN` no tienen compuerta).
 
 **Deuda de la fase de reportería (no bloquea hoy):**
 
@@ -432,9 +455,11 @@ Con la base "en código", el entorno de prueba (la branch `staging`, §5) quedó
 
 *Al terminar, existe un lugar seguro para probar y la seguridad basal está cerrada.*
 
-### Prioridad #3 — Modularización del código del frontend · 🚧 EN CURSO (Etapas 0 y 1 hechas en staging)
+### Prioridad #3 — Modularización del código del frontend · 🟢 ESENCIALMENTE COMPLETA EN STAGING (pendiente el corte a producción)
 
-Es el frente activo. Partir el monolito en módulos: un archivo que tocan Juan, Agustín y Code a la vez es una fábrica de choques, y *todos* los frentes de frontend del beta son trabajo sobre este código. Va **después** de la base en código y el entorno de prueba, que ya están. Es un **refactor que preserva comportamiento** (sin features mezcladas), con **Vite incremental** (vanilla JS se mantiene; sin framework). **Todo se hace y se verifica en staging primero; producción sigue siendo el monolito** (el corte de producción está pendiente, §5).
+> **⚠ Actualización v1.8 — la etapa cambió de estado.** Cuando se escribió esto, la modularización iba por "Etapas 0 y 1 hechas, ~88% pendiente (Etapa 2)". El **Informe Técnico del 6-jul** lo corrige: en `staging/main` el monolito **ya quedó reemplazado** por la arquitectura modular completa (40 archivos, 25 módulos, delegación de eventos, ganchos, época — ver §3.4 y ADR-026). **La narrativa de etapas de abajo se conserva como registro histórico del método**, pero el "grueso" (Etapa 2) ya se hizo. Lo que queda es un frente distinto: **cortar la rama modular a producción** (§5), que hoy sigue en el monolito y divergió 189 commits. Las cifras "12 de ~1.290 / <1% / 88% pendiente" quedan **superseded**.
+
+Es el frente que fue activo. Partir el monolito en módulos: un archivo que tocan Juan, Agustín y Code a la vez es una fábrica de choques, y *todos* los frentes de frontend del beta son trabajo sobre este código. Fue **después** de la base en código y el entorno de prueba. Es un **refactor que preserva comportamiento** (sin features mezcladas), con **Vite incremental** (vanilla JS se mantiene; sin framework). **Todo se hizo y se verificó en staging primero; producción sigue siendo el monolito** (el corte de producción está pendiente, §5).
 
 **La estrategia: de afuera hacia adentro, de fácil a difícil.** Las funciones se ordenan en un espectro por **acoplamiento** (cuánto arrastran al moverse):
 
@@ -453,7 +478,7 @@ El **orden de las etapas no es casualidad: copia ese espectro**, por dos razones
   - **Diferido a Etapa 2 a propósito (no es olvido):** el **login** (`cloudGate`, que es una vista) y los **cargadores de identidad** (`dalResolveIdentidad`, `dalLoadPermisos`, acoplados a contactos + UI) y la **sesión**. El *estado* de identidad ya quedó coherente en `state.js`; las *funciones* que lo escriben se sacan limpio con sus vecinos cuando toque su módulo.
 - **Etapa 2 — los módulos de negocio · ⬜ PENDIENTE (el grueso).** Cotización, Legal, Finanzas, Kanban, Plan de Rodaje… más el **pegamento de UI** (login, cargadores, funciones de render). Es *la app misma* interconectada. Se extrae **un módulo a la vez** a `frontend/src/modules/<módulo>`, en PRs chicos y revisables, dejando el resto del monolito intacto hasta que le toque. **Nunca todo de golpe.** Cada módulo tiene su **propio mini-espectro** (sus scalars, sus puras, su estado, su UI), así que el patrón de la Etapa 1 se repite adentro de cada uno.
 
-> **La magnitud real, sin maquillaje.** Lo hecho es **el cimiento, no la casa**. Por funciones: **12 de ~1.290 extraídas → <1%**. Por líneas: el monolito bajó de 26.685 a 23.369 (~12%, y buena parte fue el CSS de la Etapa 0). Lo hecho es chico en volumen pero **crítico**: es lo que *destraba* todo lo demás (sin `state.js`, no se puede extraer Cotización). **El 88% del trabajo está en la Etapa 2** — y es justo lo que ahora se puede repartir entre Juan y Agustín.
+> **La magnitud real (actualizada v1.8).** Esta nota decía "el cimiento, no la casa: 12 de ~1.290 funciones, <1%, 88% en la Etapa 2". **Eso quedó atrás:** el Informe Técnico mide en staging **40 archivos y 25.327 líneas** ya modularizadas (14 en `lib/` + 25 módulos de negocio), con la biyección de 364 acciones verificada. La casa **está construida en staging**. Lo que no está es en producción: el corte es el pendiente, no la extracción.
 
 **Patrones de diseño de la migración** (el "cómo" reutilizable, ya probado en staging):
 - **Puente a `window`.** El monolito usa miles de `onclick` inline que llaman funciones globales. Cada pieza que se mueve a un módulo se **re-publica en `window`** desde `main.js` (`window.fn = fn`) para no romper la interfaz. El puente se quita recién cuando ya no queden consumidores clásicos de esa función (gradual, no de golpe).
@@ -463,7 +488,7 @@ El **orden de las etapas no es casualidad: copia ese espectro**, por dos razones
 
 > **Reparto (el "SYNC").** Cerrado el cimiento, el plan dice: muéstrale a Agustín la estructura nueva y acuerden el **reparto de módulos** de la Etapa 2. Ahí arranca el trabajo en paralelo: **Juan toma lo estructural** (infraestructura, librería compartida) y **Agustín entra en la Etapa 2** con los módulos de dominio, uno por vez. *(Plan de detalle en `docs/Planes/Plan_Modularizacion_Vite.md`; pendientes operativos del corte de producción en `PENDIENTES_Migracion_Vite.md`.)*
 
-> **El objetivo final de seguridad.** Cuando ya no queden `onclick` inline ni `<script>` inline (fin de la Etapa 2), se podrá **quitar `'unsafe-inline'` del CSP** — el premio de seguridad real de toda la modularización (cruza con OWASP A05; hoy `'unsafe-inline'` es necesario *porque* el monolito usa código inline).
+> **El objetivo final de seguridad — ✅ logrado en staging (v1.8).** El premio era **quitar `'unsafe-inline'` del CSP**, posible solo cuando no queden `onclick`/`<script>` inline. La **delegación de eventos** lo consiguió: en staging el `script-src` ya va **sin `'unsafe-inline'`** (queda `style-src`, deuda "proyecto S"). Cruza con OWASP A05. El endurecimiento **llega a producción con el corte** (§5); hasta entonces, producción conserva `'unsafe-inline'` por el monolito.
 
 > **Por qué es prioridad #3 y no seguridad (alineado con Agustín y Juan):** modularizar cambia el **empaque** y da **claridad** para razonar el código; **no esconde** la lógica de interfaz ni la "mueve al backend" —lo que el usuario necesita correr, le llega igual (ver 3.0)—. Esconder funciones de `window` **no es** un muro de seguridad en el navegador. Se justifica por **mantenibilidad y trabajo de a dos**; el premio de seguridad concreto (quitar `'unsafe-inline'`) llega **al final** del camino, no por modularizar una función suelta.
 
@@ -569,6 +594,14 @@ Parte del trato en este equipo es la franqueza. Estos son los puntos donde convi
 
 **Modo estricto.** Los módulos de JavaScript lo son: no dejan reasignar una variable global "a secas". Por eso, cuando un módulo necesita **escribir** un global (como una tasa de impuesto), lo hace vía `window.X` y no a secas.
 
+**Delegación de eventos.** En vez de poner un `onclick="fn()"` en cada botón (código inline, que obliga a un CSP permisivo), se pone **un solo "escuchador" por tipo de evento** en la raíz de la página, que mira un atributo `data-accion="modulo.funcion"` del elemento clickeado y llama a la función correspondiente. Es lo que permitió sacar todos los `onclick` inline y **endurecer el CSP** (quitar `'unsafe-inline'`). Peras y manzanas: en vez de que cada empleado tenga su propio teléfono, hay **una central** que recibe todas las llamadas y las deriva.
+
+**Ganchos (inversión de control).** Un registro donde un módulo "publica" una función con un nombre (`define('x', fn)`) y otro la "pide" por ese nombre cuando la necesita (`gancho('x')`), sin importarse directamente. Sirve cuando dos módulos se necesitan mutuamente y un import directo crearía un **ciclo**. Si alguien pide un nombre que nadie publicó, **grita en consola** (no falla en silencio).
+
+**Época (multi-org).** Un contador (`_ORG_EPOCA`) que sube cada vez que el usuario cambia de productora. Todo trabajo que quedó "en vuelo" (una carga que aún no termina) compara la época al volver: si cambió, **se aborta**. Es lo que impide que un dato de la productora A aparezca por error en la B tras cambiar de organización.
+
+**`npm run gate` (compuertas de CI).** Un par de verificadores que se corren antes de subir código: uno confirma que **no quedó ningún `onclick` inline** (que rompería el CSP endurecido) y otro que **no hay identificadores libres** (variables usadas pero nunca declaradas, la clase de error que tumba la app en runtime). Es el "control de calidad automático" que antes se hacía a ojo. Hoy se corre a mano; falta atarlo para que corra solo en cada cambio.
+
 **`import.meta.env`.** La forma en que Vite inyecta valores por entorno (como la URL y la clave de Supabase) en el momento de construir: producción recibe los de producción, staging los de staging, sin que se filtre uno en el otro.
 
 **Framework de frontend (React, Vue, Svelte).** Una tecnología que impone una forma estructurada de construir interfaces. Son potentes, pero traen una curva de aprendizaje y, en nuestro caso, obligarían a reescribir todo. Por eso, por ahora, **no** los usamos.
@@ -622,8 +655,12 @@ Las prioridades #1 y #2 ya están cerradas, igual que los *quick wins* de un cli
 3. **Deuda de reportería** (cuando se construya el `reporte_cierre`): la RPC `cerrar_proyecto` que congele totales del lado servidor, y el recálculo del reporte desde las líneas (§6).
 4. En paralelo a todo, el **trabajo de producto y módulos de Agustín** (con los chats + Code) sigue corriendo.
 
-> **Nota:** este documento sigue en movimiento. Con la modularización Vite en curso (Etapa 2 pendiente) y el corte de producción por hacer, es esperable que surjan decisiones nuevas que se registren en versiones siguientes.
+> **Nota:** este documento sigue en movimiento. Con la modularización esencialmente completa en staging pero **el corte a producción por hacer** (y las dos ramas divergidas 189 commits), es esperable que surjan decisiones nuevas que se registren en versiones siguientes.
 
 ---
 
-*Documento canónico v1.6 — aprobado y en ejecución. Toda decisión registrada aquí se tomó contra la información viva (build de producción **V11.16.0** —el monolito— y base de datos Supabase `zplcgetquwxybkrpmcvl`: 77 tablas con RLS, 147 políticas, **7 migraciones**, base reproducible, producción que se actualiza por Branching al mergear, una organización real —Primate, plan producción—, enforcement de planes cableado). Modularización verificada contra la rama de staging: **Etapas 0 y 1 hechas** (CSS + cimiento de 12 funciones en `frontend/src/lib`; monolito en 23.369 líneas), **Etapa 2 pendiente**. Verificado 20 de junio de 2026.*
+*Documento canónico v1.8 — aprobado y en ejecución. **Cifras vivas duales** (los dos remotos divergieron 189 commits):*
+- ***Producción** (`origin/main` · monolito): base Supabase `zplcgetquwxybkrpmcvl` con **77 tablas con RLS, 147 políticas, 8→9 migraciones**, base reproducible, producción que se actualiza por Branching al mergear, una organización real (Primate, plan producción), enforcement de planes cableado. Frontend: `index.html` monolítico, CSP con `'unsafe-inline'`.*
+- ***Staging** (`staging/main` @ `4c8067b` · modular, censo del Informe Técnico contado con comando): **72 tablas · 157 policies RLS · 76 funciones `SECURITY DEFINER` · 14 migraciones · 9.349 líneas SQL**. Frontend modular: **40 archivos, 25.327 líneas** (14 `lib/` + 25 `modules/`), delegación de eventos, ganchos, época, CSP sin `'unsafe-inline'` en `script-src`, compuertas `npm run gate`.*
+
+*⚠ Diferencias abiertas a verificar: tablas bajan (77→72), ~5 migraciones sin nombrar entre la 9.ª y la 14.ª, y falta confirmar si el censo de staging refleja la DB de producción o una branch. **El gran pendiente es el corte a producción.** Consolidado el 8 de julio de 2026 (Informe Técnico del 6-jul + handoff de Code de `service_role`).*
