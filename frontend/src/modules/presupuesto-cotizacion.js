@@ -1081,9 +1081,9 @@ export function _budgetColTh(sectionKey, colId, extraClass, innerHTML, styleExtr
     + ' style="width:' + _budgetColWGet(sectionKey, colId) + 'px;' + (styleExtra || '') + '">'
     + innerHTML + _budgetColGrip(sectionKey, colId) + '</th>';
 }
-function budgetColResizeDown(ev, sectionKey, colId) {
+function budgetColResizeDown(ev, sectionKey, colId, el) {
   ev.preventDefault(); ev.stopPropagation();
-  var grip = ev.currentTarget || ev.target;
+  var grip = el || ev.currentTarget || ev.target;   // bajo delegación currentTarget=document; el es el grip real
   var th = grip.closest ? grip.closest('th') : grip.parentNode;
   if (!th) return;
   grip.classList.add('dragging');
@@ -4510,7 +4510,7 @@ registrarAcciones('pre', {
   finVal: function (a, el) { var v = a[2] === 'pct' ? (parseFloat(el.value) || 0) / 100 : (parseMoneyCLP(el.value) || 0); _PRE_FN[a[0]](a[1], v); renderSummaryFin(); },
   finR: function (a) { _PRE_FN[a[0]].apply(null, a.slice(1)); renderSummaryFin(); },
   cotMargen: function (a, el) { cotPrevSetOptLive('margenMm', +el.value); document.getElementById('cotPrevMargLbl').textContent = el.value + ' mm'; },
-  colGrip: function (a, el, ev) { if (ev.type === 'mousedown') budgetColResizeDown(ev, a[0], a[1]); else budgetColResizeReset(ev, a[0], a[1]); },
+  colGrip: function (a, el, ev) { if (ev.type === 'mousedown') budgetColResizeDown(ev, a[0], a[1], el); else budgetColResizeReset(ev, a[0], a[1]); },
 });
 
 registrarAcciones('pre', {

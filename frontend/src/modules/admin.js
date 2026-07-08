@@ -293,7 +293,10 @@ function updateProjectState(newState) {
 
 /* Helper: sincroniza el sidebar con el nuevo estado */
 function syncProjectStateUI(newState) {
-  if (STATE.currentProject) dalTouchProyecto(STATE.currentProject);   // V9.2.2: persiste el cambio de estado a Supabase
+  if (STATE.currentProject) {
+    STATE.currentProject._headerDirty = true;   // el estado viaja en el bloque header; sin dirty, dal.js lo omite del payload
+    dalTouchProyecto(STATE.currentProject);   // V9.2.2: persiste el cambio de estado a Supabase
+  }
   const stateInfo = STATES[newState];
   const stateEl = document.querySelector('.sidebar-project-state');
   if (stateEl) {
