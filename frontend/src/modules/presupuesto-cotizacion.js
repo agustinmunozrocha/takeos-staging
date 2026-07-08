@@ -645,7 +645,7 @@ function renderRoleTable(sectionKey, dept, items, showReal, firstColLabel) {
   // siendo el índice REAL del array; aquí solo cambia el orden de pintado.
   const _sortActive = _budgetSortState(sectionKey, dept);
   const _order = _budgetDisplayOrder(items, sectionKey, dept);
-  const _deptArg = sectionKey === 'servicios' ? ("'" + escapeHtml(dept) + "'") : 'null';
+  const _deptArg = sectionKey === 'servicios' ? (dept || null) : null;   // dept CRUDO: la delegación (JSON) no consume las comillas como el onclick inline del monolito
   const _sortBar = _sortActive
     ? `<div class="budget-sort-bar">Orden por columna activo (solo en pantalla; no altera el orden guardado) <button type="button" class="budget-sort-restore" ${accionHTML('pre.d', 'budgetSortClear', sectionKey, _deptArg)}>↺ Restaurar orden</button></div>`
     : '';
@@ -1002,7 +1002,7 @@ function budgetSortClear(sectionKey, dept) {
   if (sectionKey === 'servicios') renderServiciosBody(); else renderSimpleSection(sectionKey);
 }
 function _budgetSortTh(label, sectionKey, dept, colKey, extraClass, styleAttr, tipHTML, tailHTML) {
-  const deptArg = sectionKey === 'servicios' ? ("'" + escapeHtml(dept) + "'") : 'null';
+  const deptArg = sectionKey === 'servicios' ? (dept || null) : null;   // dept CRUDO: la delegación (JSON) no consume las comillas como el onclick inline del monolito
   const s = _budgetSortState(sectionKey, dept);
   const on = s && s.col === colKey;
   const ind = on ? ('<span class="sort-ind on">' + (s.dir === 'asc' ? '▲' : '▼') + '</span>') : '<span class="sort-ind"></span>';
@@ -1170,7 +1170,7 @@ function openRowNote(sectionKey, dept, idx) {
   const item = _rowNoteItem(sectionKey, dept, idx);
   if (!item) return;
   const nombre = item.nombre || item.rol || item.item || 'esta fila';
-  const deptArg = dept === null || dept === undefined ? 'null' : `'${escapeHtml(dept)}'`;
+  const deptArg = (dept === null || dept === undefined) ? null : dept;   // dept CRUDO para la delegación (JSON no consume comillas como el onclick inline del monolito)
   const root = document.getElementById('modalRoot');
   root.innerHTML = `
     <div class="modal-backdrop" data-accion="ui.backdrop">
@@ -4263,10 +4263,10 @@ function cotDesbloquearMisma() {
 
 // ── D: renderUnidadCellSelect + renderUnidadCellInput (dispersos, 16963-16989)
 function renderUnidadCellSelect(sectionKey, dept, idx, currentUnidad) {
-  const deptStr = dept ? `'${escapeHtml(dept)}'` : 'null';
+  const deptArg = dept || null;   // dept CRUDO: bajo la delegación (JSON) las comillas NO se consumen como sí lo hacía el onclick inline del monolito
   return `
     <select class="cell-select"
-            ${accionHTML('pre.d', 'onUnidadSelectChange', '§el§', sectionKey, deptStr, idx, { on: 'change' })}>
+            ${accionHTML('pre.d', 'onUnidadSelectChange', '§el§', sectionKey, deptArg, idx, { on: 'change' })}>
       ${UNIDAD_OPTIONS.map(u =>
         `<option value="${u}" ${currentUnidad === u ? 'selected' : ''}>${u}</option>`
       ).join('')}
@@ -4276,16 +4276,16 @@ function renderUnidadCellSelect(sectionKey, dept, idx, currentUnidad) {
 }
 
 function renderUnidadCellInput(sectionKey, dept, idx, currentUnidad) {
-  const deptStr = dept ? `'${escapeHtml(dept)}'` : 'null';
+  const deptArg = dept || null;   // dept CRUDO para la delegación (sin comillas: JSON no las consume)
   return `
     <div style="display: flex; gap: 2px; align-items: center;">
       <input class="cell-input" type="text"
              value="${escapeHtml(currentUnidad)}"
              placeholder="Unidad personalizada…"
              style="font-size: 12px;"
-             ${accionHTML('pre.d', 'onUnidadInputChange', '§el§', sectionKey, deptStr, idx, { on: 'input' })}>
+             ${accionHTML('pre.d', 'onUnidadInputChange', '§el§', sectionKey, deptArg, idx, { on: 'input' })}>
       <button class="unidad-reset" title="Volver a presets"
-              ${accionHTML('pre.d', 'onUnidadReset', '§el§', sectionKey, deptStr, idx)}>↺</button>
+              ${accionHTML('pre.d', 'onUnidadReset', '§el§', sectionKey, deptArg, idx)}>↺</button>
     </div>
   `;
 }
