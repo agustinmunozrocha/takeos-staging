@@ -218,7 +218,7 @@ function snapshotFullBudget(project) {
   }));
 }
 function presupHistSummaryHTML(fin) {
-  const cliente = fin.presupCliente || 0;
+  const cliente = fin.presupuestoCliente || 0;
   const costo = fin.costoProd ? fin.costoProd.cot : 0;
   const gan = fin.gananciaFinal ? fin.gananciaFinal.cot : 0;
   const margen = cliente > 0 ? (gan / cliente) : 0;
@@ -2498,7 +2498,7 @@ function cotContarEntregables(c) {
    congelado al momento en que dejaron de ser la última. */
 function cotCaptureResumen(project, c) {
   const fin = calcSummaryFin(project);
-  const valor = fin.presupCliente || 0;
+  const valor = fin.presupuestoCliente || 0;
   const base = (c.ofertas || []).find(o => o.esBase);
   c.resumen = {
     valor: valor,
@@ -2611,7 +2611,7 @@ function cmpOfferFin(project, cs, v, o) {
   }
   const fin = ofertaCosteo(project, o);
   if (!fin) return { valor: (o.valorCliente != null ? o.valorCliente : null), costo: null, ganancia: null, margen: null };
-  const valor = (fin.presupCliente != null && fin.presupCliente > 0) ? fin.presupCliente : (o.valorCliente || 0);
+  const valor = (fin.presupuestoCliente != null && fin.presupuestoCliente > 0) ? fin.presupuestoCliente : (o.valorCliente || 0);
   const costo = fin.costoProd ? fin.costoProd.cot : null;
   const ganancia = fin.gananciaFinal ? fin.gananciaFinal.cot : null;
   const margen = (valor > 0 && ganancia != null) ? (ganancia / valor) : null;
