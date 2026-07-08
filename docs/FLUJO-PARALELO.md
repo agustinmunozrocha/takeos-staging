@@ -46,8 +46,8 @@ Todo esto se corre en la carpeta del proyecto (`~/Software-staging`). Los comand
 
 **1. Al empezar el día — traer lo que hizo el otro:**
 ```bash
-git checkout main && git pull
-git checkout TU-RAMA && git merge main
+git checkout etapa4-integracion && git pull
+git checkout TU-RAMA && git merge etapa4-integracion
 ```
 (`TU-RAMA` es `juan/finanzas` o `agustin/produccion`.)
 
@@ -65,7 +65,7 @@ npm run dev           # levanta el software para probarlo a mano
 **5. Publicar el arreglo ya probado:**
 ```bash
 git commit -m "fix(finanzas): descripción corta (#NUMERO-DEL-BUG)"
-git checkout main && git pull
+git checkout etapa4-integracion && git pull
 git merge --no-ff TU-RAMA
 git push
 ```

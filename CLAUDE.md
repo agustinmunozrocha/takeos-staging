@@ -22,7 +22,7 @@ git branch --show-current
 3. **Antes de arreglar, revisa GitHub Issues** (`gh issue list`) para no duplicar. Bug
    nuevo → créalo de una (`gh issue create`). Bug resuelto → coméntalo y ciérralo.
 4. **Prueba antes de commitear:** desde `frontend/`, `npm run gate` (debe pasar) y
-   `npm run dev` para verificar a mano. Merge a `main` solo con fixes probados.
+   `npm run dev` para verificar a mano. Merge a `etapa4-integracion` (el tronco) solo con fixes probados; `main` es producción, no se toca.
 
 ## Mapa de carriles (resumen)
 

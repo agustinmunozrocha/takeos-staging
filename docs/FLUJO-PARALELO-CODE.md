@@ -96,8 +96,8 @@ Usa el label `compartido` para bugs cuya causa está en `lib/` o zona compartida
 
 ## 4. Ciclo de un fix (obligatorio, en orden)
 
-1. **Sincroniza** antes de empezar:
-   `git checkout main && git pull && git checkout <tu-rama> && git merge main`
+1. **Sincroniza** antes de empezar (el tronco es `etapa4-integracion`, NO `main`):
+   `git checkout etapa4-integracion && git pull && git checkout <tu-rama> && git merge etapa4-integracion`
 2. **Toma/crea el issue** (sección 3).
 3. **Arregla** solo en archivos de tu carril.
 4. **Compuertas + prueba** (desde `frontend/`):
@@ -109,8 +109,9 @@ Usa el label `compartido` para bugs cuya causa está en `lib/` o zona compartida
    No propongas commit si `gate` falla.
 5. **Commit** en tu rama con referencia al issue:
    `git commit -m "fix(<carril>): <resumen> (#<n>)"`
-6. **Merge a main** (solo fixes probados):
-   `git checkout main && git pull && git merge --no-ff <tu-rama> && git push`
+6. **Merge a `etapa4-integracion`** (el tronco; solo fixes probados). `main` es
+   producción y NO se toca aquí — su promoción es un evento aparte:
+   `git checkout etapa4-integracion && git pull && git merge --no-ff <tu-rama> && git push`
 7. **Cierra el issue** (sección 3).
 
 ## 5. Conflictos de git
