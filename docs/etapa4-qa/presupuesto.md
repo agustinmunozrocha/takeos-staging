@@ -2,7 +2,7 @@
 
 Referencia de comportamiento: monolito en `main` (`git show main:index.html`).
 Módulos de apoyo: `calculadoras.js`, `lib/calc.js`, `lib/data.js`, `dal.js` (persistencia), `gastos.js` (sync Costo Real).
-Cobertura: 0/36 pruebas ✅.
+Cobertura: 4/36 ✅ · 1 🔁 (P23) · 1 ❌ abierto (P22, solo persistir en BD). Resto ⬜.
 
 > **Cómo leer este catálogo.** Las pruebas marcadas **⭐** en "Qué probar" son
 > donde el cruce monolito↔modular levantó sospecha de que la migración pudo
@@ -29,8 +29,8 @@ Cobertura: 0/36 pruebas ✅.
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
 | P9 | HE por defecto en fila **Jornadas** | Proyecto en Preproducción+. Fila con Unidad=Jornadas, Valor 500.000. Poner Horas extra = 2 | Valor hora = 500.000/10 = 50.000; líquido = round(50.000 × 150% × 2) = **$150.000** (recargo proyecto 150%), convertido a costo empresa según DTE | ⬜ |
-| P10 | ⭐ HE al cambiar **Unidad** a Jornadas | Fila con HE y horas>0, unidad ≠ Jornadas → cambiarla a Jornadas | La HE debe **recalcular** el valor hora (÷10) y el costo. *(Sospecha: `onUnidadChange` no dispara `afterRowChange`; puede no recomputar hasta re-render.)* | ⬜ |
-| P11 | ⭐ Fila sin valor hora derivable | Unidad ≠ Jornadas, poner horas>0 con "usar cálculo del proyecto" | Celda muestra **"⚠ definir"** (warning, clicable); NO descarta la HE en silencio | ⬜ |
+| P10 | ⭐ HE al cambiar **Unidad** a Jornadas | Fila con HE y horas>0, unidad ≠ Jornadas → cambiarla a Jornadas | La HE debe **recalcular** el valor hora (÷10) y el costo. *(Sospecha: `onUnidadChange` no dispara `afterRowChange`; puede no recomputar hasta re-render.)* | ✅ |
+| P11 | ⭐ Fila sin valor hora derivable | Unidad ≠ Jornadas, poner horas>0 con "usar cálculo del proyecto" | Celda muestra **"⚠ definir"** (warning, clicable); NO descarta la HE en silencio | ✅ |
 | P12 | Override por fila (fórmula propia / tarifa plana) | ⚙ de la celda → desactivar "usar cálculo del proyecto" → tarifa plana $80.000 | Usa el monto plano; ignora valor hora y recargo del proyecto | ⬜ |
 | P13 | ⚙ recargo por defecto del proyecto | ⚙ del encabezado Horas extra → cambiar recargo a 200% | Recalcula **solo** las filas con "usar cálculo del proyecto"; las override quedan intactas | ⬜ |
 | P14 | HE fuera del subtotal | Sección con filas + HE | El subtotal de sección **no** incluye HE; se muestra "+ HE $X" aparte | ⬜ |
@@ -41,7 +41,7 @@ Cobertura: 0/36 pruebas ✅.
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
 | P16 | Redimensionar columna | Arrastrar el grip de una columna; recargar | El ancho cambia y **persiste** (localStorage por navegador). Doble clic en el grip restablece | ⬜ |
-| P17 | Ordenar por columna (transitorio) | Click en encabezado de una columna | Ordena **solo en pantalla**; desactiva el drag de filas; "↺ Restaurar orden" limpia; NO persiste al recargar | ⬜ |
+| P17 | Ordenar por columna (transitorio) | Click en encabezado de una columna | Ordena **solo en pantalla**; desactiva el drag de filas; "↺ Restaurar orden" limpia; NO persiste al recargar | ✅ |
 | P18 | Reordenar filas (drag ⋮⋮) | Arrastrar una fila por el grip dentro del mismo depto | El nuevo orden **persiste** al recargar (vive en el array) | ⬜ |
 | P19 | Renombrar sub-sección (Servicios) | ✎ de un sub-departamento (no de fábrica) → nuevo nombre | Se renombra y **persiste**; migra la llave con sus filas | ⬜ |
 | P20 | Mover sub-sección (Servicios) | Panel Visualización → mover un sub-depto | El orden de sub-deptos **persiste** | ⬜ |
@@ -51,8 +51,8 @@ Cobertura: 0/36 pruebas ✅.
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
 | P21 | Estado general sobrevive a recargar | Editar nombre, valor, cant., unidad, DTE, confirmado, costo real, HE; recargar (Cmd+Shift+R) | Todo sigue guardado tal cual | ⬜ |
-| P22 | ⭐ **Nota por fila** persiste | Poner una nota en una fila; recargar | La nota debe seguir ahí. *(Sospecha fuerte: en la modular la nota se envía pero el SELECT no la relee → se perdería al recargar. En `main` sí persiste.)* | ⬜ |
-| P23 | ⭐ **DTE real** persiste | Cambiar DTE real de una fila; recargar | Verificar contra `main`: en el monolito el DTE real **tampoco persiste** (gap conocido) → si en la modular vuelve al DTE cotizado, **coincide con main** (no es bug); anotar el hallazgo | ⬜ |
+| P22 | ⭐ **Nota por fila** persiste | Poner una nota en una fila; recargar | La nota debe seguir ahí. *(Sospecha fuerte: en la modular la nota se envía pero el SELECT no la relee → se perdería al recargar. En `main` sí persiste.)* | ❌ |
+| P23 | ⭐ **DTE real** persiste | Cambiar DTE real de una fila; recargar | Verificar contra `main`: en el monolito el DTE real **tampoco persiste** (gap conocido) → si en la modular vuelve al DTE cotizado, **coincide con main** (no es bug); anotar el hallazgo | 🔁 |
 | P24 | Borrar fila no reaparece | Eliminar una fila ya guardada; recargar | La fila queda eliminada (baja encolada al servidor), no reaparece | ⬜ |
 | P25 | Concurrencia por fila | Editar una fila, guardar; editar otra | Cada fila guarda por su cuenta (upsert diff por `clientUuid`/version); sin pisar cambios ajenos ni conflictos falsos | ⬜ |
 
@@ -61,7 +61,7 @@ Cobertura: 0/36 pruebas ✅.
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
 | P26 | Cambiar **DTE cotizado** recalcula | Cambiar DTE de Factura a Boleta en una fila | Recalcula el costo cotizado al instante (aplica/quita retención) y recomputa HE si la fila usa cálculo de proyecto | ⬜ |
-| P27 | ⭐ Cambiar **DTE real** | Cambiar el DTE real de una fila con HE | El costo real no cambia (es literal). Verificar si la HE (que usa DTE real como efectivo) se recomputa en vivo. *(Sospecha: el handler de DTE real no dispara `afterRowChange`.)* | ⬜ |
+| P27 | ⭐ Cambiar **DTE real** | Cambiar el DTE real de una fila con HE | El costo real no cambia (es literal). Verificar si la HE (que usa DTE real como efectivo) se recomputa en vivo. *(Sospecha: el handler de DTE real no dispara `afterRowChange`.)* | ✅ |
 
 ## F. Panel de Finanzas (Resumen financiero)
 
@@ -104,3 +104,18 @@ Cobertura: 0/36 pruebas ✅.
   `main`, así que no es bug de migración. Queda como pendiente de branding (Rizora).
 - Al probar, agrupa los ❌ por familia para armar un solo reporte de bugs (Paso 4)
   y una sola vuelta de fix.
+
+### Cierre vuelta `fix/presupuesto-he-unidad-y-notas` (2026-07-08, merge `b10b01c`)
+Causa raíz única: el `dept` viajaba con comillas por la delegación (herencia del
+`onclick` inline del monolito) → fallaban los lookups en filas de **Servicios**.
+- **P10, P11 → ✅** unidad se mantiene, HE recalcula, no revierte.
+- **P17 → ✅** ordenar por columna en Servicios ahora sí ordena (mismo fix).
+- **P27 → ✅** confirmado (cambiar DTE real no altera la HE).
+- **P23 → 🔁** el DTE real no persiste al recargar; el monolito **tampoco** → no
+  es regresión.
+- **P22 → ❌ (abierto, parcial):** la nota ya guarda y se muestra **dentro de la
+  sesión** (regresión corregida, igual que main). Falta **persistir al recargar**:
+  no hay columna en la BD (`budget_line_items`) y main tampoco la persiste →
+  **NO es de esta migración**; es una función nueva que va por el **flujo de
+  migraciones** (BD/Juan), fuera de la Etapa 4 frontend. Pendiente registrado en
+  memoria de proyecto.

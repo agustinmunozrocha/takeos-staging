@@ -3,7 +3,7 @@
 **Estado: ninguna vuelta en curso.**
 
 <!--
-Cuando se abra una vuelta de fix (Paso 5), reemplazar lo de arriba por:
+Cuando se abra una vuelta de fix (Paso 6), reemplazar lo de arriba por:
 
 **Estado: EN CURSO**
 - Branch: fix/<tema>
