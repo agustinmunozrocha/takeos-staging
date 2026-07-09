@@ -289,10 +289,6 @@ export function renderPresupuesto() {
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Exportar Presupuesto
       </button>
-      <button class="calc-trigger" data-accion="pre.d" data-args="[&quot;openVisualizacionPanel&quot;]" title="Reordenar y renombrar las sub-secciones de Servicios. El renombrar es estructural (migra las filas a la nueva sub-sección); reordenar es solo el orden en que se muestran.">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-        Visualización
-      </button>
       <div style="font-size: 11px; color: var(--ink-muted);">
         Modo: <strong style="color: var(--ink-secondary);">${showReal ? 'Cotizado + Real' : 'Solo cotización'}</strong>
         ${!showReal ? '<span style="color: var(--ink-faint);"> · se activa en Preproducción</span>' : ''}
@@ -323,7 +319,7 @@ export function renderPresupuesto() {
     <!-- SERVICIOS -->
     <div class="dept ${isCollapsed('servicios') ? 'collapsed' : ''}" data-dept-key="servicios">
       <div class="dept-header" data-accion="pre.d" data-args="[&quot;toggleDept&quot;, &quot;servicios&quot;]">
-        <div class="dept-title"><span class="dept-chevron">▾</span> Servicios — Personal contratado</div>
+        <div class="dept-title"><span class="dept-chevron">▾</span> Servicios — Personal contratado <button class="calc-trigger" data-accion="pre.d" data-args="[&quot;openVisualizacionPanel&quot;]" style="margin-left:10px;vertical-align:middle;" title="Reordenar y renombrar las sub-secciones de Servicios. El renombrar es estructural (migra las filas a la nueva sub-sección); reordenar es solo el orden en que se muestran."><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Visualización</button></div>
         <div class="dept-summary" id="dept-summary-servicios"></div>
       </div>
       <div class="dept-body" id="dept-body-servicios"></div>
@@ -393,10 +389,12 @@ export function renderServiciosBody() {
   let _deptIdx = 0;
   for (const dept in d) {
     const di = _deptIdx;
+    const _mDept = (project.data.serviciosDeptIds || {})[dept];
+    const _esFabrica = !_mDept || _mDept.projectId == null;   // P19b · el ✎ solo en sub-secciones propias (las de fábrica no se pueden renombrar)
     html += `
       <div class="subdept" data-subdept="${escapeHtml(dept)}">
         <div class="subdept-name">${escapeHtml(dept)}
-          <button type="button" class="subdept-ctl" title="Renombrar sub-sección" ${accionHTML('pre.d', 'renameServiceDept', di)}>✎</button>
+          ${_esFabrica ? '' : `<button type="button" class="subdept-ctl" title="Renombrar sub-sección" ${accionHTML('pre.d', 'renameServiceDept', di)}>✎</button>`}
           <button type="button" class="subdept-ctl danger" title="Eliminar sub-sección" ${accionHTML('pre.d', 'deleteServiceDept', di)}>×</button>
         </div>
         <div class="subdept-totals" id="subdept-totals-${escapeHtml(dept)}"></div>
@@ -560,15 +558,18 @@ function openVisualizacionPanel() {
   if (!project) return;
   const d = project.data.servicios || {};
   const names = Object.keys(d);
+  const _idsViz = project.data.serviciosDeptIds || {};
   const list = names.length
     ? names.map((n, i) => {
         const count = (d[n] || []).length;
+        const _mn = _idsViz[n];
+        const _esFabrica = !_mn || _mn.projectId == null;   // P19b · las sub-secciones de fábrica no se renombran
         return `<div class="viz-dept-row">
           <div class="viz-dept-ord">
             <button type="button" class="pr-tool" title="Subir" ${accionHTML('pre.d', 'moveServiceDept', i, -1)} ${i === 0 ? 'disabled' : ''}>⌃</button>
             <button type="button" class="pr-tool" title="Bajar" ${accionHTML('pre.d', 'moveServiceDept', i, 1)} ${i === names.length - 1 ? 'disabled' : ''}>⌄</button>
           </div>
-          <input class="input viz-dept-name" value="${escapeHtml(n)}" ${accionHTML('pre.d', 'vizRenameInput', i, '§v§', { on: 'change' })} title="Renombrar: migra las filas a la nueva sub-sección. Los montos cotizados no cambian.">
+          <input class="input viz-dept-name" value="${escapeHtml(n)}" ${_esFabrica ? 'readonly title="Los departamentos de fábrica no se pueden renombrar."' : accionHTML('pre.d', 'vizRenameInput', i, '§v§', { on: 'change' }) + ' title="Renombrar: migra las filas a la nueva sub-sección. Los montos cotizados no cambian."'}>
           <span class="viz-dept-count">${count} fila${count === 1 ? '' : 's'}</span>
         </div>`;
       }).join('')
@@ -1069,7 +1070,7 @@ function _budgetColWSet(sectionKey, colId, px) {
 }
 export function _budgetColGrip(sectionKey, colId) {
   return '<span class="col-resize-grip" title="Arrastra para ajustar el ancho · doble clic para restablecer"'
-    + ' ' + accionHTML('pre.colGrip', sectionKey, colId, { on: 'mousedown dblclick' }) + ''
+    + ' ' + accionHTML('pre.colGrip', sectionKey, colId, { on: 'mousedown click dblclick' }) + ''
     + ''
     + ' ></span>';
 }
@@ -4510,7 +4511,7 @@ registrarAcciones('pre', {
   finVal: function (a, el) { var v = a[2] === 'pct' ? (parseFloat(el.value) || 0) / 100 : (parseMoneyCLP(el.value) || 0); _PRE_FN[a[0]](a[1], v); renderSummaryFin(); },
   finR: function (a) { _PRE_FN[a[0]].apply(null, a.slice(1)); renderSummaryFin(); },
   cotMargen: function (a, el) { cotPrevSetOptLive('margenMm', +el.value); document.getElementById('cotPrevMargLbl').textContent = el.value + ' mm'; },
-  colGrip: function (a, el, ev) { if (ev.type === 'mousedown') budgetColResizeDown(ev, a[0], a[1], el); else budgetColResizeReset(ev, a[0], a[1]); },
+  colGrip: function (a, el, ev) { if (ev.type === 'mousedown') budgetColResizeDown(ev, a[0], a[1], el); else if (ev.type === 'dblclick') budgetColResizeReset(ev, a[0], a[1]); else { ev.stopPropagation(); ev.preventDefault(); } },
 });
 
 registrarAcciones('pre', {
