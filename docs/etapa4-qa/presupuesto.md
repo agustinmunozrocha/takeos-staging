@@ -2,7 +2,7 @@
 
 Referencia de comportamiento: monolito en `main` (`git show main:index.html`).
 Módulos de apoyo: `calculadoras.js`, `lib/calc.js`, `lib/data.js`, `dal.js` (persistencia), `gastos.js` (sync Costo Real).
-Cobertura: 16/36 ✅ · 2 🔁 (P23, P27) · 1 ❌ abierto (P22, solo persistir en BD). Resto ⬜.
+Cobertura: 20/36 ✅ · 2 🔁 (P23, P27) · 4 ❌ abiertos (P19, P20, P21, P22 — ver cierres: van por BD/Juan o repro en vivo). Resto ⬜.
 
 > **Cómo leer este catálogo.** Las pruebas marcadas **⭐** en "Qué probar" son
 > donde el cruce monolito↔modular levantó sospecha de que la migración pudo
@@ -40,21 +40,21 @@ Cobertura: 16/36 ✅ · 2 🔁 (P23, P27) · 1 ❌ abierto (P22, solo persistir 
 
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
-| P16 | Redimensionar columna | Arrastrar el grip de una columna; recargar | El ancho cambia y **persiste** (localStorage por navegador). Doble clic en el grip restablece | ⬜ |
+| P16 | Redimensionar columna | Arrastrar el grip de una columna; recargar | El ancho cambia y **persiste** (localStorage por navegador). Doble clic en el grip restablece | ✅ |
 | P17 | Ordenar por columna (transitorio) | Click en encabezado de una columna | Ordena **solo en pantalla**; desactiva el drag de filas; "↺ Restaurar orden" limpia; NO persiste al recargar | ✅ |
-| P18 | Reordenar filas (drag ⋮⋮) | Arrastrar una fila por el grip dentro del mismo depto | El nuevo orden **persiste** al recargar (vive en el array) | ⬜ |
-| P19 | Renombrar sub-sección (Servicios) | ✎ de un sub-departamento (no de fábrica) → nuevo nombre | Se renombra y **persiste**; migra la llave con sus filas | ⬜ |
-| P20 | Mover sub-sección (Servicios) | Panel Visualización → mover un sub-depto | El orden de sub-deptos **persiste** | ⬜ |
+| P18 | Reordenar filas (drag ⋮⋮) | Arrastrar una fila por el grip dentro del mismo depto | El nuevo orden **persiste** al recargar (vive en el array) | ✅ |
+| P19 | Renombrar sub-sección (Servicios) | ✎ de un sub-departamento (no de fábrica) → nuevo nombre | Se renombra y **persiste**; migra la llave con sus filas | ❌ |
+| P20 | Mover sub-sección (Servicios) | Panel Visualización → mover un sub-depto | El orden de sub-deptos **persiste** | ❌ |
 
 ## D. Persistencia de estado
 
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
-| P21 | Estado general sobrevive a recargar | Editar nombre, valor, cant., unidad, DTE, confirmado, costo real, HE; recargar (Cmd+Shift+R) | Todo sigue guardado tal cual | ⬜ |
+| P21 | Estado general sobrevive a recargar | Editar nombre, valor, cant., unidad, DTE, confirmado, costo real, HE; recargar (Cmd+Shift+R) | Todo sigue guardado tal cual | ❌ |
 | P22 | ⭐ **Nota por fila** persiste | Poner una nota en una fila; recargar | La nota debe seguir ahí. *(Sospecha fuerte: en la modular la nota se envía pero el SELECT no la relee → se perdería al recargar. En `main` sí persiste.)* | ❌ |
 | P23 | ⭐ **DTE real** persiste | Cambiar DTE real de una fila; recargar | Verificar contra `main`: en el monolito el DTE real **tampoco persiste** (gap conocido) → si en la modular vuelve al DTE cotizado, **coincide con main** (no es bug); anotar el hallazgo | 🔁 |
-| P24 | Borrar fila no reaparece | Eliminar una fila ya guardada; recargar | La fila queda eliminada (baja encolada al servidor), no reaparece | ⬜ |
-| P25 | Concurrencia por fila | Editar una fila, guardar; editar otra | Cada fila guarda por su cuenta (upsert diff por `clientUuid`/version); sin pisar cambios ajenos ni conflictos falsos | ⬜ |
+| P24 | Borrar fila no reaparece | Eliminar una fila ya guardada; recargar | La fila queda eliminada (baja encolada al servidor), no reaparece | ✅ |
+| P25 | Concurrencia por fila | Editar una fila, guardar; editar otra | Cada fila guarda por su cuenta (upsert diff por `clientUuid`/version); sin pisar cambios ajenos ni conflictos falsos | ✅ |
 
 ## E. Documento tributario (DTE)
 
@@ -141,3 +141,41 @@ celda de DTE real ahora dispara `afterRowChange` (1 línea en
   del proyecto, HE fuera del subtotal, HE en el resumen).
 - **P27 → 🔁** ahora la HE se recalcula sola al cambiar el DTE real (mejor que
   `main`, a propósito).
+
+### Cierre vuelta `fix/presupuesto-ui-columnas-lapiz-viz` (2026-07-09, merge `de8abdf`)
+Bugs de UI de columnas y sub-secciones surgidos al probar C–D (P16–P25). Causa
+raíz de P16: el grip de ancho perdió el reclamo del `click` en la migración a
+delegación de eventos → el clic subía al `<th>` y ordenaba.
+- **P16 → ✅** soltar el redimensionado ya no reordena; el doble clic en el grip
+  restablece el ancho (antes lo tomaba como "ordenar"). Fix: el grip vuelve a
+  reclamar `click` (2 reemplazos en `presupuesto-cotizacion.js`).
+- **P18 → ✅** reordenar filas por el grip ⋮⋮ persiste al recargar.
+- **P24 → ✅** borrar una fila guardada no reaparece al recargar.
+- **P25 → ✅** editar filas distintas no se pisan entre sí.
+- **P19b (lápiz en fábrica) → ✅ arreglado** el ✎ ya no se muestra en
+  sub-secciones de fábrica (donde renombrar está bloqueado); ídem el input del
+  panel Visualización queda de solo lectura. **P19 (catálogo) queda ❌** por
+  **P19a**: renombrar a un nombre de fábrica oculto (ej "Producción") da un falso
+  "ya existe". Causa: el RPC `renombrar_departamento` valida la unicidad contra la
+  tabla `departments` de toda la organización (incluye los de fábrica ocultos).
+  **Es regresión de la migración, pero el fix vive en la BD/RPC → va por el flujo
+  de migraciones (Juan), no por esta etapa.**
+- **P20 → ❌ (fuera de Etapa 4)** mover un sub-departamento no persiste. **No es
+  regresión**: `main` tampoco persiste un reorden puro. La modular hizo de
+  `departments.orden` la fuente del orden, pero no hay RPC para escribirlo →
+  persistirlo es **feature nueva de BD** (RPC `reordenar_departamentos`), va por
+  Juan.
+- **P21 → ❌ (parcial; ninguno es regresión limpia)** al recargar **sí** persisten
+  Pronto Pago, Unidad, Costo Real, DTE Real, HE y "Confirmado". Fallan: **Nombre**
+  (P21a) — el cableado es idéntico a `main` (no es rotura de la mudanza); Agustín
+  lo cargó eligiéndolo del listado → probable `contact_id` pegajoso (que también
+  falla en `main`). **Pendiente de repro en vivo**, no se tocó. **NO Rodaje**
+  (P21b) — nunca se persistió (sin columna en BD; `main` igual) → feature de BD
+  (Juan). **Nota de fila** (P22) — igual, sin columna → BD (ya registrado).
+- **UI (aparte):** el botón "Visualización" se movió junto al título "Servicios —
+  Personal contratado" (pedido de Agustín; no es bug).
+
+**Pendientes para Juan (BD, fuera de Etapa 4 frontend):** P19a (unicidad de
+`renombrar_departamento` por proyecto, no org-wide), P20 (RPC de reordenar
+departamentos), P21b/P22 (columnas `no_rodaje` y `nota` en `budget_line_items`).
+**Pendiente de repro:** P21a (Nombre elegido del listado).
