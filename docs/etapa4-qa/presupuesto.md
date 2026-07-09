@@ -2,7 +2,7 @@
 
 Referencia de comportamiento: monolito en `main` (`git show main:index.html`).
 Módulos de apoyo: `calculadoras.js`, `lib/calc.js`, `lib/data.js`, `dal.js` (persistencia), `gastos.js` (sync Costo Real).
-Cobertura: 4/36 ✅ · 1 🔁 (P23) · 1 ❌ abierto (P22, solo persistir en BD). Resto ⬜.
+Cobertura: 16/36 ✅ · 2 🔁 (P23, P27) · 1 ❌ abierto (P22, solo persistir en BD). Resto ⬜.
 
 > **Cómo leer este catálogo.** Las pruebas marcadas **⭐** en "Qué probar" son
 > donde el cruce monolito↔modular levantó sospecha de que la migración pudo
@@ -15,26 +15,26 @@ Cobertura: 4/36 ✅ · 1 🔁 (P23) · 1 ❌ abierto (P22, solo persistir en BD)
 
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
-| P1 | Costo cotizado con **factura** | Fila en Servicios: Valor 100.000, Cant. 2, DTE Factura | Costo cotizado = **$200.000** (valor × cant, sin retención) | ⬜ |
-| P2 | Costo cotizado con **boleta de honorarios** (retención) | Misma fila, DTE = Boleta de honorarios | Costo = round(valor / 0,8475 × cant) = **$236.000** aprox (la boleta infla por la retención 15,25%) | ⬜ |
-| P3 | Boleta a terceros | DTE = Boleta a terceros | Aplica `FACTOR_BTE` (mismo 0,8475 hoy) → infla igual que boleta | ⬜ |
-| P4 | Fila **sin DTE** en Servicios/Talentos | Dejar DTE vacío con valor y cantidad | La celda muestra **"FALTA DTE"** (no calcula, no cae a 0 silencioso) | ⬜ |
-| P5 | Fila sin DTE en **Gastos/Técnica** | Ítem de Gastos con valor y cant., DTE vacío | Calcula como factura: **round(valor × cant)** (no exige DTE) | ⬜ |
-| P6 | Fila sin valor o sin cantidad | Dejar Valor o Cant. vacío | Costo = **$0** (fila no usable, sin error) | ⬜ |
-| P7 | Subtotal por sub-departamento y sección | Varias filas en Dirección/Producción | Subtotal = suma de costos cotizados; se muestra Cot / Real / delta | ⬜ |
-| P8 | Redondeo a peso entero | Valores que den decimales (ej. boleta) | Cada fila redondea a CLP entero **en la fuente**; los subtotales cuadran exactos con las filas | ⬜ |
+| P1 | Costo cotizado con **factura** | Fila en Servicios: Valor 100.000, Cant. 2, DTE Factura | Costo cotizado = **$200.000** (valor × cant, sin retención) | ✅ |
+| P2 | Costo cotizado con **boleta de honorarios** (retención) | Misma fila, DTE = Boleta de honorarios | Costo = round(valor / 0,8475 × cant) = **$236.000** aprox (la boleta infla por la retención 15,25%) | ✅ |
+| P3 | Boleta a terceros | DTE = Boleta a terceros | Aplica `FACTOR_BTE` (mismo 0,8475 hoy) → infla igual que boleta | ✅ |
+| P4 | Fila **sin DTE** en Servicios/Talentos | Dejar DTE vacío con valor y cantidad | La celda muestra **"FALTA DTE"** (no calcula, no cae a 0 silencioso) | ✅ |
+| P5 | Fila sin DTE en **Gastos/Técnica** | Ítem de Gastos con valor y cant., DTE vacío | Calcula como factura: **round(valor × cant)** (no exige DTE) | ✅ |
+| P6 | Fila sin valor o sin cantidad | Dejar Valor o Cant. vacío | Costo = **$0** (fila no usable, sin error) | ✅ |
+| P7 | Subtotal por sub-departamento y sección | Varias filas en Dirección/Producción | Subtotal = suma de costos cotizados; se muestra Cot / Real / delta | ✅ |
+| P8 | Redondeo a peso entero | Valores que den decimales (ej. boleta) | Cada fila redondea a CLP entero **en la fuente**; los subtotales cuadran exactos con las filas | ✅ |
 
 ## B. Hora extra (HE)
 
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
-| P9 | HE por defecto en fila **Jornadas** | Proyecto en Preproducción+. Fila con Unidad=Jornadas, Valor 500.000. Poner Horas extra = 2 | Valor hora = 500.000/10 = 50.000; líquido = round(50.000 × 150% × 2) = **$150.000** (recargo proyecto 150%), convertido a costo empresa según DTE | ⬜ |
+| P9 | HE por defecto en fila **Jornadas** | Proyecto en Preproducción+. Fila con Unidad=Jornadas, Valor 500.000. Poner Horas extra = 2 | Valor hora = 500.000/10 = 50.000; líquido = round(50.000 × 150% × 2) = **$150.000** (recargo proyecto 150%), convertido a costo empresa según DTE | ✅ |
 | P10 | ⭐ HE al cambiar **Unidad** a Jornadas | Fila con HE y horas>0, unidad ≠ Jornadas → cambiarla a Jornadas | La HE debe **recalcular** el valor hora (÷10) y el costo. *(Sospecha: `onUnidadChange` no dispara `afterRowChange`; puede no recomputar hasta re-render.)* | ✅ |
 | P11 | ⭐ Fila sin valor hora derivable | Unidad ≠ Jornadas, poner horas>0 con "usar cálculo del proyecto" | Celda muestra **"⚠ definir"** (warning, clicable); NO descarta la HE en silencio | ✅ |
-| P12 | Override por fila (fórmula propia / tarifa plana) | ⚙ de la celda → desactivar "usar cálculo del proyecto" → tarifa plana $80.000 | Usa el monto plano; ignora valor hora y recargo del proyecto | ⬜ |
-| P13 | ⚙ recargo por defecto del proyecto | ⚙ del encabezado Horas extra → cambiar recargo a 200% | Recalcula **solo** las filas con "usar cálculo del proyecto"; las override quedan intactas | ⬜ |
-| P14 | HE fuera del subtotal | Sección con filas + HE | El subtotal de sección **no** incluye HE; se muestra "+ HE $X" aparte | ⬜ |
-| P15 | HE en el resumen financiero | Con HE real > 0 | Aparece fila "Horas extra" en el resumen y se suma al **Costo de Producción real al final** (no infla admin ni contingencias); solo lado real | ⬜ |
+| P12 | Override por fila (fórmula propia / tarifa plana) | ⚙ de la celda → desactivar "usar cálculo del proyecto" → tarifa plana $80.000 | Usa el monto plano; ignora valor hora y recargo del proyecto | ✅ |
+| P13 | ⚙ recargo por defecto del proyecto | ⚙ del encabezado Horas extra → cambiar recargo a 200% | Recalcula **solo** las filas con "usar cálculo del proyecto"; las override quedan intactas | ✅ |
+| P14 | HE fuera del subtotal | Sección con filas + HE | El subtotal de sección **no** incluye HE; se muestra "+ HE $X" aparte | ✅ |
+| P15 | HE en el resumen financiero | Con HE real > 0 | Aparece fila "Horas extra" en el resumen y se suma al **Costo de Producción real al final** (no infla admin ni contingencias); solo lado real | ✅ |
 
 ## C. Columnas y orden
 
@@ -61,7 +61,7 @@ Cobertura: 4/36 ✅ · 1 🔁 (P23) · 1 ❌ abierto (P22, solo persistir en BD)
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
 | P26 | Cambiar **DTE cotizado** recalcula | Cambiar DTE de Factura a Boleta en una fila | Recalcula el costo cotizado al instante (aplica/quita retención) y recomputa HE si la fila usa cálculo de proyecto | ⬜ |
-| P27 | ⭐ Cambiar **DTE real** | Cambiar el DTE real de una fila con HE | El costo real no cambia (es literal). Verificar si la HE (que usa DTE real como efectivo) se recomputa en vivo. *(Sospecha: el handler de DTE real no dispara `afterRowChange`.)* | ✅ |
+| P27 | ⭐ Cambiar **DTE real** | Cambiar el DTE real de una fila con HE | El costo real no cambia (es literal). La HE (que usa DTE real como efectivo) **se recomputa en vivo** al cambiar el DTE real. *(Mejora deliberada sobre `main`: en el monolito no recomputaba hasta empujar la fila.)* | 🔁 |
 
 ## F. Panel de Finanzas (Resumen financiero)
 
@@ -110,7 +110,14 @@ Causa raíz única: el `dept` viajaba con comillas por la delegación (herencia 
 `onclick` inline del monolito) → fallaban los lookups en filas de **Servicios**.
 - **P10, P11 → ✅** unidad se mantiene, HE recalcula, no revierte.
 - **P17 → ✅** ordenar por columna en Servicios ahora sí ordena (mismo fix).
-- **P27 → ✅** confirmado (cambiar DTE real no altera la HE).
+- **P27 → ✅** coincide con `main`. Precisión (2ª vuelta): el DTE real **sí**
+  alimenta el cálculo de la HE (DTE efectivo = `dteReal || dte`, `_heEffDte`).
+  Pero **ni `main` ni la modular recalculan la HE en vivo al cambiar el DTE
+  real**: la celda de DTE real no dispara `afterRowChange` (a diferencia de la de
+  DTE cotizado), así que hay que "empujar" la fila para ver el nuevo costo. Como
+  la modular replica exactamente a `main`, **no es regresión de la migración**.
+  El auto-recálculo al cambiar DTE real sería una **mejora sobre `main`** (decisión
+  de producto, ver abajo), no un fix de Etapa 4.
 - **P23 → 🔁** el DTE real no persiste al recargar; el monolito **tampoco** → no
   es regresión.
 - **P22 → ❌ (abierto, parcial):** la nota ya guarda y se muestra **dentro de la
@@ -119,3 +126,18 @@ Causa raíz única: el `dept` viajaba con comillas por la delegación (herencia 
   **NO es de esta migración**; es una función nueva que va por el **flujo de
   migraciones** (BD/Juan), fuera de la Etapa 4 frontend. Pendiente registrado en
   memoria de proyecto.
+
+### Cierre vuelta `feat/presupuesto-dte-real-recalcula-he` (2026-07-08)
+Grupo A completo (P1–P8 ✅) y grupo B menos lo ya aprobado (P9, P12–P15 ✅). Al
+probar P9, Agustín notó que cambiar el **DTE real** no recalculaba la HE en vivo
+(había que empujar la fila). Se verificó contra `main`: **coincide** (el monolito
+tampoco recomputa — la celda de DTE real no dispara `afterRowChange`), así que **no
+era regresión**. Por decisión de producto se hizo la **mejora deliberada**: la
+celda de DTE real ahora dispara `afterRowChange` (1 línea en
+`presupuesto-cotizacion.js`), igual que la de DTE cotizado.
+- **P1–P8 → ✅** cálculos de fila y subtotales OK (factura, boletas, sin DTE,
+  redondeo, subtotales).
+- **P9, P12, P13, P14, P15 → ✅** hora extra OK (valor hora, tarifa plana, recargo
+  del proyecto, HE fuera del subtotal, HE en el resumen).
+- **P27 → 🔁** ahora la HE se recalcula sola al cambiar el DTE real (mejor que
+  `main`, a propósito).
