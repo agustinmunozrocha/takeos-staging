@@ -4499,7 +4499,7 @@ registrarAcciones('pre', {
   rowF: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], el.value); },
   rowDte: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], el.value || null); afterRowChange(a[0], a[1], a[2]); },
   rowNum: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], readNum(el) ?? 0); afterRowChange(a[0], a[1], a[2]); },
-  rowDteSolo: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], el.value || null); },
+  rowDteSolo: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], el.value || null); afterRowChange(a[0], a[1], a[2]); },
   rowConf: function (a, el) { updateRowField(a[0], a[1], a[2], a[3], el.checked); afterRowConfirmToggle(a[0], a[1], a[2]); },
   asis: function (a, el) { updateAsistentes(a[0], readNum(el) ?? 0); },
   cond: function (a, el) { cotSetCondicion(a[0], readNum(el) ?? 0); },
