@@ -541,6 +541,13 @@ function moveServiceDept(idx, dir) {
   order.forEach(n => { rebuilt[n] = d[n]; });   // solo cambia el orden de las llaves, no los datos
   project.data.servicios = rebuilt;
   markDirty();
+  // P20 · persistir el nuevo orden (departments.orden) por id.
+  const _ids = project.data.serviciosDeptIds || {};
+  const idOrder = order.map(n => _ids[n] && _ids[n].id).filter(v => v != null);
+  if (idOrder.length) {
+    Promise.resolve(gancho('dalReordenarDepartamentos')(project.id, idOrder))
+      .catch(e => showToast({ kind: 'error', title: 'No se pudo guardar el orden', body: (e && e.message) ? e.message : 'Error en el servidor.' }));
+  }
   renderServiciosBody();
   recalcAllDeptSummaries();
   openVisualizacionPanel();   // re-pintar el panel con el nuevo orden

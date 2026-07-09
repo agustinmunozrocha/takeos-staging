@@ -953,7 +953,9 @@ function _dalBudgetRow(r, esServicio) {
     clientUuid: r.client_uuid || null,   // Pasada 1 · identidad estable de fila (concurrencia por fila)
     version: (r.version != null ? r.version : null),   // Pasada 1 · sello de versión por fila (null = fila nueva sin guardar)
     _contactId: r.contact_id || '',
-    departmentId: (r.department_id != null ? r.department_id : null)
+    departmentId: (r.department_id != null ? r.department_id : null),
+    nota: r.nota || '', notaFecha: r.nota_fecha || '', notaAutor: r.nota_autor || '',   // P22 · releer la nota (la columna existe y el servidor la guarda)
+    noVaRodaje: !!r.no_rodaje                                                            // P21b · releer "NO Rodaje"
   };
   if (esServicio) row.rol = r.concepto || ''; else row.item = r.concepto || '';
   return row;
@@ -1274,7 +1276,7 @@ function _dalProyectoSelect() {
     + 'project_commissions(label,mode,value,posicion),'
     + 'project_risks(label,mode,value,posicion),'
     + 'project_income_extras(label,monto,posicion),'
-    + 'budget_line_items(client_uuid,version,section,department_id,contact_id,nombre,concepto,valor,cantidad,unidad,dte,confirmado,costo_real,es_extra,es_pp,hora_extra,he_config,posicion,departments(nombre)),'
+    + 'budget_line_items(client_uuid,version,section,department_id,contact_id,nombre,concepto,valor,cantidad,unidad,dte,confirmado,costo_real,es_extra,es_pp,hora_extra,he_config,nota,nota_fecha,nota_autor,no_rodaje,posicion,departments(nombre)),'
     + 'project_quotation(fecha_emision,representante_cliente,condiciones,descripcion_proyecto,jornadas_rodaje,meta),'
     + 'quotation_offers(id_externo,es_base,nombre,valor_cliente,descripcion,incluye,no_incluye,entregables,presupuesto_alt,posicion),'
     + 'quotation_versions(numero,es_activa,snapshot,nota),'
@@ -1410,8 +1412,11 @@ export async function dalBootProyectos() {
 
 /* contactId: usa el hint si existe en BD; si no, resuelve por nombre; si no, ''. */
 function _dalResolveContactId(nombre, hintId) {
-  if (hintId && BD_CONTACTOS[hintId]) return hintId;
   const n = (nombre || '').trim().toLowerCase();
+  // P21a · el hint (vínculo previo) solo vale si su nombre AÚN coincide con el
+  // nombre actual. Si el usuario eligió otra persona del listado o escribió un
+  // nombre distinto, no se conserva el vínculo viejo (antes revertía al anterior).
+  if (hintId && BD_CONTACTOS[hintId] && (BD_CONTACTOS[hintId].nombre || '').trim().toLowerCase() === n) return hintId;
   if (!n) return '';
   for (const id in BD_CONTACTOS) { const c = BD_CONTACTOS[id]; if (c && (c.nombre || '').trim().toLowerCase() === n) return id; }
   return '';
@@ -1531,7 +1536,7 @@ function _dalProyectoPayload(project) {
       unidad: r.unidad || '', dte: r.dte || null, confirmado: !!r.confirmado, costoReal: (r.costoReal != null ? r.costoReal : null),
       esExtra: !!r.extra, esPp: !!r.prontoPago, horaExtra: (r.horaExtra != null ? r.horaExtra : 0),
       heConfig: (r.heConfig != null ? r.heConfig : null),   // se manda aunque el RPC aún no la persista (futuro-proof; ver handoff)
-      dteReal: r.dteReal || null, nota: r.nota || null, notaFecha: r.notaFecha || null, notaAutor: r.notaAutor || null, posicion: pos
+      dteReal: r.dteReal || null, nota: r.nota || null, notaFecha: r.notaFecha || null, notaAutor: r.notaAutor || null, noRodaje: !!r.noVaRodaje, posicion: pos
     });
     meta.rowsSent.push({ row: r, clientUuid: r.clientUuid, seq: (r._dirtySeq || 0) });
   }
@@ -1933,8 +1938,14 @@ async function dalRenombrarDepartamento(departmentId, nombre) {
   const { error } = await sb.rpc('renombrar_departamento', { p_department_id: departmentId, p_nombre: nombre });
   if (error) throw error;
 }
+async function dalReordenarDepartamentos(projectId, ids) {
+  if (!sb) throw new Error('sin conexión');
+  const { error } = await sb.rpc('reordenar_departamentos', { p_project_id: projectId, p_ids: ids });
+  if (error) throw error;
+}
 define('_dalEmpresaSaveSoon', _dalEmpresaSaveSoon);
 define('_dalPerfilSaveSoon', _dalPerfilSaveSoon);
 define('dalGuardarEmpresa', dalGuardarEmpresa);
 define('dalCrearDepartamento', dalCrearDepartamento);
 define('dalRenombrarDepartamento', dalRenombrarDepartamento);
+define('dalReordenarDepartamentos', dalReordenarDepartamentos);
