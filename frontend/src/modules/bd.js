@@ -17,7 +17,7 @@ import { STATES, _lastViewSave } from './kanban.js';
 import { calcSummaryFin } from './presupuesto-cotizacion.js';
 import { bdLocFind, ensureLocShape, locFullAddress, locPrimaryContact, nextLocIdBD, openLocDetail } from './locaciones.js';
 import { _normEmailBD, _normKey, _normNameBD, _normPhoneBD, _normRutBD } from './bd-excel.js';
-import { _dalContactoSaveSoon, _dalEmpresaSaveSoon, _dalLocacionSaveSoon, dalBootContactos, dalBootLocaciones, dalGuardarContacto, dalGuardarEmpresa } from './dal.js';
+import { _dalContactoSaveSoon, _dalEmpresaSaveSoon, _dalEmpresaFlush, _dalLocacionSaveSoon, dalBootContactos, dalBootLocaciones, dalGuardarContacto, dalGuardarEmpresa } from './dal.js';
 import { goMovs } from './gastos.js';
 import { autosaveNow, markDirty } from './persistencia-local.js';
 
@@ -385,6 +385,18 @@ function empresaSet(empId, field, value) {
   e[field] = value;
   syncLegacyFromContactos(); markDirty(); autosaveNow(); _dalEmpresaSaveSoon(empId);
 }
+/* Botón "Guardar cambios" de la ficha de empresa: la ficha ya autoguarda cada
+   campo, pero este botón da certeza — fuerza el guardado pendiente ya mismo,
+   confirma con un aviso y cierra. Cerrar (bd.listo) también conserva los cambios
+   porque ya se guardaron solos; la diferencia es el aviso de confirmación. */
+function empresaGuardarYCerrar(empId) {
+  markDirty(); autosaveNow();
+  _dalEmpresaFlush(empId).then(function (r) {
+    if (!r || r.ok !== false) showToast({ kind: 'success', title: 'Cambios guardados', body: 'Los datos de la empresa quedaron guardados.' });
+  });
+  closeModal();
+  if (STATE.currentModule === 'bd-personas') renderBDPersonas(); else if (STATE.currentModule) renderModule(STATE.currentModule);
+}
 function empresaSetSub(empId, obj, field, value) {
   const e = BD_EMPRESAS_BYID[empId]; if (!e) return;
   if (!e[obj] || typeof e[obj] !== 'object') e[obj] = {};
@@ -499,9 +511,9 @@ function openEmpresaEdit(empId) {
           <div class="combobox-dropdown" hidden></div>
         </span>
       </div>
-      <div class="field" style="margin-top:8px;"><label class="field-label">Observaciones</label><textarea class="input" rows="3" ${accionHTML('bd.empSet', empId, 'observaciones', { on: 'change' })}>${esc(e.observaciones || e.notas || '')}</textarea></div>
+      <div class="field" style="margin-top:8px;"><label class="field-label">Observaciones</label><textarea class="input" rows="3" ${accionHTML('bd.empSet', empId, 'notas', { on: 'change' })}>${esc(e.observaciones || e.notas || '')}</textarea></div>
     </div>
-    <div class="modal-footer">${_bdPuedeArchivar() ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);margin-right:auto;" ${accionHTML('bd.archivarEmp', empId)}>Archivar</button>` : ''}<button class="btn btn-primary" data-accion="bd.listo">Listo</button></div>
+    <div class="modal-footer">${_bdPuedeArchivar() ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);margin-right:auto;" ${accionHTML('bd.archivarEmp', empId)}>Archivar</button>` : ''}<button class="btn" data-accion="bd.listo">Cerrar</button><button class="btn btn-primary" ${accionHTML('bd.guardarEmp', empId)}>Guardar cambios</button></div>
   </div></div>`;
 }
 /* ════════ V8.4.2 · FICHA CONTROL ROOM POR EMPRESA (punto 8) ════════
@@ -1201,6 +1213,7 @@ registrarAcciones('bd', {
     else empresaAddContacto(a[0], el.value);
   },
   archivarEmp: function (a) { archivarEmpresaModal(a[0]); },
+  guardarEmp: function (a) { empresaGuardarYCerrar(a[0]); },
   listo: function () { closeModal(); if (STATE.currentModule === 'bd-personas') renderBDPersonas(); else if (STATE.currentModule) renderModule(STATE.currentModule); },
   expandir: function (a) { togglePersonExpand(a[0]); },
   editPersona: function (a) { requestEditPersona(a[0]); },
