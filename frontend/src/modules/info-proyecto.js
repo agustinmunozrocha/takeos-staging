@@ -276,7 +276,7 @@ export function renderInfoProyecto() {
           ${renderPersonContactSub(jpData, ip.jefeProduccion)}
         </div>
       </div>
-      <div style="margin-top:10px;"><button class="btn btn-secondary btn-sm" data-accion="info.irCargos">Gestionar en Cargos →</button></div>
+      <div style="margin-top:10px;"><button class="btn btn-sm" style="background:var(--warning);border-color:var(--warning);color:#141214;font-weight:600;" data-accion="info.irCargos">Gestionar en Cargos →</button></div>
     </div>
 
     <!-- ESTADO -->

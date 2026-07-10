@@ -122,10 +122,15 @@ function renderCargos() {
   let rows = '';
   cargos.forEach(function (c) {
     const sinPersona = !(c.personaNombre || '').trim();
+    const enBD = !!(BD_PERSONAS[c.personaNombre] && BD_PERSONAS[c.personaNombre].mail && BD_PERSONAS[c.personaNombre].telefono);
     const estLabel = sinPersona ? '—' : (c.estado === 'activo' ? 'Activo' : (c.estado === 'pendiente' ? 'Invitación pendiente' : (c.estado === 'rechazo' ? 'Rechazó' : (c.estado || '—'))));
     const estTone = c.estado === 'activo' ? 'ok' : (c.estado === 'pendiente' ? 'pend' : (c.estado === 'rechazo' ? 'no' : 'int'));
+    // "Cambiar" solo si el slot está sin persona o la persona ya está en la BD.
+    // Si está asignada pero NO en la BD, el único camino es "Agregar a la BD"
+    // (columna Estado); "Quitar" se mantiene para poder soltar el slot.
+    const _mostrarEditar = sinPersona || enBD;
     const acciones = puede
-      ? ('<button class="btn btn-ghost btn-sm" ' + accionHTML('cargo.editar', c.id) + '>' + (sinPersona ? 'Asignar' : (c.estado === 'rechazo' ? 'Reasignar' : 'Cambiar')) + '</button> '
+      ? ((_mostrarEditar ? '<button class="btn btn-ghost btn-sm" ' + accionHTML('cargo.editar', c.id) + '>' + (sinPersona ? 'Asignar' : (c.estado === 'rechazo' ? 'Reasignar' : 'Cambiar')) + '</button> ' : '')
         + '<button class="btn btn-ghost btn-sm" ' + accionHTML('cargo.quitar', c.id) + ' title="Eliminar este cargo del proyecto">Quitar</button>')
       : '';
     rows += '<tr>'
@@ -133,7 +138,7 @@ function renderCargos() {
       + td(sinPersona ? '<span style="color:var(--ink-faint);">— Sin asignar —</span>' : escapeHtml(c.personaNombre))
       + td(sinPersona ? '—' : _cargoPill(c.tipo === 'externo' ? 'Externo' : 'Interno', c.tipo === 'externo' ? 'ext' : 'int'))
       + td(sinPersona ? '—' : escapeHtml(c.perfil || '—'))
-      + td(sinPersona ? '—' : ((!(BD_PERSONAS[c.personaNombre] && BD_PERSONAS[c.personaNombre].mail && BD_PERSONAS[c.personaNombre].telefono))
+      + td(sinPersona ? '—' : (!enBD
           ? '<button class="btn btn-ghost btn-sm" style="color:var(--warning);" ' + accionHTML('cargo.agregarBD', c.personaNombre) + ' title="Para tener un cargo, la persona debe estar en la BD con mail y teléfono.">Agregar a la BD</button>'
           : (c.estado === 'pendiente'
               ? '<a style="cursor:pointer;text-decoration:none;" title="Copiar el link de invitación de esta persona" ' + accionHTML('cargo.copiarInv', c.id) + '>' + _cargoPill(estLabel + ' ⧉', estTone) + '</a>'
