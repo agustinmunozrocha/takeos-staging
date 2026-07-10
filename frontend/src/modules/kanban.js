@@ -17,10 +17,10 @@ import { PROJECTS, STATE, TRASH, ORG_ID, PROJECTS_SOURCE, TAKEOS_PERFIL, _TIENE_
 import { buildProjectData } from '../lib/modelo.js';
 import { _authBlockWriteToast, authNivel, authPuedeVer } from '../lib/auth.js';
 import { formatCLP } from '../lib/calc.js';
-import { closeModal, showModal } from '../lib/ui.js';
+import { closeModal, showModal, comboboxOpen, comboboxFilter, comboboxCloseDelayed } from '../lib/ui.js';
 import { navigateToModule } from '../lib/nav.js';
 import { calcSummaryFin } from './presupuesto-cotizacion.js';
-import { DAL_KNOWN_PROJECT_IDS } from './dal.js';
+import { DAL_KNOWN_PROJECT_IDS, dalTouchProyecto, dalFlushProyectos, dalGuardarCargos } from './dal.js';
 import { captureUndoBaseline, markDirty } from './persistencia-local.js';
 
 // authNivel y authPuedeVer se leen desde window (auth.js auto-puentea a window en Etapa 1)
@@ -225,9 +225,14 @@ export function navigateToProject(projectId) {
 
 // ── Crear proyecto ───────────────────────────────────────────────────────────
 
-export function newProject() {
+export async function newProject() {
   if (authNivel('crear_proyecto') !== 'E') { _authBlockWriteToast(); return; }
-  _npDraft = { nombre: '', cliente: '', pe: '' };
+  _npDraft = { nombre: '', cliente: '', pe: '', director: '', jp: '' };
+  // I11b · lista REAL de internos de la productora (memberships) para decidir, al
+  // crear, si cada responsable es interno o externo (no forzar todos a externo).
+  let _internos = [];
+  try { _internos = (await gancho('_cargoCargarInternos')()) || []; } catch (e) {}
+  const _internSet = new Set(_internos.map(function (n) { return String(n).trim().toLowerCase(); }));
   showModal({
     title: 'Nuevo proyecto',
     body: `
@@ -241,10 +246,27 @@ export function newProject() {
           <input class="input" ${accionHTML('kanban.npDraft', 'cliente', { on: 'input' })} placeholder="Ej: Watt's">
         </div>
         <div>
-          <label class="field-label">Productor Ejecutivo</label>
-          <input class="input" ${accionHTML('kanban.npDraft', 'pe', { on: 'input' })} placeholder="Ej: Agustín Muñoz">
+          <label class="field-label">Productor/a Ejecutivo/a</label>
+          <span class="combobox-wrap cbx-anchored" style="display:block;">
+            <input class="input combobox-input" value="" autocomplete="off" ${accionHTML('kanban.npPersona', 'pe', { on: 'focus input blur change' })} placeholder="Elige o escribe un nombre">
+            <div class="combobox-dropdown" hidden></div>
+          </span>
         </div>
-        <p style="font-size:12px; color:var(--ink-faint); margin:0;">Se crea en estado <strong>Venta</strong>, con la estructura de presupuesto por defecto lista para cotizar.</p>
+        <div>
+          <label class="field-label">Director/a</label>
+          <span class="combobox-wrap cbx-anchored" style="display:block;">
+            <input class="input combobox-input" value="" autocomplete="off" ${accionHTML('kanban.npPersona', 'director', { on: 'focus input blur change' })} placeholder="Elige o escribe un nombre">
+            <div class="combobox-dropdown" hidden></div>
+          </span>
+        </div>
+        <div>
+          <label class="field-label">Jefe/a de Producción</label>
+          <span class="combobox-wrap cbx-anchored" style="display:block;">
+            <input class="input combobox-input" value="" autocomplete="off" ${accionHTML('kanban.npPersona', 'jp', { on: 'focus input blur change' })} placeholder="Elige o escribe un nombre">
+            <div class="combobox-dropdown" hidden></div>
+          </span>
+        </div>
+        <p style="font-size:12px; color:var(--ink-faint); margin:0;">Se crea en estado <strong>Venta</strong>. Los responsables quedan asignados y como cargos reales en el módulo Cargos.</p>
       </div>`,
     confirmLabel: 'Crear proyecto',
     cancelLabel: 'Cancelar',
@@ -253,22 +275,51 @@ export function newProject() {
       const nombre = (d.nombre || '').trim();
       const cliente = (d.cliente || '').trim();
       const pe = (d.pe || '').trim();
+      const director = (d.director || '').trim();
+      const jp = (d.jp || '').trim();
       if (!nombre || !cliente) {
         showToast({ kind: 'error', title: 'Faltan datos', body: 'El nombre del proyecto y el cliente son obligatorios.' });
         return;
       }
       const id = 'P-' + Date.now();
-      PROJECTS.push({
+      // I11b · cargos reales para los responsables asignados al crear (los nombres
+      // de cargo calzan con la derivación RECI: PE / Director / Jefe de Producción).
+      // El tipo se decide según los internos REALES: si la persona es interna de
+      // la productora queda 'interno', si no 'externo' (un PE/Director/JP puede ser
+      // freelance). No se crea ninguna invitación (guardar_cargos solo escribe el
+      // cargo; marcar 'interno' a un miembro ya existente no lo re-invita).
+      const _esInterno = function (persona) { return _internSet.has(String(persona || '').trim().toLowerCase()); };
+      // Cada rol nace con su perfil de acceso por defecto (evita un cargo sin
+      // nivel de permisos). Ninguno es Administrador/Finanzas, así que también
+      // vale para externos (guardar_cargos los rechazaría).
+      // Estado igual que en el flujo normal de Cargos: un interno queda 'activo';
+      // un externo queda 'pendiente' (aún no acepta), nunca 'activo' automático.
+      const _mkCargo = function (cargoName, persona, perfil) { if (!persona) return null; const _int = _esInterno(persona); return { id: 'CG-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), cargo: cargoName, custom: false, personaNombre: persona, tipo: _int ? 'interno' : 'externo', perfil: perfil, estado: _int ? 'activo' : 'pendiente' }; };
+      const cargosNuevos = [
+        _mkCargo('Productor/a Ejecutivo/a', pe, 'Ejecutivo'),
+        _mkCargo('Director/a', director, 'Creativo'),
+        _mkCargo('Jefe/a de Producción', jp, 'Producción')
+      ].filter(Boolean);
+      const nuevo = {
         id, client: cliente, name: nombre, state: 'venta',
         pe: pe || '—', amount: 0, currency: 'CLP',
         alerts: 0, lastActivity: 'Recién creado', date: '—',
-        data: buildProjectData({ infoProyecto: { cliente, nombreProyecto: nombre, productorEjecutivo: pe, fechaCotizacion: new Date().toISOString().slice(0, 10) } })
-      });
+        data: buildProjectData({ infoProyecto: { cliente, nombreProyecto: nombre, productorEjecutivo: pe, director: director, jefeProduccion: jp, fechaCotizacion: new Date().toISOString().slice(0, 10) } })
+      };
+      nuevo.data.cargos = cargosNuevos;
+      nuevo.data._cargosOK = true;   // ya tenemos los cargos en memoria; que no los pise una carga vacía del server hasta que se guarden
+      PROJECTS.push(nuevo);
       markDirty();
       renderMetrics();
       renderKanban();
       showToast({ kind: 'success', title: 'Proyecto creado', body: `“${escapeHtml(nombre)}” creado en Venta. Ábrelo para empezar a cotizar.` });
       navigateToProject(id);
+      // I11b · guardar el proyecto y RECIÉN DESPUÉS los cargos: project_cargos tiene
+      // FK al proyecto, así que el RPC guardar_cargos necesita que ya exista en la base.
+      if (cargosNuevos.length) {
+        dalTouchProyecto(nuevo);
+        Promise.resolve(dalFlushProyectos()).then(function () { return dalGuardarCargos(nuevo); }).catch(function () {});
+      }
     },
     onCancel: () => {}
   });
@@ -352,6 +403,13 @@ registrarAcciones('kanban', {
   controlRoom: function () { navigateToControlRoom(); },
   exportar: function (a) { gancho('exportSingleProject')(a[0]); },
   npDraft: function (a, el) { _npDraft[a[0]] = el.value; },
+  npPersona: function (a, el, ev) {
+    // I11b · combobox estrella de personas (mismo de Presupuesto): filtra la BD,
+    // permite tipear libre y "+ Agregar a la BD". a[0] = pe | director | jp.
+    if (ev.type === 'focus') comboboxOpen(el);
+    else if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else { if (ev.type === 'input') comboboxFilter(el); _npDraft[a[0]] = el.value; }
+  },
   delCheck: function (a, el) { document.getElementById('delConfirmBtn').disabled = (el.value.trim() !== _delExpected); },
   delConfirm: function (a) { confirmDeleteProject(a[0]); },
 });

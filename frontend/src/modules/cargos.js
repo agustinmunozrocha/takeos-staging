@@ -18,7 +18,7 @@ import { invitacionLink, dalInvitar, _invMostrarResultado, PERFIL_CODIGO_POR_NOM
 import { _planModalVenta, manejarErrorPlan } from './plan-limites.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
-import { define } from '../lib/ganchos.js';
+import { define, gancho } from '../lib/ganchos.js';
 /* ════════════════════════════════════════════════════════════════════
    V11.2.0 · CARGOS DEL PROYECTO
    ════════════════════════════════════════════════════════════════════
@@ -31,7 +31,7 @@ import { define } from '../lib/ganchos.js';
    extienda el modelo (handoff enviado). La invitación real a externos
    (correo + consentir_invitacion) está pendiente de Auth y Legal: aquí
    el externo queda registrado como «Invitación pendiente» sin envío. */
-const CARGOS_PRESETS = ['Director/a', 'Productor/a Ejecutivo/a', 'Productor/a', 'Jefe/a de Producción', 'Director/a de Fotografía', 'Asistente de Dirección', 'Asistente de Producción', 'Director/a de Arte'];
+const CARGOS_PRESETS = ['Director/a', 'Productor/a Ejecutivo/a', 'Jefe/a de Producción', 'Director/a de Fotografía', 'Asistente de Dirección', 'Asistente de Producción', 'Director/a de Arte'];
 /* V11.6.0 · Finanzas no se asigna por cargo de proyecto: queda reservado a
    la configuración de la empresa (Equipo). */
 const CARGOS_PERFILES_INTERNO = ['Administrador', 'Ejecutivo', 'Producción', 'Asistencia de Producción', 'Coordinación', 'Creativo', 'Invitado'];
@@ -122,10 +122,15 @@ function renderCargos() {
   let rows = '';
   cargos.forEach(function (c) {
     const sinPersona = !(c.personaNombre || '').trim();
+    const enBD = !!(BD_PERSONAS[c.personaNombre] && BD_PERSONAS[c.personaNombre].mail);   // "en la BD" = tiene correo (lo que necesita la invitación); mismo mínimo que para guardar una persona
     const estLabel = sinPersona ? '—' : (c.estado === 'activo' ? 'Activo' : (c.estado === 'pendiente' ? 'Invitación pendiente' : (c.estado === 'rechazo' ? 'Rechazó' : (c.estado || '—'))));
     const estTone = c.estado === 'activo' ? 'ok' : (c.estado === 'pendiente' ? 'pend' : (c.estado === 'rechazo' ? 'no' : 'int'));
+    // "Cambiar" solo si el slot está sin persona o la persona ya está en la BD.
+    // Si está asignada pero NO en la BD, el único camino es "Agregar a la BD"
+    // (columna Estado); "Quitar" se mantiene para poder soltar el slot.
+    const _mostrarEditar = sinPersona || enBD;
     const acciones = puede
-      ? ('<button class="btn btn-ghost btn-sm" ' + accionHTML('cargo.editar', c.id) + '>' + (sinPersona ? 'Asignar' : (c.estado === 'rechazo' ? 'Reasignar' : 'Cambiar')) + '</button> '
+      ? ((_mostrarEditar ? '<button class="btn btn-ghost btn-sm" ' + accionHTML('cargo.editar', c.id) + '>' + (sinPersona ? 'Asignar' : (c.estado === 'rechazo' ? 'Reasignar' : 'Cambiar')) + '</button> ' : '')
         + '<button class="btn btn-ghost btn-sm" ' + accionHTML('cargo.quitar', c.id) + ' title="Eliminar este cargo del proyecto">Quitar</button>')
       : '';
     rows += '<tr>'
@@ -133,9 +138,11 @@ function renderCargos() {
       + td(sinPersona ? '<span style="color:var(--ink-faint);">— Sin asignar —</span>' : escapeHtml(c.personaNombre))
       + td(sinPersona ? '—' : _cargoPill(c.tipo === 'externo' ? 'Externo' : 'Interno', c.tipo === 'externo' ? 'ext' : 'int'))
       + td(sinPersona ? '—' : escapeHtml(c.perfil || '—'))
-      + td(sinPersona ? '—' : (c.estado === 'pendiente'
-          ? '<a style="cursor:pointer;text-decoration:none;" title="Copiar el link de invitación de esta persona" ' + accionHTML('cargo.copiarInv', c.id) + '>' + _cargoPill(estLabel + ' ⧉', estTone) + '</a>'
-          : _cargoPill(estLabel, estTone)))
+      + td(sinPersona ? '—' : (!enBD
+          ? '<button class="btn btn-ghost btn-sm" style="color:var(--warning);" ' + accionHTML('cargo.agregarBD', c.personaNombre) + ' title="Para tener un cargo, la persona debe estar en la BD con correo.">Agregar a la BD</button>'
+          : (c.estado === 'pendiente'
+              ? '<a style="cursor:pointer;text-decoration:none;" title="Copiar el link de invitación de esta persona" ' + accionHTML('cargo.copiarInv', c.id) + '>' + _cargoPill(estLabel + ' ⧉', estTone) + '</a>'
+              : _cargoPill(estLabel, estTone))))
       + '<td style="padding:9px 10px;border-bottom:1px solid var(--rule);text-align:right;white-space:nowrap;">' + acciones + '</td>'
       + '</tr>';
   });
@@ -207,6 +214,9 @@ function cargoAbrirModal(editId) {
   optsCargo += '<option value="__otro"' + (selCargoVal === '__otro' ? ' selected' : '') + '>Otro (especificar)…</option>';
   let optsCargo2 = '<option value="">— Sin rol secundario</option>' + CARGOS_PRESETS.map(function (p) { return '<option>' + escapeHtml(p) + '</option>'; }).join('') + '<option value="__otro">Otro (especificar)…</option>';
   const tipo = edit ? (edit.tipo || 'interno') : 'interno';
+  // Pre-rellenar el correo del externo desde la ficha de la persona (por nombre),
+  // para que al editar un cargo ya asignado el correo aparezca sin re-tipear.
+  const _pEmail = (edit && edit.personaNombre && BD_PERSONAS[edit.personaNombre]) ? (BD_PERSONAS[edit.personaNombre].mail || BD_PERSONAS[edit.personaNombre].email || '') : '';
   /* V11.5.0: el backdrop ya no cierra el modal (se perdía lo escrito con un
      click accidental); solo Cancelar o guardar. */
   document.getElementById('modalRoot').innerHTML = '<div class="modal-backdrop"><div class="modal" style="max-width:560px;">'
@@ -233,7 +243,7 @@ function cargoAbrirModal(editId) {
     +   '<div class="emp-field" style="margin-bottom:12px;"><label>Perfil de acceso</label><select class="select" id="cg_perfil" data-accion="cargo.perfil" data-on="change">' + _cargoOpcionesPerfil(tipo, edit ? edit.perfil : 'Producción') + '</select>'
     +     '<div id="cg_permGlosario" style="font-size:11px;color:var(--ink-faint);margin-top:8px;line-height:1.5;"><strong>E</strong> = puede editar · <strong>L</strong> = solo lectura · <strong>—</strong> = oculto</div>'
     +     '<div id="cg_permList" style="margin-top:6px;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--ink-secondary);max-height:170px;overflow-y:auto;">Cargando permisos…</div></div>'
-    +   '<div class="emp-field" id="cg_emailWrap" style="display:' + (tipo === 'externo' ? 'block' : 'none') + ';"><label>Correo del externo (para invitarle a colaborar)</label><input class="input" id="cg_email" type="email" placeholder="persona@correo.cl"><span class="hint" style="font-size:11.5px;color:var(--ink-faint);">Opcional. Si lo ingresas, se genera la invitación a este cargo con link copiable.</span></div>'
+    +   '<div class="emp-field" id="cg_emailWrap" style="display:' + (tipo === 'externo' ? 'block' : 'none') + ';"><label>Correo del externo (para invitarle a colaborar)</label><input class="input" id="cg_email" type="email" placeholder="persona@correo.cl" value="' + escapeHtml(_pEmail) + '"><span class="hint" style="font-size:11.5px;color:var(--ink-faint);">Opcional. Si lo ingresas, se genera la invitación a este cargo con link copiable.</span></div>'
     + '</div>'
     + '<div class="modal-footer"><button class="btn" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="cargo.guardar">' + (edit ? 'Guardar cambios' : 'Asignar') + '</button></div>'
     + '</div></div>';
@@ -443,10 +453,12 @@ registrarAcciones('cargo', {
   guardar: function () { cargoGuardarModal(); },
   cbSel: function (a, el) { comboboxSelect(el, a[0]); },
   invitar: function (a, el, ev) { ev.preventDefault(); cargoIrAInvitar(); },
+  agregarBD: function (a) { gancho('openPersonaByName')(a[0]); },   // I11b · un cargo exige que la persona esté en la BD (con mail y teléfono)
 });
 
 // D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
 define('_cargoContactIdPorNombre', _cargoContactIdPorNombre);
+define('_cargoCargarInternos', _cargoCargarInternos);   // I11b · kanban.js decide interno/externo al crear proyecto según los internos reales
 define('_cargosDerivarRECI', _cargosDerivarRECI);
 define('_cargosKey', _cargosKey);
 define('renderCargos', renderCargos);

@@ -48,7 +48,7 @@ function empresaSelectInfoHTML(ip) {
            data-accion="info.vinculoCombo" data-on="focus input blur change">
     <div class="combobox-dropdown" hidden></div>
   </span>
-  <div id="bdwarn-vinculo" style="display:none;align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ Esa empresa no está en la BD: el vínculo no cambió. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" data-accion="info.irBD">+ Agregarla a la BD</button></div>`;
+  <div id="bdwarn-vinculo" style="display:none;align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ Esa empresa no está en la BD: el vínculo no cambió. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" ${accionHTML('info.crearFichaEmpresa', 'vinculo')}>+ Agregarla a la BD</button></div>`;
   let sugg = '';
   if (!cur && ip.cliente) {
     const ids = Object.keys(BD_EMPRESAS_BYID);
@@ -118,6 +118,22 @@ function infoContactoChanged(field, value) {
 }
 function infoVincularEmpresa(id) { updateInfoField('clienteEmpresaId', id); renderInfoProyecto(); }
 
+/* I7 · Servicio como desplegable con opción libre. Servicios por defecto +
+   "Otro (especificar)"; si el proyecto ya traía un servicio que no es de la
+   lista, se muestra como "Otro" con ese texto. (Guardar un "Otro" como servicio
+   por defecto y el reporte anual por servicio van por el flujo de BD, aparte.) */
+const SERVICIOS_DEFAULT = ['Producción', 'Postproducción'];
+function _servicioFieldHTML(ip) {
+  const val = ip.servicio || '';
+  const esOtro = !!val && SERVICIOS_DEFAULT.indexOf(val) === -1;
+  const opts = ['<option value="">— Elige —</option>']
+    .concat(SERVICIOS_DEFAULT.map(s => `<option value="${escapeHtml(s)}" ${val === s ? 'selected' : ''}>${escapeHtml(s)}</option>`))
+    .concat([`<option value="__otro" ${esOtro ? 'selected' : ''}>Otro (especificar)…</option>`])
+    .join('');
+  return `<select class="select" data-accion="info.servicioSel" data-on="change">${opts}</select>
+    <input class="input" id="servicio-otro" style="margin-top:8px;display:${esOtro ? 'block' : 'none'};" value="${escapeHtml(esOtro ? val : '')}" placeholder="Escribe el servicio" ${accionHTML('info.servicioOtro', { on: 'input' })}>`;
+}
+
 export function renderInfoProyecto() {
   const project = STATE.currentProject;
   if (!project) return;
@@ -145,7 +161,7 @@ export function renderInfoProyecto() {
                    data-accion="info.clienteCombo" data-on="focus input blur change">
             <div class="combobox-dropdown" hidden></div>
           </span>
-          <div id="bdwarn-cliente" style="display:${(ip.cliente && ip.cliente.trim() && !BD_EMPRESAS[ip.cliente.trim()]) ? 'flex' : 'none'};align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" data-accion="info.irBD">+ Agregarla a la BD</button></div>
+          <div id="bdwarn-cliente" style="display:${(ip.cliente && ip.cliente.trim() && !BD_EMPRESAS[ip.cliente.trim()]) ? 'flex' : 'none'};align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" ${accionHTML('info.crearFichaEmpresa', 'cliente')}>+ Agregarla a la BD</button></div>
           <div id="cliente-warn" style="display:none; align-items:flex-start; gap:6px; font-size:10.5px; color:var(--warning); background:var(--warning-bg); border-radius:6px; padding:7px 9px; margin-top:6px; line-height:1.45;">
             <span style="flex:0 0 auto;">⚠</span>
             <span>Cambiar el cliente se propaga a todo el sistema y puede romper la coherencia con documentos (cotizaciones, hojas de llamado) ya generados con el nombre anterior.</span>
@@ -163,11 +179,7 @@ export function renderInfoProyecto() {
                    data-accion="info.agenciaCombo" data-on="focus input blur change">
             <div class="combobox-dropdown" hidden></div>
           </span>
-          <div id="bdwarn-agencia" style="display:${(ip.agencia && ip.agencia.trim() && !BD_EMPRESAS[ip.agencia.trim()]) ? 'flex' : 'none'};align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" data-accion="info.irBD">+ Agregarla a la BD</button></div>
-        </div>
-        <div class="field">
-          <label class="field-label">Productora</label>
-          <input class="input" value="${escapeHtml(ip.productora)}" ${accionHTML('info.campo', 'productora', { on: 'input' })}>
+          <div id="bdwarn-agencia" style="display:${(ip.agencia && ip.agencia.trim() && !BD_EMPRESAS[ip.agencia.trim()]) ? 'flex' : 'none'};align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" ${accionHTML('info.crearFichaEmpresa', 'agencia')}>+ Agregarla a la BD</button></div>
         </div>
         <div class="field" style="grid-column: span 2;">
           <label class="field-label">Nombre del proyecto</label>
@@ -175,7 +187,7 @@ export function renderInfoProyecto() {
         </div>
         <div class="field">
           <label class="field-label">Servicio</label>
-          <input class="input" value="${escapeHtml(ip.servicio)}" ${accionHTML('info.campo', 'servicio', { on: 'input' })} placeholder="Ej: Spot + RRSS">
+          ${_servicioFieldHTML(ip)}
         </div>
       </div>
     </div>
@@ -251,20 +263,20 @@ export function renderInfoProyecto() {
         <div class="field">
           <label class="field-label">Productor Ejecutivo <span class="tt" data-tip="R — Responsable final del proyecto.">R</span></label>
           <div class="input" style="background:var(--bg-surface);cursor:default;">${escapeHtml(ip.productorEjecutivo || '—')}</div>
-          ${renderPersonContactSub(peData)}
+          ${renderPersonContactSub(peData, ip.productorEjecutivo)}
         </div>
         <div class="field">
           <label class="field-label">Director <span class="tt" data-tip="E — Ejecutor de la visión creativa.">E</span></label>
           <div class="input" style="background:var(--bg-surface);cursor:default;">${escapeHtml(ip.director || '—')}</div>
-          ${renderPersonContactSub(dirData)}
+          ${renderPersonContactSub(dirData, ip.director)}
         </div>
         <div class="field">
           <label class="field-label">Jefe de Producción <span class="tt" data-tip="E — Ejecutor operacional.">E</span></label>
           <div class="input" style="background:var(--bg-surface);cursor:default;">${escapeHtml(ip.jefeProduccion || '—')}</div>
-          ${renderPersonContactSub(jpData)}
+          ${renderPersonContactSub(jpData, ip.jefeProduccion)}
         </div>
       </div>
-      <div style="margin-top:10px;"><button class="btn btn-secondary btn-sm" data-accion="info.irCargos">Gestionar en Cargos →</button></div>
+      <div style="margin-top:10px;"><button class="btn btn-sm" style="background:var(--warning);border-color:var(--warning);color:#141214;font-weight:600;" data-accion="info.irCargos">Gestionar en Cargos →</button></div>
     </div>
 
     <!-- ESTADO -->
@@ -348,9 +360,13 @@ export function renderInfoProyecto() {
 }
 
 /* Mini-bloque debajo del select de persona: muestra mail y teléfono */
-function renderPersonContactSub(personData) {
-  if (!personData.mail && !personData.telefono) {
-    return `<div class="field-value muted" style="font-size: 11px;">— Sin datos en BD</div>`;
+function renderPersonContactSub(personData, nombre) {
+  const nom = (nombre || '').trim();
+  if (!nom) return '';   // sin responsable asignado: no hay sub-línea
+  // I11b · un responsable debe estar en la BD con correo. Si falta, se ofrece
+  // "Agregar a la BD" (abre su ficha para completar/crear).
+  if (!personData.mail) {
+    return `<div style="margin-top:2px;"><button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;color:var(--warning);" ${accionHTML('info.agregarPersonaBD', nom)} title="Para asignar un responsable, la persona debe estar en la BD con mail y teléfono.">+ Agregar a la BD</button></div>`;
   }
   return `
     <div style="font-size: 11px; color: var(--ink-muted); line-height: 1.5; margin-top: 2px;">
@@ -557,7 +573,20 @@ registrarAcciones('info', {
     else if (ev.type === 'blur') comboboxCloseDelayed(el);
     else infoVincularEmpresaPorNombre(el.value);
   },
-  irBD: function () { navigateToModule('bd-personas'); },
+  crearFichaEmpresa: function (a) {
+    // I1a · crear la empresa desde el nombre escrito y abrir su ficha inline
+    // (editor), sin salir de Info Proyecto. rol: 'cliente' | 'agencia' | 'vinculo'.
+    const rol = a[0];
+    const ip = STATE.currentProject && STATE.currentProject.data ? STATE.currentProject.data.infoProyecto : null;
+    if (!ip) return;
+    let nombre = '';
+    if (rol === 'agencia') nombre = String(ip.agencia || '').trim();
+    else if (rol === 'vinculo') { const el = document.querySelector('input[data-emp-add="1"]'); nombre = el ? String(el.value || '').trim() : ''; }
+    else nombre = String(ip.cliente || '').trim();
+    if (!nombre) { showToast({ kind: 'warning', title: 'Falta el nombre', body: 'Escribe primero el nombre de la empresa en el campo.' }); return; }
+    const eid = gancho('crearEmpresaYEditar')(nombre, rol === 'agencia' ? 'agencia' : 'cliente');
+    if (eid && rol !== 'agencia') updateInfoField('clienteEmpresaId', eid);   // vincular la empresa cliente al proyecto
+  },
   vincular: function (a) { infoVincularEmpresa(a[0]); },
   clienteCombo: function (a, el, ev) {
     var w = document.getElementById('cliente-warn');
@@ -579,9 +608,16 @@ registrarAcciones('info', {
     else infoContactoChanged(a[0], el.value);
   },
   campo: function (a, el) { updateInfoField(a[0], el.value); },
+  servicioSel: function (a, el) {
+    const otro = document.getElementById('servicio-otro');
+    if (el.value === '__otro') { updateInfoField('servicio', ''); if (otro) { otro.value = ''; otro.style.display = 'block'; otro.focus(); } }
+    else { if (otro) { otro.value = ''; otro.style.display = 'none'; } updateInfoField('servicio', el.value); }
+  },
+  servicioOtro: function (a, el) { updateInfoField('servicio', el.value); },
   nombre: function (a, el) { updateInfoField('nombreProyecto', el.value); updateProjectHeader(); },
   derechos: function (a, el) { updateDerechos(a[0], el.value); },
   irCargos: function () { navigateToModule('cargos'); },
+  agregarPersonaBD: function (a) { gancho('openPersonaByName')(a[0]); },   // I11b · abre la ficha de la persona para completar/crear (un responsable debe estar en la BD)
   estado: function (a, el) { gancho('updateProjectState')(el.value); },
   borrarProy: function (a) { deleteProjectFlow(a[0]); },
   restaurar: function (a) { restoreFromTrash(a[0]); },

@@ -411,6 +411,27 @@ function empresaAddContacto(empId, nombre) {
   showToast({ kind: 'success', title: 'Contacto vinculado', body: escapeHtml(nombre) + ' quedó asociado a la empresa.' });
   openEmpresaEdit(empId);
 }
+/* I1a · crear (o reutilizar) una empresa por nombre + rol y abrir su ficha
+   (editor) ahí mismo. Lo usa Info Proyecto: el botón "+ Agregar a la BD" del
+   aviso crea la empresa y abre el editor para completar sus datos, sin sacar al
+   usuario del módulo. Devuelve el id de la empresa. */
+function crearEmpresaYEditar(nombre, rol) {
+  nombre = _normNameBD((nombre || '').trim());
+  if (!nombre) { showToast({ kind: 'error', title: 'Falta el nombre', body: 'Escribe el nombre de la empresa antes de agregarla.' }); return null; }
+  const rolCap = (String(rol || '').toLowerCase() === 'agencia') ? 'Agencia' : 'Cliente';
+  const existente = BD_EMPRESAS[nombre];
+  let eid;
+  if (existente && existente._id && BD_EMPRESAS_BYID[existente._id]) {
+    eid = existente._id;   // ya existe: se abre su ficha tal cual
+  } else {
+    eid = _genId('emp', BD_EMPRESAS_BYID);
+    BD_EMPRESAS_BYID[eid] = { id: eid, nombreFantasia: nombre, rutEmpresa: '', razonSocial: '', tipo: rolCap, giroSII: '', giroInformal: '', contactoPrincipal: '', contactoPrincipalId: '', emailContacto: '', telefonoContacto: '', web: '', notas: '' };
+    syncLegacyFromContactos(); autosaveNow(); dalGuardarEmpresa(BD_EMPRESAS_BYID[eid]);
+    showToast({ kind: 'success', title: 'Empresa creada', body: escapeHtml(nombre) + ' se agregó a la BD. Completa sus datos.' });
+  }
+  openEmpresaEdit(eid);
+  return eid;
+}
 function openEmpresaEdit(empId) {
   const e = BD_EMPRESAS_BYID[empId]; if (!e) { showToast({ kind: 'error', title: 'No encontrada', body: 'No se encontró la empresa.' }); return; }
   if (!e.dueno || typeof e.dueno !== 'object') e.dueno = { nombre: '', telefono: '', email: '' };
@@ -918,7 +939,7 @@ function openPersonaForm(mode, contactId) {
             ${_pfField('Nombre completo *', 'pf_nombre', src.nombre, { placeholder: 'Nombre y apellido', span: 2 })}
             ${_pfField('RUT', 'pf_rut', src.rut, { placeholder: '12.345.678-9' })}
             ${_pfField('Teléfono', 'pf_tel', src.telefono, { placeholder: '+56 9 …' })}
-            ${_pfField('Email', 'pf_email', src.email, { placeholder: 'correo@dominio.cl', type: 'email', span: 2 })}
+            ${_pfField('Email *', 'pf_email', src.email, { placeholder: 'correo@dominio.cl', type: 'email', span: 2 })}
 
             ${_pfHeader('Clasificación')}
             <div class="field" style="grid-column: 1 / -1;">
@@ -1038,6 +1059,12 @@ function submitPersonaForm(mode, contactId) {
     showToast({ kind: 'warning', title: 'Falta el nombre', body: 'El nombre completo es obligatorio.' });
     return;
   }
+  // El mínimo para guardar una persona es nombre + correo: sin correo no se puede
+  // invitar ni asignarla bien a un cargo (quedaría el correo del cargo en blanco).
+  if (!val('pf_email').trim()) {
+    showToast({ kind: 'warning', title: 'Falta el correo', body: 'El correo es obligatorio para guardar a una persona (se usa para invitaciones y para asignarla a un cargo).' });
+    return;
+  }
   // En creación, evitamos un duplicado exacto de nombre (las proyecciones
   // de la UI son por nombre). En edición se permite mantener/cambiar el nombre.
   if (!isEdit && BD_PERSONAS[nombre]) {
@@ -1114,6 +1141,8 @@ function submitPersonaForm(mode, contactId) {
   });
   if (STATE.currentModule === 'bd-personas') {
     renderBDPersonas();
+  } else if (STATE.currentModule) {
+    renderModule(STATE.currentModule);   // p.ej. si se agregó desde Cargos, refresca para que reaparezca "Cambiar" con el correo listo
   }
 }
 
@@ -1172,7 +1201,7 @@ registrarAcciones('bd', {
     else empresaAddContacto(a[0], el.value);
   },
   archivarEmp: function (a) { archivarEmpresaModal(a[0]); },
-  listo: function () { closeModal(); renderBDPersonas(); },
+  listo: function () { closeModal(); if (STATE.currentModule === 'bd-personas') renderBDPersonas(); else if (STATE.currentModule) renderModule(STATE.currentModule); },
   expandir: function (a) { togglePersonExpand(a[0]); },
   editPersona: function (a) { requestEditPersona(a[0]); },
   restaurarArch: function (a) { var f = { restaurarContactoBD: restaurarContactoBD, restaurarEmpresaBD: restaurarEmpresaBD, restaurarLocacionBD: restaurarLocacionBD }[a[0]]; if (f) f(a[1]); },
@@ -1188,6 +1217,7 @@ registrarAcciones('bd', {
 
 // D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
 define('crewAddToBD', crewAddToBD);
+define('crearEmpresaYEditar', crearEmpresaYEditar);   // I1a · ficha inline de empresa desde Info Proyecto
 define('openPersonaByName', openPersonaByName);
 define('openPersonaForm', openPersonaForm);
 define('renderBDPersonas', renderBDPersonas);
