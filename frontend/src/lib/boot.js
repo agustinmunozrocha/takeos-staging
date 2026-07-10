@@ -14,7 +14,7 @@ import { applyStoredTheme, setupTooltipListeners, showModal } from './ui.js';
 import { newProject, renderKanban, renderMetrics, navigateToControlRoom } from '../modules/kanban.js';
 import { notifInit, bellToggle, notifMarcarTodas } from '../modules/notificaciones.js';
 import { autosaveNow, markDirty, redoLast, undoLast, importSaveFromInput, importSingleProjectFromInput } from '../modules/persistencia-local.js';
-import { dalBootContactos, dalBootLegal, dalBootLocaciones, dalBootPerfil, dalBootPersonasExternos, dalBootProyectos, dalFlushProyectos, dalLoadPermisos, dalResetOrg, dalResolveIdentidad, dalTouchProyecto } from '../modules/dal.js';
+import { dalBootContactos, dalBootLegal, dalBootLocaciones, dalBootPerfil, dalBootPersonasExternos, dalBootProyectos, dalBootServicios, dalFlushProyectos, dalLoadPermisos, dalResetOrg, dalResolveIdentidad, dalTouchProyecto } from '../modules/dal.js';
 import { openGlobalCFO } from '../modules/gastos.js';
 
 import { registrarAcciones } from './delegacion.js';
@@ -575,7 +575,7 @@ export function arrancarTakeOS() {
      jamás se entra al Control Room (se re-deriva la vista correcta). */
   var _pend = false; try { _pend = !!sessionStorage.getItem('takeos_ir_proyecto'); } catch (e) {}
   if (!_TIENE_EMPRESA && !_pend) { resolverEspacioYArrancar(); return; }
-  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootPersonasExternos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} }).then(function(){ try { gancho('_cpTourInicialQuizas')(); } catch (e) {} }).then(function(){ try { setTimeout(gancho('_pdCookiesBootCheck'), 1200); } catch (e) {} }).catch(function(e){ console.error('[boot] cadena dal interrumpida', e); try { _bootCoverHide(); } catch (_) {} });
+  dalBootTaxRates().then(function(){ return dalBootContactos(); }).then(function(){ return dalResolveIdentidad(); }).then(function(){ return dalLoadPermisos(); }).then(function(){ return dalBootPersonasExternos(); }).then(function(){ return dalBootLocaciones(); }).then(function(){ return dalBootLegal(); }).then(function(){ return dalBootPerfil(); }).then(function(){ return dalBootServicios(); }).then(function(){ return dalBootProyectos(); }).then(function(){ try { notifInit(); } catch (e) {} }).then(function(){ try { gancho('_cpTourInicialQuizas')(); } catch (e) {} }).then(function(){ try { setTimeout(gancho('_pdCookiesBootCheck'), 1200); } catch (e) {} }).catch(function(e){ console.error('[boot] cadena dal interrumpida', e); try { _bootCoverHide(); } catch (_) {} });
 }
 
 // _espIniciales, _espSello, _titleCaseNombre, valor('ESPACIO_DEMO'), _espConstruir, _espCargarConteos → movido a src/modules/espacio.js (Etapa C4)

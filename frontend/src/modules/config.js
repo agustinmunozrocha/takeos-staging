@@ -8,13 +8,13 @@
 // espacio (verificado: renderEspacioUsuario lo consume boot, no config).
 // Hoists: boot 29→24, invitaciones 36→24, perfil-onboarding 29→24 (inertes).
 import { escapeHtml, safeUrl, showToast } from '../lib/helpers.js';
-import { BD_CONTACTOS, EMPRESA_PERFIL, PROJECTS, STATE, setTieneEmpresa, ORG_ID, USER_NOMBRE, USER_APELLIDO, TAKEOS_PERFIL } from '../lib/state.js';
+import { BD_CONTACTOS, EMPRESA_PERFIL, ORG_SERVICIOS, PROJECTS, STATE, setTieneEmpresa, ORG_ID, USER_NOMBRE, USER_APELLIDO, TAKEOS_PERFIL } from '../lib/state.js';
 import { authEsAdmin } from '../lib/auth.js';
 import { fmtMoney } from '../lib/calc.js';
 import { closeModal, getStoredTheme, showModal, slugify, updateThemeButton, toggleTheme } from '../lib/ui.js';
 import { STATES } from './kanban.js';
 import { _empCargarRebinds } from './notificaciones.js';
-import { _dalPerfilSaveSoon, dalCargarCargos } from './dal.js';
+import { _dalPerfilSaveSoon, dalCargarCargos, dalGuardarServicio, dalBorrarServicio, dalRenombrarServicio } from './dal.js';
 import { markDirty } from './persistencia-local.js';
 import { _rutValido, abrirPerfilUsuario } from './perfil-onboarding.js';
 import { PERFIL_NOMBRE_POR_CODIGO, _invMostrarResultado, dalInvitar, invitacionLink } from './invitaciones.js';
@@ -150,6 +150,7 @@ export function openEmpresaPerfil(subInicial) {
             ${esAdmin ? `<button class="btn btn-ghost btn-sm" id="empTabdatos" ${datosOK ? accionHTML('cfg.fn', '_empShowSub', 'datos') : accionHTML('cfg.fn', '_empDatosConClave')}>Datos de la empresa${datosOK ? '' : ' 🔒'}</button>` : ''}
             <button class="btn btn-ghost btn-sm" id="empTabequipo" data-accion="cfg.fn" data-args="[&quot;_empShowSub&quot;,&quot;equipo&quot;]">Equipo</button>
             <button class="btn btn-ghost btn-sm" id="empTabdiseno" data-accion="cfg.fn" data-args="[&quot;_empShowSub&quot;,&quot;diseno&quot;]">Diseño</button>
+            <button class="btn btn-ghost btn-sm" id="empTabservicios" data-accion="cfg.fn" data-args="[&quot;_empShowSub&quot;,&quot;servicios&quot;]">Servicios</button>
           </div>
           ${datosOK ? `<div id="empSubDatos">
           <p style="margin:0 0 14px;color:var(--ink-secondary);font-size:13px;line-height:1.5;">Estos datos se usan como <strong>empresa emisora</strong> en los documentos (hojas de llamado, plan de rodaje, cotizaciones y, a futuro, contratos). Quedan guardados con el OS.</p>
@@ -235,6 +236,14 @@ export function openEmpresaPerfil(subInicial) {
               <button class="btn btn-sm" data-accion="cfg.fn" data-args="[&quot;_empTipoAgregar&quot;]">+ Agregar tipografía</button>
             </div>` : ''}
           </div>
+          <div id="empSubServicios" style="display:none;">
+            <p style="margin:0 0 14px;color:var(--ink-secondary);font-size:13px;line-height:1.5;">Los servicios que ofrece tu productora. Cada proyecto elige uno en <strong>Info Proyecto</strong> (y a futuro alimentan el reporte por tipo de servicio).${esAdmin ? '' : ' Editar es facultad del Administrador.'}</p>
+            <div id="empServiciosLista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+            ${esAdmin ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input class="cot-input" id="empServicioNombre" placeholder="Nombre del servicio (ej. Dirección de Fotografía)" style="flex:1;min-width:220px;" data-accion="cfg.enter" data-args="[&quot;_empServicioAgregar&quot;]" data-on="keydown">
+              <button class="btn btn-sm" data-accion="cfg.fn" data-args="[&quot;_empServicioAgregar&quot;]">+ Agregar servicio</button>
+            </div>` : ''}
+          </div>
         </div>
         <div class="modal-footer"><button class="btn" data-accion="cfg.volver">Volver</button>${datosOK ? `<button class="btn btn-primary" data-accion="cfg.fn" data-args="[&quot;saveEmpresaPerfil&quot;]">Guardar perfil</button>` : ''}</div>
       </div>
@@ -244,6 +253,77 @@ export function openEmpresaPerfil(subInicial) {
   try { _empCargarRebinds(); } catch (e) {}
   try { _empLogoRefresh(); } catch (e) {}
   try { _empDisenoRefresh(); } catch (e) {}
+  try { _empServiciosRefresh(); } catch (e) {}
+}
+/* Pestaña Servicios del perfil de empresa: catálogo editable (solo Administrador
+   por RLS). Alimenta el desplegable "Servicio" de Info Proyecto. */
+function _empServiciosRefresh() {
+  const box = document.getElementById('empServiciosLista'); if (!box) return;
+  const esAdmin = _puedeModoAdmin();
+  const items = ORG_SERVICIOS.slice().sort(function (a, b) { return (a.orden || 0) - (b.orden || 0); });
+  if (!items.length) { box.innerHTML = '<div style="font-size:13px;color:var(--ink-faint);">Aún no hay servicios. Agrega el primero abajo.</div>'; return; }
+  box.innerHTML = items.map(function (s) {
+    return '<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;">'
+      + (esAdmin
+          ? '<input class="cot-input" style="flex:1;" id="svc-in-' + escapeHtml(s.id) + '" value="' + escapeHtml(s.nombre) + '" data-orig="' + escapeHtml(s.nombre) + '" ' + accionHTML('cfg.servicioEdit', s.id, { on: 'input' }) + '>'
+            + '<button class="btn btn-primary btn-sm" id="svc-save-' + escapeHtml(s.id) + '" style="display:none;" ' + accionHTML('cfg.servicioGuardar', s.id) + '>Guardar</button>'
+            + '<button class="btn btn-ghost btn-sm" ' + accionHTML('cfg.servicioDel', s.id, s.nombre) + ' title="Quitar servicio">Quitar</button>'
+          : '<div style="flex:1;font-size:13px;color:var(--ink-secondary);">' + escapeHtml(s.nombre) + '</div>')
+      + '</div>';
+  }).join('');
+}
+function _empServicioAgregar() {
+  const el = document.getElementById('empServicioNombre'); if (!el) return;
+  const nombre = String(el.value || '').trim(); if (!nombre) return;
+  if (ORG_SERVICIOS.some(function (s) { return String(s.nombre).toLowerCase() === nombre.toLowerCase(); })) { showToast({ kind: 'info', title: 'Ya existe', body: 'Ese servicio ya está en la lista.' }); return; }
+  dalGuardarServicio({ nombre: nombre, orden: ORG_SERVICIOS.length }).then(function (r) {
+    if (r && r.ok) { ORG_SERVICIOS.push({ id: r.id, nombre: nombre, orden: ORG_SERVICIOS.length }); el.value = ''; _empServiciosRefresh(); showToast({ kind: 'success', title: 'Servicio agregado', body: '«' + nombre + '» quedó en tus servicios.' }); }
+  });
+}
+/* Renombrar tiene fricción: aparece "Guardar" al editar, y al guardar se avisa
+   que TODOS los proyectos con ese servicio se renombran (coherencia del reporte).
+   El RPC renombra + propaga a los proyectos, atómico. */
+function _empServicioEditToggle(id, el) {
+  const btn = document.getElementById('svc-save-' + id); if (!btn) return;
+  const v = String(el.value || '').trim();
+  btn.style.display = (v && v !== (el.dataset.orig || '')) ? '' : 'none';
+}
+function _empServicioGuardarNombre(id) {
+  const inp = document.getElementById('svc-in-' + id); if (!inp) return;
+  const nombre = String(inp.value || '').trim();
+  const s = ORG_SERVICIOS.find(function (x) { return x.id === id; });
+  if (!s) return;
+  if (!nombre || nombre === s.nombre) { _empServiciosRefresh(); return; }
+  if (ORG_SERVICIOS.some(function (x) { return x.id !== id && String(x.nombre).toLowerCase() === nombre.toLowerCase(); })) { showToast({ kind: 'warning', title: 'Ya existe', body: 'Ya tienes un servicio con ese nombre.' }); return; }
+  const old = s.nombre;
+  const nProy = PROJECTS.filter(function (p) { return p && p.data && p.data.infoProyecto && p.data.infoProyecto.servicio === old; }).length;
+  showModal({
+    title: 'Renombrar servicio', danger: true,
+    body: 'Vas a renombrar «<b>' + escapeHtml(old) + '</b>» a «<b>' + escapeHtml(nombre) + '</b>».<br><br>Se actualizarán <b>' + nProy + ' proyecto(s)</b> que hoy usan «' + escapeHtml(old) + '»: su servicio pasará al nombre nuevo. Esto mantiene la coherencia para el reporte por tipo de servicio.',
+    confirmLabel: 'Sí, renombrar', cancelLabel: 'Cancelar',
+    onConfirm: function () {
+      dalRenombrarServicio(id, nombre).then(function (r) {
+        if (r && r.ok) {
+          s.nombre = nombre;
+          PROJECTS.forEach(function (p) { if (p && p.data && p.data.infoProyecto && p.data.infoProyecto.servicio === old) p.data.infoProyecto.servicio = nombre; });
+          _empServiciosRefresh();
+          showToast({ kind: 'success', title: 'Servicio renombrado', body: (r.count != null ? r.count : nProy) + ' proyecto(s) actualizados.' });
+        } else { _empServiciosRefresh(); }
+      });
+    }
+  });
+}
+function _empServicioBorrar(id, nombre) {
+  showModal({
+    title: 'Quitar servicio', danger: true,
+    body: '¿Quitar «' + escapeHtml(nombre || '') + '» de tus servicios? Los proyectos que ya lo tengan conservan su texto.',
+    confirmLabel: 'Quitar', cancelLabel: 'Cancelar',
+    onConfirm: function () {
+      dalBorrarServicio(id).then(function (r) {
+        if (r && r.ok) { const i = ORG_SERVICIOS.findIndex(function (x) { return x.id === id; }); if (i >= 0) ORG_SERVICIOS.splice(i, 1); _empServiciosRefresh(); showToast({ kind: 'success', title: 'Servicio quitado', body: '«' + (nombre || '') + '» ya no está en la lista.' }); }
+      });
+    }
+  });
 }
 function saveEmpresaPerfil() {
   const keys = ['nombreFicticio','razonSocial','rut','giro','direccion','comuna','ciudad','telefono','email','web','representante','repRut','repTelefono','repEmail','bancoNombre','bancoTipoCuenta','bancoNumero','bancoTitular','bancoRut','bancoEmailPagos','driveLink','milanoteLink','googleCalendarId','usaChipax','linkFormularioPago'];
@@ -255,7 +335,7 @@ function saveEmpresaPerfil() {
 
 /* ═══ V11.2.0 · Configuración de la productora: subtabs, equipo y diseño ═══ */
 export function _empShowSub(k) {
-  var map = { datos: 'empSubDatos', equipo: 'empSubEquipo', diseno: 'empSubDiseno' };
+  var map = { datos: 'empSubDatos', equipo: 'empSubEquipo', diseno: 'empSubDiseno', servicios: 'empSubServicios' };
   Object.keys(map).forEach(function (key) {
     var el = document.getElementById(map[key]); if (el) el.style.display = (key === k) ? '' : 'none';
     var btn = document.getElementById('empTab' + key);
@@ -2131,6 +2211,7 @@ var _CFG_FN = {
   _empCancelarInvitacion: _empCancelarInvitacion, _empLogoDescargar: _empLogoDescargar, _empLogoPrincipal: _empLogoPrincipal,
   _empLogoQuitar: _empLogoQuitar, _empColorCopiar: _empColorCopiar, _empColorQuitar: _empColorQuitar,
   _empTipoQuitar: _empTipoQuitar, saveEmpresaPerfil: saveEmpresaPerfil,
+  _empServicioAgregar: _empServicioAgregar,
   _cpCerrar: _cpCerrar, _cpAtras: _cpAtras, _cpSiguiente: _cpSiguiente, _cpGuardarDatos: _cpGuardarDatos,
   _cpAceptarTerminos: _cpAceptarTerminos, _cpCrearProductora: _cpCrearProductora, _cpEntrarProductora: _cpEntrarProductora,
   _cpTourCerrar: _cpTourCerrar, _cpTourPrev: _cpTourPrev, _cpTourNext: _cpTourNext,
@@ -2143,6 +2224,9 @@ var _CFG_FN = {
 registrarAcciones('cfg', {
   fn: function (a) { var f = _CFG_FN[a[0]]; if (f) f.apply(null, a.slice(1)); else console.error('[cfg] fn sin mapear:', a[0]); },
   volver: function () { openConfigPanel(); },
+  servicioEdit: function (a, el) { _empServicioEditToggle(a[0], el); },
+  servicioGuardar: function (a) { _empServicioGuardarNombre(a[0]); },
+  servicioDel: function (a) { _empServicioBorrar(a[0], a[1]); },
   guardarOS: function () { closeConfigPanel(); gancho('exportSave')(); },
   cargarOS: function () { closeConfigPanel(); document.getElementById('loadFileInput').click(); },
   bd: function () { closeConfigPanel(); openGlobalBDPersonas(); },

@@ -14,7 +14,7 @@
 // kanban (5), bd (2), cargos (3), gastos (goSavePresup), legal (renderLegal),
 // locaciones (2).
 import { escapeHtml, showToast } from '../lib/helpers.js';
-import { BD_CONTACTOS, BD_EMPRESAS_BYID, BD_LEGAL, BD_LEGAL_TPL, BD_LOC, EMPRESA_PERFIL, PROJECTS, STATE, setUsuarioActual, setTopeColab, setTopeColabOrg, setSource, setTakeosPerfil, setTakeosAcceso, ORG_ID, CONTACTS_SOURCE, LEGAL_SOURCE, LOCATIONS_SOURCE, PERFIL_SOURCE, PROJECTS_SOURCE, TAKEOS_PERFIL, _TOPE_COLAB, _TOPE_COLAB_ORG } from '../lib/state.js';
+import { BD_CONTACTOS, BD_EMPRESAS_BYID, BD_LEGAL, BD_LEGAL_TPL, BD_LOC, EMPRESA_PERFIL, ORG_SERVICIOS, PROJECTS, STATE, setUsuarioActual, setTopeColab, setTopeColabOrg, setSource, setTakeosPerfil, setTakeosAcceso, ORG_ID, CONTACTS_SOURCE, LEGAL_SOURCE, LOCATIONS_SOURCE, PERFIL_SOURCE, PROJECTS_SOURCE, TAKEOS_PERFIL, _TOPE_COLAB, _TOPE_COLAB_ORG } from '../lib/state.js';
 import { _clearStore, _clientUuid, buildDefaultProjectData, syncLegacyFromContactos } from '../lib/modelo.js';
 import { BANCOS_CHILE, DTE_LABEL } from '../lib/data.js';
 import { _authBlockWriteToast, authPuedeGuardarOperaciones, authPuedeGuardarProyecto } from '../lib/auth.js';
@@ -243,6 +243,72 @@ export async function dalBootContactos() {
   /* V10.5.1: notificación de boot de migración removida (obsoleta). */
   window.__TAKEOS_DATA_SOURCE = 'supabase';
   return true;
+}
+
+/* ── Catálogo de servicios de la productora (organization_services) ──
+   Lista propia de la org, editable en el perfil de empresa (solo Administrador
+   por RLS). Alimenta el desplegable "Servicio" de Info Proyecto. */
+export async function dalBootServicios() {
+  if (!sb || !ORG_ID) return false;
+  const _ep = _dalEpoca();
+  try {
+    const { data, error } = await sb.from('organization_services')
+      .select('id,nombre,orden').is('deleted_at', null)
+      .eq('organization_id', ORG_ID).order('orden', { ascending: true });
+    if (_ep !== _dalEpoca()) return false;   // la org cambió durante la carga
+    if (error) { console.warn('[dal] organization_services no disponible', error); return false; }
+    ORG_SERVICIOS.length = 0;
+    (data || []).forEach(function (r) { ORG_SERVICIOS.push({ id: r.id, nombre: r.nombre, orden: r.orden }); });
+    return true;
+  } catch (e) { console.warn('[dal] boot servicios', e); return false; }
+}
+export async function dalGuardarServicio(s) {
+  if (!sb || !ORG_ID || !s || !String(s.nombre || '').trim()) return { ok: false };
+  const uid = DAL_SESSION_UID || null;
+  const nombre = String(s.nombre).trim();
+  try {
+    if (s.id) {
+      const { error } = await sb.from('organization_services')
+        .update({ nombre: nombre, orden: s.orden || 0, updated_at: new Date().toISOString(), updated_by: uid }).eq('id', s.id);
+      if (error) throw error;
+      return { ok: true, id: s.id };
+    }
+    const { data, error } = await sb.from('organization_services')
+      .insert({ organization_id: ORG_ID, nombre: nombre, orden: s.orden || 0, created_by: uid, updated_by: uid })
+      .select('id').single();
+    if (error) throw error;
+    return { ok: true, id: data && data.id };
+  } catch (e) {
+    console.error('[dal] guardar servicio', e);
+    try { showToast({ kind: 'warning', title: 'Servicio sin guardar', body: (e && e.message) ? String(e.message) : 'Reintenta.' }); } catch (x) {}
+    return { ok: false, error: e };
+  }
+}
+export async function dalRenombrarServicio(id, nombre) {
+  // Renombra el servicio y propaga el nuevo nombre a los proyectos que lo usan
+  // (RPC atómico, solo Administrador). Devuelve la cantidad de proyectos tocados.
+  if (!sb || !id) return { ok: false };
+  try {
+    const { data, error } = await sb.rpc('renombrar_servicio', { p_id: id, p_nombre: String(nombre || '').trim() });
+    if (error) throw error;
+    return { ok: true, count: (typeof data === 'number' ? data : null) };
+  } catch (e) {
+    console.error('[dal] renombrar servicio', e);
+    try { showToast({ kind: 'warning', title: 'No se pudo renombrar', body: (e && e.message) ? String(e.message) : 'Reintenta.' }); } catch (x) {}
+    return { ok: false, error: e };
+  }
+}
+export async function dalBorrarServicio(id) {
+  if (!sb || !id) return { ok: false };
+  try {
+    const { error } = await sb.from('organization_services').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+    return { ok: true };
+  } catch (e) {
+    console.error('[dal] borrar servicio', e);
+    try { showToast({ kind: 'warning', title: 'Servicio sin borrar', body: (e && e.message) ? String(e.message) : 'Reintenta.' }); } catch (x) {}
+    return { ok: false, error: e };
+  }
 }
 
 /* V11.16.0 · Plan G §4 · Lente de personas para externos.
