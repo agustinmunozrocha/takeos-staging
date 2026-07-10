@@ -363,9 +363,9 @@ export function renderInfoProyecto() {
 function renderPersonContactSub(personData, nombre) {
   const nom = (nombre || '').trim();
   if (!nom) return '';   // sin responsable asignado: no hay sub-línea
-  // I11b · un responsable debe estar en la BD con mail y teléfono. Si falta,
-  // se ofrece "Agregar a la BD" (abre su ficha para completar/crear).
-  if (!personData.mail || !personData.telefono) {
+  // I11b · un responsable debe estar en la BD con correo. Si falta, se ofrece
+  // "Agregar a la BD" (abre su ficha para completar/crear).
+  if (!personData.mail) {
     return `<div style="margin-top:2px;"><button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;color:var(--warning);" ${accionHTML('info.agregarPersonaBD', nom)} title="Para asignar un responsable, la persona debe estar en la BD con mail y teléfono.">+ Agregar a la BD</button></div>`;
   }
   return `

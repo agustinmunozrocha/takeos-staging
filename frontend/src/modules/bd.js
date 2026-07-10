@@ -939,7 +939,7 @@ function openPersonaForm(mode, contactId) {
             ${_pfField('Nombre completo *', 'pf_nombre', src.nombre, { placeholder: 'Nombre y apellido', span: 2 })}
             ${_pfField('RUT', 'pf_rut', src.rut, { placeholder: '12.345.678-9' })}
             ${_pfField('Teléfono', 'pf_tel', src.telefono, { placeholder: '+56 9 …' })}
-            ${_pfField('Email', 'pf_email', src.email, { placeholder: 'correo@dominio.cl', type: 'email', span: 2 })}
+            ${_pfField('Email *', 'pf_email', src.email, { placeholder: 'correo@dominio.cl', type: 'email', span: 2 })}
 
             ${_pfHeader('Clasificación')}
             <div class="field" style="grid-column: 1 / -1;">
@@ -1059,6 +1059,12 @@ function submitPersonaForm(mode, contactId) {
     showToast({ kind: 'warning', title: 'Falta el nombre', body: 'El nombre completo es obligatorio.' });
     return;
   }
+  // El mínimo para guardar una persona es nombre + correo: sin correo no se puede
+  // invitar ni asignarla bien a un cargo (quedaría el correo del cargo en blanco).
+  if (!val('pf_email').trim()) {
+    showToast({ kind: 'warning', title: 'Falta el correo', body: 'El correo es obligatorio para guardar a una persona (se usa para invitaciones y para asignarla a un cargo).' });
+    return;
+  }
   // En creación, evitamos un duplicado exacto de nombre (las proyecciones
   // de la UI son por nombre). En edición se permite mantener/cambiar el nombre.
   if (!isEdit && BD_PERSONAS[nombre]) {
@@ -1135,6 +1141,8 @@ function submitPersonaForm(mode, contactId) {
   });
   if (STATE.currentModule === 'bd-personas') {
     renderBDPersonas();
+  } else if (STATE.currentModule) {
+    renderModule(STATE.currentModule);   // p.ej. si se agregó desde Cargos, refresca para que reaparezca "Cambiar" con el correo listo
   }
 }
 
