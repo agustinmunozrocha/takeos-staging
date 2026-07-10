@@ -411,6 +411,27 @@ function empresaAddContacto(empId, nombre) {
   showToast({ kind: 'success', title: 'Contacto vinculado', body: escapeHtml(nombre) + ' quedó asociado a la empresa.' });
   openEmpresaEdit(empId);
 }
+/* I1a · crear (o reutilizar) una empresa por nombre + rol y abrir su ficha
+   (editor) ahí mismo. Lo usa Info Proyecto: el botón "+ Agregar a la BD" del
+   aviso crea la empresa y abre el editor para completar sus datos, sin sacar al
+   usuario del módulo. Devuelve el id de la empresa. */
+function crearEmpresaYEditar(nombre, rol) {
+  nombre = _normNameBD((nombre || '').trim());
+  if (!nombre) { showToast({ kind: 'error', title: 'Falta el nombre', body: 'Escribe el nombre de la empresa antes de agregarla.' }); return null; }
+  const rolCap = (String(rol || '').toLowerCase() === 'agencia') ? 'Agencia' : 'Cliente';
+  const existente = BD_EMPRESAS[nombre];
+  let eid;
+  if (existente && existente._id && BD_EMPRESAS_BYID[existente._id]) {
+    eid = existente._id;   // ya existe: se abre su ficha tal cual
+  } else {
+    eid = _genId('emp', BD_EMPRESAS_BYID);
+    BD_EMPRESAS_BYID[eid] = { id: eid, nombreFantasia: nombre, rutEmpresa: '', razonSocial: '', tipo: rolCap, giroSII: '', giroInformal: '', contactoPrincipal: '', contactoPrincipalId: '', emailContacto: '', telefonoContacto: '', web: '', notas: '' };
+    syncLegacyFromContactos(); autosaveNow(); dalGuardarEmpresa(BD_EMPRESAS_BYID[eid]);
+    showToast({ kind: 'success', title: 'Empresa creada', body: escapeHtml(nombre) + ' se agregó a la BD. Completa sus datos.' });
+  }
+  openEmpresaEdit(eid);
+  return eid;
+}
 function openEmpresaEdit(empId) {
   const e = BD_EMPRESAS_BYID[empId]; if (!e) { showToast({ kind: 'error', title: 'No encontrada', body: 'No se encontró la empresa.' }); return; }
   if (!e.dueno || typeof e.dueno !== 'object') e.dueno = { nombre: '', telefono: '', email: '' };
@@ -1172,7 +1193,7 @@ registrarAcciones('bd', {
     else empresaAddContacto(a[0], el.value);
   },
   archivarEmp: function (a) { archivarEmpresaModal(a[0]); },
-  listo: function () { closeModal(); renderBDPersonas(); },
+  listo: function () { closeModal(); if (STATE.currentModule === 'bd-personas') renderBDPersonas(); else if (STATE.currentModule) renderModule(STATE.currentModule); },
   expandir: function (a) { togglePersonExpand(a[0]); },
   editPersona: function (a) { requestEditPersona(a[0]); },
   restaurarArch: function (a) { var f = { restaurarContactoBD: restaurarContactoBD, restaurarEmpresaBD: restaurarEmpresaBD, restaurarLocacionBD: restaurarLocacionBD }[a[0]]; if (f) f(a[1]); },
@@ -1188,6 +1209,7 @@ registrarAcciones('bd', {
 
 // D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
 define('crewAddToBD', crewAddToBD);
+define('crearEmpresaYEditar', crearEmpresaYEditar);   // I1a · ficha inline de empresa desde Info Proyecto
 define('openPersonaByName', openPersonaByName);
 define('openPersonaForm', openPersonaForm);
 define('renderBDPersonas', renderBDPersonas);

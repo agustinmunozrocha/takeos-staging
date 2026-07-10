@@ -48,7 +48,7 @@ function empresaSelectInfoHTML(ip) {
            data-accion="info.vinculoCombo" data-on="focus input blur change">
     <div class="combobox-dropdown" hidden></div>
   </span>
-  <div id="bdwarn-vinculo" style="display:none;align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ Esa empresa no está en la BD: el vínculo no cambió. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" data-accion="info.irBD">+ Agregarla a la BD</button></div>`;
+  <div id="bdwarn-vinculo" style="display:none;align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ Esa empresa no está en la BD: el vínculo no cambió. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" ${accionHTML('info.crearFichaEmpresa', 'vinculo')}>+ Agregarla a la BD</button></div>`;
   let sugg = '';
   if (!cur && ip.cliente) {
     const ids = Object.keys(BD_EMPRESAS_BYID);
@@ -161,7 +161,7 @@ export function renderInfoProyecto() {
                    data-accion="info.clienteCombo" data-on="focus input blur change">
             <div class="combobox-dropdown" hidden></div>
           </span>
-          <div id="bdwarn-cliente" style="display:${(ip.cliente && ip.cliente.trim() && !BD_EMPRESAS[ip.cliente.trim()]) ? 'flex' : 'none'};align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" data-accion="info.irBD">+ Agregarla a la BD</button></div>
+          <div id="bdwarn-cliente" style="display:${(ip.cliente && ip.cliente.trim() && !BD_EMPRESAS[ip.cliente.trim()]) ? 'flex' : 'none'};align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" ${accionHTML('info.crearFichaEmpresa', 'cliente')}>+ Agregarla a la BD</button></div>
           <div id="cliente-warn" style="display:none; align-items:flex-start; gap:6px; font-size:10.5px; color:var(--warning); background:var(--warning-bg); border-radius:6px; padding:7px 9px; margin-top:6px; line-height:1.45;">
             <span style="flex:0 0 auto;">⚠</span>
             <span>Cambiar el cliente se propaga a todo el sistema y puede romper la coherencia con documentos (cotizaciones, hojas de llamado) ya generados con el nombre anterior.</span>
@@ -179,7 +179,7 @@ export function renderInfoProyecto() {
                    data-accion="info.agenciaCombo" data-on="focus input blur change">
             <div class="combobox-dropdown" hidden></div>
           </span>
-          <div id="bdwarn-agencia" style="display:${(ip.agencia && ip.agencia.trim() && !BD_EMPRESAS[ip.agencia.trim()]) ? 'flex' : 'none'};align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" data-accion="info.irBD">+ Agregarla a la BD</button></div>
+          <div id="bdwarn-agencia" style="display:${(ip.agencia && ip.agencia.trim() && !BD_EMPRESAS[ip.agencia.trim()]) ? 'flex' : 'none'};align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" ${accionHTML('info.crearFichaEmpresa', 'agencia')}>+ Agregarla a la BD</button></div>
         </div>
         <div class="field" style="grid-column: span 2;">
           <label class="field-label">Nombre del proyecto</label>
@@ -569,7 +569,20 @@ registrarAcciones('info', {
     else if (ev.type === 'blur') comboboxCloseDelayed(el);
     else infoVincularEmpresaPorNombre(el.value);
   },
-  irBD: function () { navigateToModule('bd-personas'); },
+  crearFichaEmpresa: function (a) {
+    // I1a · crear la empresa desde el nombre escrito y abrir su ficha inline
+    // (editor), sin salir de Info Proyecto. rol: 'cliente' | 'agencia' | 'vinculo'.
+    const rol = a[0];
+    const ip = STATE.currentProject && STATE.currentProject.data ? STATE.currentProject.data.infoProyecto : null;
+    if (!ip) return;
+    let nombre = '';
+    if (rol === 'agencia') nombre = String(ip.agencia || '').trim();
+    else if (rol === 'vinculo') { const el = document.querySelector('input[data-emp-add="1"]'); nombre = el ? String(el.value || '').trim() : ''; }
+    else nombre = String(ip.cliente || '').trim();
+    if (!nombre) { showToast({ kind: 'warning', title: 'Falta el nombre', body: 'Escribe primero el nombre de la empresa en el campo.' }); return; }
+    const eid = gancho('crearEmpresaYEditar')(nombre, rol === 'agencia' ? 'agencia' : 'cliente');
+    if (eid && rol !== 'agencia') updateInfoField('clienteEmpresaId', eid);   // vincular la empresa cliente al proyecto
+  },
   vincular: function (a) { infoVincularEmpresa(a[0]); },
   clienteCombo: function (a, el, ev) {
     var w = document.getElementById('cliente-warn');
