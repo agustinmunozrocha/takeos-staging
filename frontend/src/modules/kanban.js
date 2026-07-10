@@ -292,7 +292,9 @@ export async function newProject() {
       // Cada rol nace con su perfil de acceso por defecto (evita un cargo sin
       // nivel de permisos). Ninguno es Administrador/Finanzas, así que también
       // vale para externos (guardar_cargos los rechazaría).
-      const _mkCargo = function (cargoName, persona, perfil) { return persona ? { id: 'CG-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), cargo: cargoName, custom: false, personaNombre: persona, tipo: _esInterno(persona) ? 'interno' : 'externo', perfil: perfil, estado: 'activo' } : null; };
+      // Estado igual que en el flujo normal de Cargos: un interno queda 'activo';
+      // un externo queda 'pendiente' (aún no acepta), nunca 'activo' automático.
+      const _mkCargo = function (cargoName, persona, perfil) { if (!persona) return null; const _int = _esInterno(persona); return { id: 'CG-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), cargo: cargoName, custom: false, personaNombre: persona, tipo: _int ? 'interno' : 'externo', perfil: perfil, estado: _int ? 'activo' : 'pendiente' }; };
       const cargosNuevos = [
         _mkCargo('Productor/a Ejecutivo/a', pe, 'Ejecutivo'),
         _mkCargo('Director/a', director, 'Creativo'),
