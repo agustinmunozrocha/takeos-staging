@@ -193,11 +193,25 @@ export function syncLegacyFromContactos() {
   });
   Object.keys(BD_EMPRESAS_BYID).forEach(id => {
     const e = BD_EMPRESAS_BYID[id];
+    // I3/I5 · si la empresa no trae contacto/mail/teléfono planos (p.ej. cargada
+    // desde Supabase, que los deja vacíos), resolverlos desde su contacto
+    // principal vinculado —o, si no hay, el primer contacto de la empresa— para
+    // que el autocompletado de Cliente/Agencia en Info Proyecto tenga qué copiar.
+    let _cPrin = e.contactoPrincipal || '', _cMail = e.emailContacto || '', _cTel = e.telefonoContacto || '';
+    if (!_cPrin || !_cMail || !_cTel) {
+      let _cont = e.contactoPrincipalId ? BD_CONTACTOS[e.contactoPrincipalId] : null;
+      if (!_cont) { const _cid = Object.keys(BD_CONTACTOS).find(k => BD_CONTACTOS[k] && BD_CONTACTOS[k].empresaId === e.id); if (_cid) _cont = BD_CONTACTOS[_cid]; }
+      if (_cont) {
+        if (!_cPrin) _cPrin = _cont.nombre || '';
+        if (!_cMail) _cMail = _cont.email || '';
+        if (!_cTel) _cTel = _cont.telefono || '';
+      }
+    }
     BD_EMPRESAS[e.nombreFantasia] = {
       _id: e.id, rutEmpresa: e.rutEmpresa, nombreFantasia: e.nombreFantasia,
       razonSocial: e.razonSocial, tipo: e.tipo, giroSII: e.giroSII, giroInformal: e.giroInformal,
-      contactoPrincipal: e.contactoPrincipal, contactoPrincipalId: e.contactoPrincipalId,
-      emailContacto: e.emailContacto, telefonoContacto: e.telefonoContacto, web: e.web, notas: e.notas
+      contactoPrincipal: _cPrin, contactoPrincipalId: e.contactoPrincipalId,
+      emailContacto: _cMail, telefonoContacto: _cTel, web: e.web, notas: e.notas
     };
   });
 }

@@ -372,7 +372,9 @@ function cargoGuardarModal() {
   /* V11.3.0: el guardado va a la base; si es externo con correo, ENCADENA la
      invitación real (el RPC necesita el cargo ya persistido para vincularlo). */
   dalGuardarCargos(project).then(function (ok) {
-    markDirty(); renderCargos();
+    markDirty();
+    _cargosDerivarRECI(project);   // I11a · proyectar PE/Director/JP a Info Proyecto al asignar/cambiar un cargo (la ruta normal no lo hacía)
+    renderCargos();
     if (tipo === 'externo' && persona && email && ok) {
       const codigo = PERFIL_CODIGO_POR_NOMBRE[perfil] || 6;
       dalInvitar(email, 'externo', codigo, row.id, project.id)
