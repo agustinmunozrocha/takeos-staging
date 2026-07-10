@@ -31,7 +31,7 @@ import { define } from '../lib/ganchos.js';
    extienda el modelo (handoff enviado). La invitación real a externos
    (correo + consentir_invitacion) está pendiente de Auth y Legal: aquí
    el externo queda registrado como «Invitación pendiente» sin envío. */
-const CARGOS_PRESETS = ['Director/a', 'Productor/a Ejecutivo/a', 'Productor/a', 'Jefe/a de Producción', 'Director/a de Fotografía', 'Asistente de Dirección', 'Asistente de Producción', 'Director/a de Arte'];
+const CARGOS_PRESETS = ['Director/a', 'Productor/a Ejecutivo/a', 'Jefe/a de Producción', 'Director/a de Fotografía', 'Asistente de Dirección', 'Asistente de Producción', 'Director/a de Arte'];
 /* V11.6.0 · Finanzas no se asigna por cargo de proyecto: queda reservado a
    la configuración de la empresa (Equipo). */
 const CARGOS_PERFILES_INTERNO = ['Administrador', 'Ejecutivo', 'Producción', 'Asistencia de Producción', 'Coordinación', 'Creativo', 'Invitado'];
