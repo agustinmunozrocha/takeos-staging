@@ -73,16 +73,21 @@ function isEmptyTemplateRow(item) {
 export function purgeEmptyRows(project) {
   let removed = 0;
   const d = project.data;
-  Object.keys(d.servicios).forEach(dept => {
-    const before = d.servicios[dept].length;
-    d.servicios[dept] = d.servicios[dept].filter(r => !isEmptyTemplateRow(r));
-    removed += before - d.servicios[dept].length;
-  });
+  // I13 · antes solo se filtraban las filas vacías EN MEMORIA; las que ya
+  // estaban en el servidor (version != null) no se encolaban para borrado, así
+  // que reaparecían al recargar. Ahora se encolan con _budgetQueueDeletes (que
+  // internamente ignora las nunca-guardadas), igual que hace deleteRow.
+  const _purgeArr = (arr) => {
+    const keep = [], drop = [];
+    arr.forEach(r => (isEmptyTemplateRow(r) ? drop : keep).push(r));
+    if (drop.length) _budgetQueueDeletes(project, drop);
+    removed += drop.length;
+    return keep;
+  };
+  Object.keys(d.servicios).forEach(dept => { d.servicios[dept] = _purgeArr(d.servicios[dept]); });
   ['gastos', 'equipos', 'talentos'].forEach(key => {
     if (!Array.isArray(d[key])) return;
-    const before = d[key].length;
-    d[key] = d[key].filter(r => !isEmptyTemplateRow(r));
-    removed += before - d[key].length;
+    d[key] = _purgeArr(d[key]);
   });
   return removed;
 }

@@ -7,7 +7,7 @@ import { sb } from '../lib/supabase.js';
 import { STATE, STATES_WITH_LOCKED_BUDGET, TAKEOS_VERSION, ORG_ID, TAKEOS_PERFIL } from '../lib/state.js';
 import { authEsAdmin } from '../lib/auth.js';
 import { showModal, closeModal, fireConfetti } from '../lib/ui.js';
-import { navigateToModule } from '../lib/nav.js';
+import { navigateToModule, renderModule } from '../lib/nav.js';
 import { STATES } from './kanban.js';
 import { calcSummaryFin, purgeEmptyRows } from './presupuesto-cotizacion.js';
 import { openConfigPanel } from './config.js';
@@ -63,6 +63,12 @@ export function _puedeModoAdmin() {
   if (!TAKEOS_PERFIL) return true;
   return authEsAdmin();
 }
+/* I17 · re-render del módulo actualmente abierto tras cambiar el Modo Admin,
+   para que la UI dependiente de admin (ej. "Zona peligrosa" en Info Proyecto)
+   aparezca/desaparezca al instante sin tener que navegar o recargar. */
+function _reRenderModuloActual() {
+  try { if (STATE.currentModule) renderModule(STATE.currentModule); } catch (e) {}
+}
 function toggleAdminMode() {
   if (!STATE.adminMode && !_puedeModoAdmin()) {
     showToast({ kind: 'error', title: 'Modo administrador no disponible', body: 'Solo el perfil Administrador puede activar el modo administrador.' });
@@ -71,11 +77,13 @@ function toggleAdminMode() {
   if (!STATE.adminMode) {
     requestAdminPassword(() => {
       STATE.adminMode = true; _applyAdminUI();
+      _reRenderModuloActual();   // I17 · refrescar el módulo abierto (ej. "Eliminar proyecto" en Info Proyecto) al instante
       showToast({ kind: 'warning', title: 'Modo administrador activado', body: 'Acciones restringidas habilitadas (ej. revertir estados). Úsalo con criterio.' });
       if (typeof openConfigPanel === 'function') openConfigPanel();   // reabrir: el toggle muestra ON y se ve el cambio
     });
   } else {
     STATE.adminMode = false; _applyAdminUI();
+    _reRenderModuloActual();   // I17 · ídem al desactivar
     showToast({ kind: 'info', title: 'Modo administrador desactivado', body: 'Las acciones restringidas vuelven a estar bloqueadas.' });
   }
 }

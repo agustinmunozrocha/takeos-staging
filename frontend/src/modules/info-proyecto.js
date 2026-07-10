@@ -145,7 +145,7 @@ export function renderInfoProyecto() {
                    data-accion="info.clienteCombo" data-on="focus input blur change">
             <div class="combobox-dropdown" hidden></div>
           </span>
-          <div id="bdwarn-cliente" style="display:none;align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" data-accion="info.irBD">+ Agregarla a la BD</button></div>
+          <div id="bdwarn-cliente" style="display:${(ip.cliente && ip.cliente.trim() && !BD_EMPRESAS[ip.cliente.trim()]) ? 'flex' : 'none'};align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" data-accion="info.irBD">+ Agregarla a la BD</button></div>
           <div id="cliente-warn" style="display:none; align-items:flex-start; gap:6px; font-size:10.5px; color:var(--warning); background:var(--warning-bg); border-radius:6px; padding:7px 9px; margin-top:6px; line-height:1.45;">
             <span style="flex:0 0 auto;">⚠</span>
             <span>Cambiar el cliente se propaga a todo el sistema y puede romper la coherencia con documentos (cotizaciones, hojas de llamado) ya generados con el nombre anterior.</span>
@@ -163,7 +163,7 @@ export function renderInfoProyecto() {
                    data-accion="info.agenciaCombo" data-on="focus input blur change">
             <div class="combobox-dropdown" hidden></div>
           </span>
-          <div id="bdwarn-agencia" style="display:none;align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" data-accion="info.irBD">+ Agregarla a la BD</button></div>
+          <div id="bdwarn-agencia" style="display:${(ip.agencia && ip.agencia.trim() && !BD_EMPRESAS[ip.agencia.trim()]) ? 'flex' : 'none'};align-items:center;gap:6px;font-size:10.5px;color:var(--warning);margin-top:6px;">⚠ No está en la BD de empresas — puedes seguir igual. <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 7px;" data-accion="info.irBD">+ Agregarla a la BD</button></div>
         </div>
         <div class="field">
           <label class="field-label">Productora</label>
