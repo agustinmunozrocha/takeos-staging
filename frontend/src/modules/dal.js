@@ -182,6 +182,8 @@ function _dalEmpresaDesdeRow(e) {
     razonSocial: e.razon_social || '', tipo: tipos.join(', '),
     giroSII: e.giro_sii || '', giroInformal: e.giro_informal || '',
     contactoPrincipal: '', contactoPrincipalId: '', emailContacto: '', telefonoContacto: '',
+    representante: (e.representante && typeof e.representante === 'object') ? e.representante : { nombre: '', cargo: '', telefono: '', email: '' },
+    duenos: Array.isArray(e.duenos) ? e.duenos : [],
     web: e.web || '', notas: e.notas || ''
   };
 }
@@ -712,11 +714,25 @@ function _dalCompanyLinkRowsPayload(c) {
   if (!c.empresaId) return [];
   return [{ company_id: c.empresaId, es_socio: !!c.esSocio, es_representante: !!c.esRepresentante, cargo: _dalNN(c.relacionEmpresa) }];
 }
+/* Representante -> objeto solo si tiene algún dato; si está vacío, null (limpia). */
+function _dalRepNN(o) {
+  if (!o || typeof o !== 'object') return null;
+  const has = ['nombre', 'cargo', 'telefono', 'email'].some(function (k) { return String(o[k] == null ? '' : o[k]).trim() !== ''; });
+  return has ? { nombre: o.nombre || '', cargo: o.cargo || '', telefono: o.telefono || '', email: o.email || '' } : null;
+}
+/* Dueños/socios -> arreglo sin filas vacías; si no queda ninguna, null. */
+function _dalDuenosNN(arr) {
+  if (!Array.isArray(arr)) return null;
+  const rows = arr.map(function (d) { return { nombre: (d && d.nombre) || '', telefono: (d && d.telefono) || '', email: (d && d.email) || '' }; })
+    .filter(function (d) { return (d.nombre + d.telefono + d.email).trim() !== ''; });
+  return rows.length ? rows : null;
+}
 function _dalCompanyRowPayload(e) {
   return {
     rut: _dalNN(e.rutEmpresa), nombre_fantasia: e.nombreFantasia || '',
     razon_social: _dalNN(e.razonSocial), giro_sii: _dalNN(e.giroSII), giro_informal: _dalNN(e.giroInformal),
-    web: _dalNN(e.web), notas: _dalNN(e.notas)
+    web: _dalNN(e.web), notas: _dalNN(e.notas),
+    representante: _dalRepNN(e.representante), duenos: _dalDuenosNN(e.duenos)
   };
 }
 function _dalRelRowsPayload(e) {
@@ -837,6 +853,15 @@ export function _dalEmpresaSaveSoon(id) {
   if (CONTACTS_SOURCE !== 'supabase' || !id) return;
   clearTimeout(_dalSaveTimers['e:' + id]);
   _dalSaveTimers['e:' + id] = setTimeout(function(){ const e = BD_EMPRESAS_BYID[id]; if (e) dalGuardarEmpresa(e); }, 900);
+}
+/* Guardado inmediato de una empresa: cancela el autosave pendiente y persiste ya.
+   Lo usa el botón "Guardar cambios" de la ficha para dar certeza al usuario.
+   Devuelve una promesa con el resultado ({ok:...}); nunca lanza. */
+export function _dalEmpresaFlush(id) {
+  clearTimeout(_dalSaveTimers['e:' + id]);
+  if (CONTACTS_SOURCE !== 'supabase' || !id) return Promise.resolve({ ok: true, skipped: true });
+  const e = BD_EMPRESAS_BYID[id];
+  return e ? Promise.resolve(dalGuardarEmpresa(e)) : Promise.resolve({ ok: false });
 }
 
 /* --- V9.4.4 · Escritura de una locación (BD_LOC) a Supabase --------------
