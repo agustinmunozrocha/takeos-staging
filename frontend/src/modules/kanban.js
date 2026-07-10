@@ -289,8 +289,15 @@ export async function newProject() {
       // freelance). No se crea ninguna invitación (guardar_cargos solo escribe el
       // cargo; marcar 'interno' a un miembro ya existente no lo re-invita).
       const _esInterno = function (persona) { return _internSet.has(String(persona || '').trim().toLowerCase()); };
-      const _mkCargo = function (cargoName, persona) { return persona ? { id: 'CG-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), cargo: cargoName, custom: false, personaNombre: persona, tipo: _esInterno(persona) ? 'interno' : 'externo', perfil: '', estado: 'activo' } : null; };
-      const cargosNuevos = [_mkCargo('Productor/a Ejecutivo/a', pe), _mkCargo('Director/a', director), _mkCargo('Jefe/a de Producción', jp)].filter(Boolean);
+      // Cada rol nace con su perfil de acceso por defecto (evita un cargo sin
+      // nivel de permisos). Ninguno es Administrador/Finanzas, así que también
+      // vale para externos (guardar_cargos los rechazaría).
+      const _mkCargo = function (cargoName, persona, perfil) { return persona ? { id: 'CG-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), cargo: cargoName, custom: false, personaNombre: persona, tipo: _esInterno(persona) ? 'interno' : 'externo', perfil: perfil, estado: 'activo' } : null; };
+      const cargosNuevos = [
+        _mkCargo('Productor/a Ejecutivo/a', pe, 'Ejecutivo'),
+        _mkCargo('Director/a', director, 'Creativo'),
+        _mkCargo('Jefe/a de Producción', jp, 'Producción')
+      ].filter(Boolean);
       const nuevo = {
         id, client: cliente, name: nombre, state: 'venta',
         pe: pe || '—', amount: 0, currency: 'CLP',
