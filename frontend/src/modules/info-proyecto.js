@@ -6,7 +6,7 @@
 // allá — este lado no se cierra.
 import { escapeHtml, showToast } from '../lib/helpers.js';
 import { sb } from '../lib/supabase.js';
-import { STATE, BD_PERSONAS, PROJECTS, BD_EMPRESAS, BD_EMPRESAS_BYID, TRASH, ORG_ID, PROJECTS_SOURCE } from '../lib/state.js';
+import { STATE, BD_PERSONAS, PROJECTS, BD_EMPRESAS, BD_EMPRESAS_BYID, ORG_SERVICIOS, TRASH, ORG_ID, PROJECTS_SOURCE } from '../lib/state.js';
 import { buildDefaultProjectData } from '../lib/modelo.js';
 import { authNivel } from '../lib/auth.js';
 import { fmtMoney, calcProjectTotals, fmtDelta, deltaClassCosto } from '../lib/calc.js';
@@ -14,7 +14,7 @@ import { showModal, closeModal, comboboxCloseDelayed, comboboxFilter, comboboxFi
 import { STATES, navigateToControlRoom, renderMetrics, renderKanban, deleteProjectFlow } from './kanban.js';
 import { calcSummaryFin } from './presupuesto-cotizacion.js';
 import { _normKey, buildPersonasDatalist } from './bd-excel.js';
-import { dalLoadProyectos, _dalProyectoPartes, _dalFusionarProyecto, DAL_KNOWN_PROJECT_IDS } from './dal.js';
+import { dalLoadProyectos, dalGuardarServicio, _dalProyectoPartes, _dalFusionarProyecto, DAL_KNOWN_PROJECT_IDS } from './dal.js';
 import { markDirty } from './persistencia-local.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
@@ -118,20 +118,43 @@ function infoContactoChanged(field, value) {
 }
 function infoVincularEmpresa(id) { updateInfoField('clienteEmpresaId', id); renderInfoProyecto(); }
 
-/* I7 · Servicio como desplegable con opción libre. Servicios por defecto +
-   "Otro (especificar)"; si el proyecto ya traía un servicio que no es de la
-   lista, se muestra como "Otro" con ese texto. (Guardar un "Otro" como servicio
-   por defecto y el reporte anual por servicio van por el flujo de BD, aparte.) */
-const SERVICIOS_DEFAULT = ['Producción', 'Postproducción'];
+/* I7 · Servicio como desplegable que lee el catálogo de la productora
+   (ORG_SERVICIOS) + "Otro (especificar)". Si el proyecto ya traía un servicio que
+   no está en el catálogo, se muestra como "Otro" con ese texto. Al escribir un
+   "Otro" nuevo, se ofrece guardarlo como servicio de la productora (solo Admin). */
 function _servicioFieldHTML(ip) {
   const val = ip.servicio || '';
-  const esOtro = !!val && SERVICIOS_DEFAULT.indexOf(val) === -1;
+  const nombres = ORG_SERVICIOS.map(s => s.nombre);
+  const esOtro = !!val && nombres.indexOf(val) === -1;
   const opts = ['<option value="">— Elige —</option>']
-    .concat(SERVICIOS_DEFAULT.map(s => `<option value="${escapeHtml(s)}" ${val === s ? 'selected' : ''}>${escapeHtml(s)}</option>`))
+    .concat(nombres.map(s => `<option value="${escapeHtml(s)}" ${val === s ? 'selected' : ''}>${escapeHtml(s)}</option>`))
     .concat([`<option value="__otro" ${esOtro ? 'selected' : ''}>Otro (especificar)…</option>`])
     .join('');
   return `<select class="select" data-accion="info.servicioSel" data-on="change">${opts}</select>
-    <input class="input" id="servicio-otro" style="margin-top:8px;display:${esOtro ? 'block' : 'none'};" value="${escapeHtml(esOtro ? val : '')}" placeholder="Escribe el servicio" ${accionHTML('info.servicioOtro', { on: 'input' })}>`;
+    <input class="input" id="servicio-otro" style="margin-top:8px;display:${esOtro ? 'block' : 'none'};" value="${escapeHtml(esOtro ? val : '')}" placeholder="Escribe el servicio" ${accionHTML('info.servicioOtro', { on: 'input change' })}>`;
+}
+/* Al terminar de escribir un "Otro", ofrecer guardarlo como servicio de la
+   productora (queda en el desplegable para todos los proyectos). Solo Admin
+   (datos_empresa=E); si no, no se ofrece (igual queda como texto del proyecto). */
+function infoOfrecerGuardarServicio(nombre) {
+  nombre = String(nombre || '').trim();
+  if (!nombre) return;
+  if (ORG_SERVICIOS.some(s => String(s.nombre).toLowerCase() === nombre.toLowerCase())) return;   // ya está en el catálogo
+  if (authNivel('datos_empresa') !== 'E') return;   // gestionar servicios es facultad de Administrador
+  showModal({
+    title: 'Guardar como servicio',
+    body: `¿Quieres guardar <b>«${escapeHtml(nombre)}»</b> como un servicio de tu productora? Quedará disponible en el desplegable para todos los proyectos.`,
+    confirmLabel: 'Sí, guardar', cancelLabel: 'No, solo este proyecto',
+    onConfirm: function () {
+      dalGuardarServicio({ nombre: nombre, orden: ORG_SERVICIOS.length }).then(function (r) {
+        if (r && r.ok) {
+          ORG_SERVICIOS.push({ id: r.id, nombre: nombre, orden: ORG_SERVICIOS.length });
+          renderInfoProyecto();
+          showToast({ kind: 'success', title: 'Servicio agregado', body: `«${nombre}» quedó en tus servicios.` });
+        }
+      });
+    }
+  });
 }
 
 export function renderInfoProyecto() {
@@ -613,7 +636,7 @@ registrarAcciones('info', {
     if (el.value === '__otro') { updateInfoField('servicio', ''); if (otro) { otro.value = ''; otro.style.display = 'block'; otro.focus(); } }
     else { if (otro) { otro.value = ''; otro.style.display = 'none'; } updateInfoField('servicio', el.value); }
   },
-  servicioOtro: function (a, el) { updateInfoField('servicio', el.value); },
+  servicioOtro: function (a, el, ev) { updateInfoField('servicio', el.value); if (ev && ev.type === 'change') infoOfrecerGuardarServicio(el.value); },
   nombre: function (a, el) { updateInfoField('nombreProyecto', el.value); updateProjectHeader(); },
   derechos: function (a, el) { updateDerechos(a[0], el.value); },
   irCargos: function () { navigateToModule('cargos'); },
