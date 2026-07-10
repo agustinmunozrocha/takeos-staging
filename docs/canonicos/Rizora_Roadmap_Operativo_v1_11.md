@@ -1,14 +1,19 @@
-# TakeOS — Roadmap Operativo y Modelo de Trabajo entre Chats
+# Rizora — Roadmap Operativo y Modelo de Trabajo entre Chats
 
-**Versión:** 1.10
-**Fecha:** 8 de julio de 2026
+**Versión:** 1.11
+**Fecha:** 10 de julio de 2026
 **Autor:** Agustín Ignacio Muñoz Rocha · La Hectárea SpA / Primate Films
 **Asesoría:** arquitectura de backend
 **Estado:** Borrador para revisión.
 
-> **Documento canónico.** Versiónalo y consolídalo como el PRD y el ADR (ver §4). Esta es la v1.10.
+> **Documento canónico.** Versiónalo y consolídalo como el PRD y el ADR (ver §4). Esta es la v1.11.
 
 ---
+
+## Changelog — v1.10 → v1.11
+
+- **Renombre del producto: Rizora** (orden de Agustín, 10-jul). Rizora (SaaS) ≠ La Hectárea SpA ≠ Primate Films; ⚠ pendiente la sociedad sobre la que operará Rizora. Identificadores técnicos reales conservan su nombre (deuda registrada en el ADR y en Arquitectura).
+- **Modo solo-dev (ADR-027).** El cargo de CTO queda **vacante** (salida en buenos términos, posible retorno; accesos se mantienen). Protocolos intactos, revisión adaptada a auto-revisión + `npm run gate`. **Política nueva: cargos, no nombres** en los canónicos; los nombres solo quedan como trazabilidad histórica marcada. **Riesgo nuevo en §6:** sin segundo par de ojos, la separación de funciones queda degradada temporalmente.
 
 ## Changelog — v1.9 → v1.10
 
@@ -34,7 +39,7 @@ Consolida el **Informe Técnico de Arquitectura (6-jul, `staging/main` @ `4c8067
 
 ## Changelog — v1.7 → v1.8
 
-- **Prioridad #3 (modularización del frontend) — avance real, corte por corte.** Con la bitácora de Juan + Code verificada contra el código vivo en staging: **Etapa 0 hecha** (Vite + deploy + CSS extraído), **Etapa 1 hecha y verificada en staging** (el *cimiento*: 12 funciones a `frontend/src/lib/` —helpers, supabase, rates, state, auth— más el "puente" `main.js`), **Etapa 2 pendiente**. **La magnitud, sin maquillaje:** el cimiento es **<1% de las funciones** (12 de ~1.290); el monolito sigue con ~1.278 funciones / 23.369 líneas. **El ~88% del trabajo es la Etapa 2** (módulos de negocio + pegamento de UI), y es lo que ahora se reparte entre Juan (estructural) y Agustín (dominio) tras el **SYNC**. El detalle vive en **Arquitectura §3.4 y §7**; el despliegue con Vite en **ADR-015**.
+- **Prioridad #3 (modularización del frontend) — avance real, corte por corte.** Con la bitácora del entonces-CTO + Code verificada contra el código vivo en staging: **Etapa 0 hecha** (Vite + deploy + CSS extraído), **Etapa 1 hecha y verificada en staging** (el *cimiento*: 12 funciones a `frontend/src/lib/` —helpers, supabase, rates, state, auth— más el "puente" `main.js`), **Etapa 2 pendiente**. **La magnitud, sin maquillaje:** el cimiento es **<1% de las funciones** (12 de ~1.290); el monolito sigue con ~1.278 funciones / 23.369 líneas. **El ~88% del trabajo es la Etapa 2** (módulos de negocio + pegamento de UI), y es lo que el plan repartía entre el rol técnico (estructural) y Agustín (dominio) tras el **SYNC** (registro histórico; hoy en modo solo-dev). El detalle vive en **Arquitectura §3.4 y §7**; el despliegue con Vite en **ADR-015**.
 - **Esto vive en staging; producción sigue siendo el monolito.** El **corte de producción** a la build de Vite está **pendiente** (junto con el diagnóstico del "404 real"), registrado en `PENDIENTES_Migracion_Vite.md`. No cambia ninguna decisión previa; es un agregado.
 - **Objetivo de seguridad ligado a la modularización:** quitar `'unsafe-inline'` del CSP recién será posible al terminar la Etapa 2 (cruza con el hub OWASP A05).
 
@@ -58,7 +63,7 @@ Consolida el **Informe Técnico de Arquitectura (6-jul, `staging/main` @ `4c8067
 - **§2 Fase C — Backlog de endurecimiento + `frame-ancestors`** sumados como requisito antes del beta externo (ADR-024); pen-test externo ya desbloqueado del todo.
 - **§2 Fase D — Beta sin fecha fija; duración aprox. ~4 meses** (antes 6). Las fechas quedan **en definición**; el **One-Pager de Planes** (fuente viva) reconcilia precio y duración. Early Bird ~3 meses (sin cambio).
 - **§5.1 Conector de Supabase — protocolo reescrito.** Ya no se escriben cambios por el SQL Editor con checkpoints: **todo cambio de BD va por migración** (flujo en código, ADR-023); **nunca** un cambio directo a producción por el conector MCP (solo lectura/inspección y pruebas en transacción revertida).
-- **§4 — Juan de la Cuadra entra como CTO** y cambia el flujo de trabajo del frontend: **ya no se reescribe el `index.html` entero en un chat**, se trabaja en **Code** (Git + ramas + PR). Awareness del nuevo chat **Flujo de Trabajo y Metodología** (Juan + Agustín).
+- **§4 — se crea el cargo de CTO** (registro histórico: lo ocupó Juan de la Cuadra, jun-2026) y cambia el flujo de trabajo del frontend: **ya no se reescribe el `index.html` entero en un chat**, se trabaja en **Code** (Git + ramas + PR). Awareness del nuevo chat **Flujo de Trabajo y Metodología**.
 - **§4.6 — Mundo de ejemplo: corregido a *ambos*** (El Señor de los Anillos **y** Game of Thrones); la base de prueba usa nombres de ambos mundos.
 - **§7 — Nota de horizonte técnico:** posible **MCP server de solo lectura** para un Reporte de Cierre analítico (sin compromiso de fecha ni de pricing).
 
@@ -110,17 +115,17 @@ Tienes tres documentos canónicos, y cada uno responde una pregunta distinta:
 
 | Documento | Pregunta que responde | Manda en |
 |---|---|---|
-| **PRD** | ¿Qué es TakeOS y por qué? | Producto y dominio |
+| **PRD** | ¿Qué es Rizora y por qué? | Producto y dominio |
 | **ADR** | ¿Cómo se construye técnicamente y por qué así? | Decisiones técnicas |
 | **Roadmap** (este) | ¿En qué orden, cuándo, y **quién** hace qué? | Ejecución y proceso |
 
-El roadmap no repite las decisiones del PRD/ADR. Define la **secuencia de pasos**, los **gates** (puertas que no se cruzan sin cumplir requisitos), el **ciclo de evolución** del software, y —lo central— el **modelo de trabajo entre los chats de Claude** que construyen TakeOS.
+El roadmap no repite las decisiones del PRD/ADR. Define la **secuencia de pasos**, los **gates** (puertas que no se cruzan sin cumplir requisitos), el **ciclo de evolución** del software, y —lo central— el **modelo de trabajo entre los chats de Claude** que construyen Rizora.
 
 ---
 
 ## 1. Principios del roadmap
 
-1. **Los documentos son el bus de integración.** Los chats no se hablan entre sí; son ciegos unos a otros. La única memoria compartida son los documentos canónicos. La calidad de TakeOS depende de la calidad y vigencia de esos documentos.
+1. **Los documentos son el bus de integración.** Los chats no se hablan entre sí; son ciegos unos a otros. La única memoria compartida son los documentos canónicos. La calidad de Rizora depende de la calidad y vigencia de esos documentos.
 2. **Gates antes que velocidad.** Hay puertas (sobre todo antes de que entren datos de terceros) que no se cruzan por entusiasmo. Cumplir el gate es barato; saltárselo es caro.
 3. **Nada es real hasta que se consolida.** El output de un chat experto es una *propuesta* hasta que se fusiona en el documento canónico correspondiente. Mientras tanto, no existe para los demás chats.
 4. **Anti-cortisol también para el fundador.** El proceso debe proteger a Agustín de convertirse en un cuello de botella que se quema. Ligero, claro, versionado.
@@ -162,7 +167,7 @@ Implementar el sistema de perfiles del handoff de permisos: `memberships`, `perm
 - [ ] **Aislamiento multi-tenant endurecido y probado**: RLS filtrando por `organization_id` en serio, con tests que intenten cruzar tenants y fallen. (Hoy el aislamiento "depende de que un solo tenant use el sistema".) **⚠ Suman aquí dos huecos concretos hallados el 6-jul (hub OWASP A01):** el **borrado blando elude el permiso `eliminar_proyecto`** (el frontend hace `UPDATE deleted_at` directo en vez de la RPC endurecida) y el **externo lee la tabla `contacts` completa** (ninguna policy mira `memberships.tipo`); más **snapshots que no segregan por org**. Cerrar los tres es parte de sellar A01.
 - [ ] **Audit log construido** (quién hizo/intentó qué, especialmente sobre datos bancarios). Es requisito legal (Ley 21.719) además de operativo.
 - [ ] **Protección de datos bancarios** (cerrar la limitación "Base de Datos todo-o-nada" del handoff): mínimo, que datos bancarios no sean visibles para perfiles que no los necesitan. Mínimo privilegio + ley.
-- [ ] **Decisión de acceso del fundador (ADR-A)** tomada: modelo de no-abuso (break-glass + audit + reputación + legal) y, idealmente, **separación societaria** de TakeOS + términos de servicio y consentimiento claros para las productoras beta.
+- [ ] **Decisión de acceso del fundador (ADR-A)** tomada: modelo de no-abuso (break-glass + audit + reputación + legal) y, idealmente, **separación societaria** de Rizora + términos de servicio y consentimiento claros para las productoras beta.
 - [ ] **Aprobación legal de los dos instrumentos.** Existen en borrador (`terminos-cuenta-2026-06-09-v0.1-borrador` y `consentimiento-incorporacion-2026-06-09-v0.1-borrador`) y **no son aptos para producción ni venta** hasta que un abogado habilitado los apruebe.
 - [ ] **Cinco flujos de derechos del titular construidos** (Ley 21.719): (1) borrado/supresión de cuenta, (2) exportación/portabilidad, (3) revocar el consentimiento de incorporación a una productora, (4) verificación de edad (si aplica) y (5) aviso de cookies/analytics. *Prometer un derecho que la UI no entrega es, en sí mismo, un riesgo legal.*
 - [~] **Backlog de endurecimiento — cerrado salvo un ítem.** El 17-jun entró la migración de endurecimiento: ✅ revocado a `anon` el `EXECUTE` en las RPC de escritura (capa externa; cada función ya valida `auth.uid()` por dentro y los flujos de invitación quedaron anon-ejecutables), ✅ `search_path` fijado en ~11 funciones utilitarias, ✅ decidida la policy de `app_config`. **Queda solo** el header **`frame-ancestors`** (anti-clickjacking) del hosting. Sin hallazgos críticos. Detalle en ADR-024 y Arquitectura §6.
@@ -214,8 +219,8 @@ Tu intuición del ciclo es correcta. Le agrego los tres pasos que la simplificac
 
 **Paso a paso, con responsable:**
 
-1. **Uso.** Productoras y Primate usan TakeOS en producción real.
-2. **Captura de feedback.** Recoger bugs, fricciones y pedidos en un solo lugar (no en mails sueltos — el mismo pecado que TakeOS combate). *Responsable: Agustín / equipo.*
+1. **Uso.** Productoras y Primate usan Rizora en producción real.
+2. **Captura de feedback.** Recoger bugs, fricciones y pedidos en un solo lugar (no en mails sueltos — el mismo pecado que Rizora combate). *Responsable: Agustín / equipo.*
 3. **Triage y priorización.** No todo se construye. Filtrar contra los principios del PRD —sobre todo **anti-cortisol** y el **moat** (Reporte de Cierre)—. Decidir: bug / mejora / feature nueva / descartar. *Responsable: Agustín, con el asesor si hay duda técnica.*
 4. **Diseño.** El ítem priorizado va al **chat experto del dominio** que corresponda (BD, auth, herramientas, legal, marketing). El experto diseña, leyendo primero los documentos canónicos vigentes. *Responsable: chat experto + Agustín.*
 5. **Spec / Handoff.** El experto entrega un **documento de handoff** (como el de permisos): claro, con alcance MVP/horizonte, sin ambigüedad. *Responsable: chat experto.*
@@ -254,10 +259,10 @@ Cada chat es un rol con un alcance definido. No todos están activos siempre; se
 | **Coworker** | Operar dentro del ordenador de Agustín para tareas concretas. Funciona de dos formas: (1) ejecuta **handoffs** que le entregan otros chats con instrucciones claras de cómo operar; (2) ejecuta lo que **Agustín** le pide en sus propias palabras. | Resultados de ejecución de vuelta a Agustín (no edita documentos canónicos) |
 | **Redactor** | Consolidar los documentos canónicos: cruzar handoffs contra lo vigente, redactar **solo lo que cambia**, versionar y registrar el changelog. No decide producto ni arquitectura; las contradicciones las sube a Agustín. | PRD + ADR + Roadmap (los **versiona**; no los arbitra) |
 | **Orquestador (Agustín)** | Routear, **arbitrar** (decidir ante contradicciones) y dirigir. La consolidación mecánica la delega en el Redactor. | Todos (es quien los gobierna) |
-| **CTO (Juan de la Cuadra)** | Responde por **todo el código**: arquitectura, frontend, backend, BD, integración, entorno de prueba y seguridad (incluye las funciones de **Test Master** y **Pentester**, que dirige). Trabaja en Code con Git + PR. | Estructura de código, staging, PRs revisados (ver Arquitectura y Flujo de Trabajo) |
-| **Flujo de Trabajo y Metodología** | Chat de Juan + Agustín para evaluar el **método de trabajo** del equipo (prácticas DevSecOps, historias de usuario sin ceremonia). | Ajustes al modelo de trabajo (este Roadmap + Arquitectura) |
+| **CTO** *(cargo hoy VACANTE — modo solo-dev, ADR-027; tareas absorbidas por Agustín)* | Responde por **todo el código**: arquitectura, frontend, backend, BD, integración, entorno de prueba y seguridad (incluye las funciones de **Test Master** y **Pentester**, que dirige). Trabaja en Code con Git + PR. | Estructura de código, staging, PRs revisados (ver Arquitectura y Flujo de Trabajo) |
+| **Flujo de Trabajo y Metodología** | Chat para evaluar el **método de trabajo** del equipo (prácticas DevSecOps, historias de usuario sin ceremonia). | Ajustes al modelo de trabajo (este Roadmap + Arquitectura) |
 
-> **Cambio de método (junio 2026).** Con la entrada de **Juan como CTO** y el trabajo en Git + Code, **el frontend ya no se construye reescribiendo el `index.html` entero en un chat**: se trabaja en **Code**, en ramas cortas con Pull Request revisado, sobre el repositorio. El detalle del flujo de equipo (quién hace qué, ciclo de PR, entornos) vive en **Arquitectura y Flujo de Trabajo v1.3**.
+> **Cambio de método (junio 2026 — registro histórico).** Con la creación del cargo de CTO y el trabajo en Git + Code, **el frontend ya no se construye reescribiendo el `index.html` entero en un chat**: se trabaja en **Code**, en ramas cortas con Pull Request revisado, sobre el repositorio. El detalle del flujo de equipo (quién hace qué, ciclo de PR, entornos) vive en **Arquitectura y Flujo de Trabajo v1.3**.
 
 ### 4.3 El protocolo de handoff (cómo entra y sale el trabajo de un chat)
 Cada vez que se activa un chat experto:
@@ -290,7 +295,7 @@ Cada vez que se activa un chat experto:
 
 Esta subsección reemplaza a la antigua *Guía de Comunicación con Agustín*, que dejó de ser un documento suelto: vive aquí, dentro del modelo de trabajo entre chats, porque es parte de cómo opera el bus. **Todos los chats** (frontend, backend, BD, marketing, legal, Test Master, Coworker, Redactor, etc.) se rigen por estas reglas.
 
-**Quién es Agustín.** Es el director y orquestador de TakeOS: toma todas las decisiones de producto y coordina entre los chats. **No es programador.** Aprendió lo básico de backend para dirigir, pero no conoce el detalle técnico. Donde sí tiene criterio sólido y autoridad es en el **frontend y la experiencia de usuario**, porque eso se conecta directamente con la producción audiovisual, que es su oficio.
+**Quién es Agustín.** Es el director y orquestador de Rizora: toma todas las decisiones de producto y coordina entre los chats. **No es programador.** Aprendió lo básico de backend para dirigir, pero no conoce el detalle técnico. Donde sí tiene criterio sólido y autoridad es en el **frontend y la experiencia de usuario**, porque eso se conecta directamente con la producción audiovisual, que es su oficio.
 
 **1. Habla claro, siempre.** Agustín no maneja la jerga técnica. Cuando uses un término especializado, explícalo de inmediato en la misma oración. No asumas que lo conoce.
 - ❌ `Vamos a crear un RPC con security definer que bypasea el RLS.`
@@ -331,8 +336,8 @@ Si el Camino B existe y es más rápido, se toma y se dice explícitamente: *"Ha
 **Aprendizaje registrado (junio 2026).** Subir archivos locales a Google Drive vía API tomó varios minutos para lo que Agustín hace en 10 segundos arrastrando una carpeta en el Finder. Regla derivada: si la tarea termina en la nube (Drive u otro servicio), hacer la parte local perfecta y dejar el traspaso al usuario. *(Los aprendizajes operativos nuevos del Coworker se consolidan aquí en cada ciclo.)*
 
 **Patrones de tarea recurrentes:**
-- *Organización por versión:* identificar archivos y su versión (ej. `TakeOS_V9_6_15.html` → `9.6.15`), crear una carpeta por versión en el directorio local indicado, mover el HTML y su CHANGELOG adentro, reportar cuántas y cuáles. No tocar Drive.
-- *Renombrar carpeta madre de un ciclo:* al cerrar una serie (ej. toda la V9.x), renombrar la carpeta madre con el rango real (`TakeOS v9.0.0 - v9.6.18`). Si está solo en Drive, proponerle a Agustín el nombre exacto para que lo haga en el Finder.
+- *Organización por versión:* identificar archivos y su versión (ej. `Rizora_V9_6_15.html` → `9.6.15`), crear una carpeta por versión en el directorio local indicado, mover el HTML y su CHANGELOG adentro, reportar cuántas y cuáles. No tocar Drive.
+- *Renombrar carpeta madre de un ciclo:* al cerrar una serie (ej. toda la V9.x), renombrar la carpeta madre con el rango real (`Rizora v9.0.0 - v9.6.18`). Si está solo en Drive, proponerle a Agustín el nombre exacto para que lo haga en el Finder.
 
 **Lo que el Coworker NO hace:** editar documentos canónicos; tomar decisiones de producto; ejecutar tareas de seguridad (permisos, credenciales, accesos) sin instrucción explícita y confirmación de Agustín; ni asumir que "técnicamente posible" equivale a "la mejor ruta".
 
@@ -342,14 +347,14 @@ Si el Camino B existe y es más rápido, se toma y se dice explícitamente: *"Ha
 
 ## 5. Conectores
 
-Los chats y agentes que construyen TakeOS operan sobre **conectores**: puentes hacia servicios externos. Hoy hay dos —**Supabase** (la base de datos) y **Google Drive** (archivos)— y es probable que aparezcan más. Esta sección fija las reglas de uso. (No confundir con las **integraciones del producto** —correo, Google Calendar, WhatsApp—, que son features para el usuario final y se priorizan en §2.)
+Los chats y agentes que construyen Rizora operan sobre **conectores**: puentes hacia servicios externos. Hoy hay dos —**Supabase** (la base de datos) y **Google Drive** (archivos)— y es probable que aparezcan más. Esta sección fija las reglas de uso. (No confundir con las **integraciones del producto** —correo, Google Calendar, WhatsApp—, que son features para el usuario final y se priorizan en §2.)
 
 ### 5.1 Conector de Supabase — protocolo (innegociable)
 
 Mensaje para **todos los chats y agentes que usan Supabase directamente**. Con la base ya **"en código"** (ADR-023), el protocolo cambió de raíz:
 
 - **Leer / inspeccionar:** sin restricción. Se puede consultar con normalidad.
-- **Cambios de esquema o datos a producción por el conector MCP: jamás.** Ningún agente aplica un cambio directo a la base de producción por el conector. Eso desincronizaría la base respecto del código versionado. **Todo cambio de base de datos va por migración, en el Orden A (repo primero, producción después).** Secuencia canónica única: **(1)** migración en una rama de feature → **(2)** PR + prueba sobre datos de prueba (con *required check* activo: una migración que falla no se puede mergear) → **(3)** revisión de Juan → **(4)** merge a `main` → **(5)** la integración de **Branching de Supabase** aplica la migración **a producción al mergear** (merge = deploy; sin `db push` manual). El **Orden B (aplicar a prod antes de mergear) se descarta de forma definitiva**: fue el atajo que causó la desincronización del 17-jun y contradice cómo opera la integración. Detalle completo y diagrama en **Arquitectura y Flujo de Trabajo §2.2/§7**.
+- **Cambios de esquema o datos a producción por el conector MCP: jamás.** Ningún agente aplica un cambio directo a la base de producción por el conector. Eso desincronizaría la base respecto del código versionado. **Todo cambio de base de datos va por migración, en el Orden A (repo primero, producción después).** Secuencia canónica única: **(1)** migración en una rama de feature → **(2)** PR + prueba sobre datos de prueba (con *required check* activo: una migración que falla no se puede mergear) → **(3)** revisión de PR (rol técnico; en solo-dev, auto-revisión + gates — ADR-027) → **(4)** merge a `main` → **(5)** la integración de **Branching de Supabase** aplica la migración **a producción al mergear** (merge = deploy; sin `db push` manual). El **Orden B (aplicar a prod antes de mergear) se descarta de forma definitiva**: fue el atajo que causó la desincronización del 17-jun y contradice cómo opera la integración. Detalle completo y diagrama en **Arquitectura y Flujo de Trabajo §2.2/§7**.
 - **Pruebas:** lo que un agente necesite probar contra datos, lo hace en la **branch `staging`** (o en el preview branch de la PR) o en una **transacción que se revierte** (`BEGIN … ROLLBACK`), nunca con escritura persistente a producción.
 - **Eliminar o modificar algo grave: jamás.** Bajo ninguna circunstancia un agente borra o altera datos fundamentales —**organizaciones**, estructuras core, configuración crítica—.
 
@@ -373,6 +378,7 @@ Usado para mover y organizar archivos (ver el patrón del Coworker en §4.7). Re
 | Datos bancarios visibles a perfiles que no los necesitan en multi-tenant | **Alta** | Cerrar "BD todo-o-nada" en Gate C (mínimo privilegio + ley). |
 | **Cadena de suministro (A03): CDN sin SRI, `supabase-js` con major flotante, `xlsx` doble** | Media | Pin exacto + SRI + quitar la doble carga; atar `npm run gate` a CI. |
 | Deriva entre documentos (contradicciones que se acumulan) | Media | Consolidación por ciclo + versionado + autoridad clara. |
+| **Modo solo-dev: sin segundo par de ojos** (revisión de PR = auto-revisión; pentest en pausa) — separación de funciones degradada temporalmente | Media | Compuertas `npm run gate` como red mínima; disciplina de auto-revisión (ADR-027); reactivar revisión humana y pentest al ocuparse el cargo técnico o contratando puntualmente. |
 | Agustín como cuello de botella / burnout | Media | Proceso ligero; levantar chats solo con trabajo sostenido; no acumular handoffs. |
 | Bug de RLS multi-tenant (una productora ve a otra) | **Alta** | Tests de cruce de tenant que deben fallar; parte del Gate C. |
 | Feedback del beta que infla el roadmap (construir todo lo que piden) | Media | Triage contra principios del PRD (anti-cortisol + moat) en el paso 3 del ciclo. |
@@ -387,4 +393,4 @@ Terminar la migración con red (Gate A) → permisos reales para Primate (Gate B
 
 ---
 
-*Documento canónico · v1.10 · 8 de julio de 2026 · Primate Films / La Hectárea SpA. Versiónalo y consolídalo como el PRD y el ADR. **Cifras vivas duales** (producción monolito vs. staging modular, ver changelog y hub OWASP v1.5): producción 77 tablas / 147 policies / 8→9 migraciones; staging 72 tablas / 157 policies / 76 funciones `SECURITY DEFINER` / 14 migraciones / 40 archivos frontend. **Pendiente grande: el corte a producción** (las ramas divergieron 189 commits).*
+*Documento canónico · v1.11 · 10 de julio de 2026 · Primate Films / La Hectárea SpA. Versiónalo y consolídalo como el PRD y el ADR. **Cifras vivas duales** (producción monolito vs. staging modular, ver changelog y hub OWASP v1.5): producción 77 tablas / 147 policies / 8→9 migraciones; staging 72 tablas / 157 policies / 76 funciones `SECURITY DEFINER` / 14 migraciones / 40 archivos frontend. **Pendiente grande: el corte a producción** (las ramas divergieron 189 commits).*

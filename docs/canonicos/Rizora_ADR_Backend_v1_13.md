@@ -1,16 +1,24 @@
-# TakeOS — ADR de Backend (Architecture Decision Record)
+# Rizora — ADR de Backend (Architecture Decision Record)
 
-**Versión:** 1.12
-**Fecha:** 8 de julio de 2026
+**Versión:** 1.13
+**Fecha:** 10 de julio de 2026
 **Autor de las decisiones:** Agustín Ignacio Muñoz Rocha · Primate Films / La Hectárea SpA
 **Asesoría técnica:** sesión de arquitectura de backend
-**Estado del documento:** Borrador alineado al **PRD V3.6** (autoritativo), al **Roadmap Operativo v1.10**, al **Arquitectura y Flujo de Trabajo v1.8** y al hub **Seguridad OWASP Top 10:2025 v1.5**. Consolida el **Informe Técnico de Arquitectura (6-jul, rama `staging/main` @ `4c8067b`, con addenda del 6 al 8-jul)** y el cierre del **handoff de Code (21-jun) — grants de `service_role`**, además de los **handoffs de Flujo de Trabajo y Metodología (flujo BD en código), Dev (deltas de frontend), Code (modularización Vite, endurecimiento de grants `anon`)**.
+**Estado del documento:** Borrador alineado al **PRD V3.7** (autoritativo), al **Roadmap Operativo v1.11**, al **Arquitectura y Flujo de Trabajo v1.9** y al hub **Seguridad OWASP Top 10:2025 v1.6**. Consolida el **Informe Técnico de Arquitectura (6-jul, rama `staging/main` @ `4c8067b`, con addenda del 6 al 8-jul)** y el cierre del **handoff de Code (21-jun) — grants de `service_role`**, además de los **handoffs de Flujo de Trabajo y Metodología (flujo BD en código), Dev (deltas de frontend), Code (modularización Vite, endurecimiento de grants `anon`)**.
 
 > **Eje transversal desde v1.12 — estado dual producción ↔ staging.** Los dos remotos del repo ya **no son el mismo software** y divergieron **189 commits**: `origin/main` sirve el **monolito** (producción real: `index.html` de 28.649 líneas, 549 handlers inline, CSP con `unsafe-inline`); `staging/main` sirve la **arquitectura modular** que describe el Informe Técnico. Desde esta versión, **toda cifra viva y todo estado de frontend se leen etiquetados por rama**. El "corte a producción" deja de ser "pasar a la build de Vite" y pasa a ser **cortar toda la reescritura modular** — ver ADR-015 y el nuevo riesgo abierto.
 
 > **Autoridad documental.** Donde el PRD y este ADR hablen del mismo tema, **el PRD manda en lo conceptual y de producto; el ADR manda en lo técnico**. El PRD V3.6 es la fuente de verdad de las decisiones; este documento detalla el *cómo* y el *porqué* técnico. El **Roadmap Operativo v1.10** define la secuencia de ejecución y el modelo de trabajo entre chats; el **Arquitectura y Flujo de Trabajo v1.8** documenta la infraestructura (BD en código, entornos, flujo de despliegue, modularización del frontend) y el flujo de equipo.
 
 ---
+
+## Changelog — v1.12 → v1.13
+
+Dos cambios estructurales ordenados por Agustín (10-jul):
+- **Renombre del producto: Rizora.** Todo el nombre en prosa pasa de "TakeOS" a **Rizora**. Se distinguen tres cosas que NO se mezclan: **Rizora** (el SaaS), **La Hectárea SpA** (la sociedad sobre la que opera Primate Films) y **Primate Films** (la productora que opera de La Hectárea SpA). ⚠ Queda **pendiente el nombre de la sociedad sobre la cual operará Rizora**. Los identificadores técnicos reales conservan su nombre hasta renombrarse en el sistema (ver nota de deuda bajo este changelog).
+- **ADR-027 (nuevo) — Modo solo-dev + política de "cargos, no nombres".** El cargo de CTO queda **vacante**; el proyecto opera con Agustín solo, manteniendo todos los protocolos (PRs, staging, Orden A, gates) con la revisión adaptada a auto-revisión disciplinada. Y desde ahora los canónicos **no asignan roles a personas con nombre**: describen cargos; los nombres solo sobreviven en changelogs/registro de decisiones como trazabilidad histórica marcada. Los documentos completos fueron despersonalizados según esta política.
+
+> **⚠ Deuda de renombre técnico (Rizora).** El producto se llama **Rizora**, pero varios artefactos **reales** conservan el nombre anterior y los canónicos los citan tal cual hasta que se renombren de verdad (documentar un nombre que no existe rompería la fidelidad): los repos `agustinmunozrocha/Take-OS` (producción) y `agustinmunozrocha/takeos-staging`, la URL `https://agustinmunozrocha.github.io/takeos-staging/`, la propiedad `window.__TAKEOS_USER`, la clave de autosave `takeos_autosave_v1`, las policies de Storage `takeos_storage_*` y el paquete `takeos-frontend`. Cuando se renombren en el sistema, se actualizan aquí.
 
 ## Changelog — v1.11 → v1.12
 
@@ -24,7 +32,7 @@ Consolida el **Informe Técnico de Arquitectura (6-jul, `staging/main` @ `4c8067
 - **`npm run gate` — compuertas de integridad de build.** Nace `npm run gate` versionado (cero `on*=`, cero identificadores libres). Cruza OWASP A03/A08. Pendiente: atarlo a pre-push/CI real y sumar checkers de biyección y de despacho de 2.º nivel (ver ADR-023/ADR-024).
 - **Seguridad — dos huecos nuevos de control de acceso (A01), detalle en el hub OWASP.** (i) El **borrado blando** de proyectos (`UPDATE deleted_at` directo por PostgREST) **elude el permiso `eliminar_proyecto`**: las RPC endurecidas existen y el frontend no las llama. (ii) "El externo no lee `contacts`" es **convención, no invariante**: ninguna policy mira `memberships.tipo`. Ambos son bloqueantes de A01 (beta). Se registran aquí por referencia.
 - **⚠ ADR-F (abierto) — Departamentos de servicios por productora.** Las filas de servicios guardan el departamento **por nombre**; `guardar_proyecto` lo mapea a `department_id` y da NULL si no está en `departments` → los departamentos personalizados se pierden al recargar. Fix de fondo **acordado con el BD Expert** (mandar `department_id`, crear el departamento explícito, ajustar la RPC). **La decisión de diseño —departamentos por-productora— la arbitra Agustín; queda abierta.**
-- **⚠ CLAUDE.md** (fuera de estos cinco canónicos): el informe confirma que está desactualizado ("~88% pendiente") y fuera de su ubicación declarada. **No se toca aquí**; pendiente derivarlo a Juan/Code o autorizarlo explícitamente.
+- **⚠ CLAUDE.md** (fuera de estos cinco canónicos): el informe confirma que está desactualizado ("~88% pendiente") y fuera de su ubicación declarada. **No se toca aquí**; pendiente derivarlo a Code o autorizarlo explícitamente.
 
 ## Changelog — v1.10 → v1.11
 
@@ -42,7 +50,7 @@ Consolida el **handoff de Code (20-jun)**. Corrección menor + alineación con e
 
 ## Changelog — v1.8 → v1.9
 
-Consolida la **bitácora de modularización del frontend** (Juan + Code), verificada contra el código vivo en la rama de staging. No cambia ninguna decisión previa; es un agregado técnico. Alineado a **PRD V3.6**, **Roadmap Operativo v1.8** y **Arquitectura y Flujo de Trabajo v1.5** (donde vive el detalle de la modularización).
+Consolida la **bitácora de modularización del frontend** (CTO de entonces + Code — registro histórico), verificada contra el código vivo en la rama de staging. No cambia ninguna decisión previa; es un agregado técnico. Alineado a **PRD V3.6**, **Roadmap Operativo v1.8** y **Arquitectura y Flujo de Trabajo v1.5** (donde vive el detalle de la modularización).
 - **ADR-015 (actualizado) — despliegue del frontend con Vite.** La build pasa a `vite build` → carpeta `dist/`, con **`base: './'`** (rutas relativas: la misma build sirve en producción y staging, arreglo de fondo del 404) y **credenciales por entorno vía `import.meta.env`** (`VITE_SUPABASE_URL`/`VITE_SUPABASE_KEY`), no por edición manual. **Esto vive en staging; el corte de producción a la build de Vite está pendiente** (junto con el diagnóstico del "404 real"), registrado en `PENDIENTES_Migracion_Vite.md`. Producción aún corre el monolito servido directo.
 - **Modularización — estado y patrones (detalle en Arquitectura §7).** Etapa 0 hecha (Vite + deploy + CSS a `src/styles.css`), Etapa 1 hecha y verificada en staging (el **cimiento**: 12 funciones a `src/lib/` + el "puente" `main.js`), Etapa 2 pendiente (el ~88% del trabajo: módulos de negocio + pegamento de UI). Patrón técnico clave: **puente a `window`** para no romper los `onclick` inline, estado compartido por referencia, y escritura de globales desde módulos vía `window.X` (modo estricto). El **objetivo final de seguridad** es quitar `'unsafe-inline'` del CSP al terminar la Etapa 2 (cruza con el hub OWASP A05).
 - **Nota de magnitud (anti-sobreventa):** lo modularizado es **<1% de las funciones** (el cimiento), no "casi toda la app". El grueso es la Etapa 2.
@@ -212,9 +220,9 @@ Lo que **falta** (resumen): 15 tablas (proyectos+presupuesto, finanzas, operacio
 
 **Contexto.** El prototipo no tenía auth (clave compartida cosmética). El PRD §19 fija **Google (OAuth)** como estándar del rubro. La **V9 implementó email + contraseña** (Supabase Auth) como primer paso.
 
-**Decisión (resuelta).** Autenticación vía **Supabase Auth**, con **Google OAuth como destino confirmado** (Agustín, junio 2026). El email+contraseña actual es **provisional**: se agrega **Google como proveedor** en Supabase Auth (soporta ambos a la vez; es configuración, no rearquitectura). El backend mapea la identidad a un usuario de TakeOS con su rol y membresías. El **token viaja y se verifica en cada request** (stateless). Google dice *quién eres*, no *qué puedes* (eso es ADR-004).
+**Decisión (resuelta).** Autenticación vía **Supabase Auth**, con **Google OAuth como destino confirmado** (Agustín, junio 2026). El email+contraseña actual es **provisional**: se agrega **Google como proveedor** en Supabase Auth (soporta ambos a la vez; es configuración, no rearquitectura). El backend mapea la identidad a un usuario de Rizora con su rol y membresías. El **token viaja y se verifica en cada request** (stateless). Google dice *quién eres*, no *qué puedes* (eso es ADR-004).
 
-**Vinculación de identidad (identity linking).** El **email es el único criterio** para enlazar una identidad de Supabase con un usuario de TakeOS —no se usa RUT ni teléfono—. Es confiable para el contexto de TakeOS y evita ambigüedades de *matching*.
+**Vinculación de identidad (identity linking).** El **email es el único criterio** para enlazar una identidad de Supabase con un usuario de Rizora —no se usa RUT ni teléfono—. Es confiable para el contexto de Rizora y evita ambigüedades de *matching*.
 
 **Actualización v1.5.** El **puente de `currentUser()` a la sesión real quedó cerrado** junto con el Gate A (Firebase eliminado del cliente desde la V10.0.0): ya no hay selector de "sesión simulada". El trabajo de cliente que queda **no es de autenticación sino de organización activa**: derivar la organización en uso desde la membresía activa del usuario (motor de org activa — ver ADR-013).
 
@@ -225,7 +233,7 @@ Lo que **falta** (resumen): 15 tablas (proyectos+presupuesto, finanzas, operacio
 ## ADR-004 — Autorización: por perfil y por estado, en el servidor
 **Estado:** Aceptada · **Etapa:** MVP (modelo base, Fase B) / SaaS (endurecer y escalar)
 
-**Contexto.** El PRD §07 define el modelo de acceso de TakeOS. Este ADR recoge las implicaciones técnicas de ese modelo. El Handoff de Permisos (aprobado, junio 2026) y el PRD V3.1 §07 son la referencia de producto; este ADR es la referencia técnica.
+**Contexto.** El PRD §07 define el modelo de acceso de Rizora. Este ADR recoge las implicaciones técnicas de ese modelo. El Handoff de Permisos (aprobado, junio 2026) y el PRD V3.1 §07 son la referencia de producto; este ADR es la referencia técnica.
 
 **Decisión.** La autorización combina **dos dimensiones ortogonales**:
 
@@ -389,7 +397,7 @@ La autorización se aplica **server-side y vía RLS, en cada request**. El front
 
 **Decisión.** El **`audit_log`** y la **observabilidad** (logs, métricas, alertas) son **requisito de cumplimiento**, no lujo. La ley (vigencia 1-dic-2026) fiscaliza evidencia operativa. El sistema debe soportar los derechos del titular y la notificación de brechas.
 
-**Corrección de precisión (v1.5) — plazo de notificación de brechas.** La versión anterior decía "72 horas". **La Ley 21.719 NO fija ese plazo:** exige notificar a la Agencia "por los medios más expeditos y **sin dilaciones indebidas**" ante riesgo razonable, y comunicar a los titulares cuando la brecha involucre datos sensibles, de menores de 14 años o de carácter económico/financiero/bancario. Las **72 horas** pertenecen a **otros marcos**: el RGPD europeo y la **Ley 21.663** (Ley Marco de Ciberseguridad), en su reporte a la **ANCI**. No conviene confundirlos. El estándar a usar en TakeOS para la Ley 21.719 es **"sin dilaciones indebidas"**.
+**Corrección de precisión (v1.5) — plazo de notificación de brechas.** La versión anterior decía "72 horas". **La Ley 21.719 NO fija ese plazo:** exige notificar a la Agencia "por los medios más expeditos y **sin dilaciones indebidas**" ante riesgo razonable, y comunicar a los titulares cuando la brecha involucre datos sensibles, de menores de 14 años o de carácter económico/financiero/bancario. Las **72 horas** pertenecen a **otros marcos**: el RGPD europeo y la **Ley 21.663** (Ley Marco de Ciberseguridad), en su reporte a la **ANCI**. No conviene confundirlos. El estándar a usar en Rizora para la Ley 21.719 es **"sin dilaciones indebidas"**.
 
 **`audit_log` — implementado e inmutable desde el cliente (v1.5).** El `audit_log` ya está construido. El trigger `audit_trigger` es **SECURITY DEFINER + SET search_path**: escribe como *owner* sin depender de una policy de INSERT. Se **eliminaron** las policies abiertas `audit_lectura` (SELECT=true) y `b_audit_log_ins` (INSERT=true); solo permanece `b_audit_log_sel` (SELECT para el administrador de la organización). Así el registro no es manipulable desde el cliente.
 
@@ -540,7 +548,7 @@ LIMIT 1;
 
 **Columnas agregadas.** A `organization_profile`: `link_formulario_pago`, `remitente_nombre`, `remitente_numero`, `remitente_rol`. A `projects`: `notificaciones_reglas jsonb NOT NULL DEFAULT '{}'` (reglas de automatización por proyecto, para futuros envíos por cron).
 
-**Consecuencias.** El remitente visible al destinatario es el usuario real de TakeOS que envía (nombre + Reply-To a su correo personal), no un correo genérico del sistema. El contenido de las plantillas (copy) es trabajo de redacción aparte, no de este ADR.
+**Consecuencias.** El remitente visible al destinatario es el usuario real de Rizora que envía (nombre + Reply-To a su correo personal), no un correo genérico del sistema. El contenido de las plantillas (copy) es trabajo de redacción aparte, no de este ADR.
 
 **Aislamiento de plantillas por organización (V3.4) — más allá de notificaciones.** El mismo principio per-organización aplica a **todas las plantillas de generadores y previsualizadores** (cotización, documentos, etc.), en frontend y backend: una plantilla creada por la productora A **no** debe aparecerle a la B. Además, algunas plantillas son **privadas** de una productora y no se ofrecen como ejemplo público (p. ej. la plantilla "Manifiesto", que Primate reserva para sí). Esto habilita el servicio de **generadores de documentos a pedido** descrito en el PRD §24 (la productora envía su plantilla y se adapta a su previsualizador, de forma aislada del resto).
 
@@ -588,7 +596,7 @@ LIMIT 1;
 
 1. **Migración en una rama de feature** (nunca en `main`, nunca por el editor SQL).
 2. **PR + prueba sobre datos de prueba** (preview branch del PR, o la branch `staging`), con **required check** activo: una migración que falla **no se puede mergear**.
-3. **Revisión de Juan** sobre la PR (última compuerta humana — ver R1).
+3. **Revisión de la PR** (última compuerta humana — ver R1; con equipo la hace el rol técnico, en modo solo-dev es la auto-revisión disciplinada de Agustín + `npm run gate` — ADR-027).
 4. **Merge a `main`** (punto de no retorno).
 5. **Aplicación a producción por la integración de Branching de Supabase**: producción se actualiza **al mergear** (merge = deploy). Con "deploy to production" activo, el `db push` manual queda **prohibido** (riesgo de doble aplicación).
 
@@ -596,7 +604,7 @@ LIMIT 1;
 
 **Reglas asociadas:**
 - **R1 — Merge = deploy.** No hay un paso manual de aplicación que revisar al final; la revisión de la PR (paso 3) es la última compuerta humana, y el botón de merge es el punto de no retorno.
-- **R2 — Excepción "solo/rápido" acotada.** El auto-aprobado de Agustín relaja la **revisión**, nunca el **orden**, y solo aplica a migraciones **aditivas, no bloqueantes, reversibles** que **no** toquen RLS, policies, auth, aislamiento de tenant, ni drops/renames/cambios de tipo/backfills. El criterio es **radio de impacto y reversibilidad**, no "tamaño". Todo lo demás espera revisión de Juan, sin excepción, incluso en modo solo y con deadline.
+- **R2 — Excepción "solo/rápido" acotada.** El auto-aprobado de Agustín relaja la **revisión**, nunca el **orden**, y solo aplica a migraciones **aditivas, no bloqueantes, reversibles** que **no** toquen RLS, policies, auth, aislamiento de tenant, ni drops/renames/cambios de tipo/backfills. El criterio es **radio de impacto y reversibilidad**, no "tamaño". Todo lo demás espera la revisión de PR, sin excepción, incluso con deadline (con equipo: el rol técnico; en modo solo-dev: auto-revisión disciplinada + `npm run gate` — ADR-027).
 - **R3 — No se canoniza "saltar staging".** Idempotente ≠ seguro (un `CREATE INDEX` sin `CONCURRENTLY` es idempotente y bloquea una tabla grande). Con preview branches activos, probar es gratis: se prueba **siempre**.
 
 **Lección registrada (incidente 17-jun).** El **Orden B** (aplicar a prod antes de mergear) fue el atajo que causó la **desincronización repo↔prod** del 17-jun, reconciliada a mano. **Se descarta de forma definitiva**: además de dejar una ventana de desincronización, contradice cómo opera la integración. **Nunca** se aplica un cambio directo a producción por el conector MCP de Supabase ni por el editor SQL; el conector MCP queda para **inspección de solo lectura** y pruebas **en transacción revertida**.
@@ -665,6 +673,24 @@ LIMIT 1;
 
 ---
 
+## ADR-027 — Modo solo-dev y política de "cargos, no nombres" *(NUEVO en v1.13)*
+**Estado:** Aceptada · vigente desde julio 2026 · **Etapa:** Ambas
+
+**Contexto.** En julio 2026 el cargo de CTO quedó **vacante** (quien lo ejercía dejó el proyecto, sin malos términos y con posible retorno; sus accesos se mantienen por decisión de Agustín). El proyecto pasa a operar con **una persona: Agustín**, apoyado en su ecosistema de IAs (chats especializados, Code) y en las compuertas automatizadas. A la vez, es esperable que en unos meses entren más personas, con posible rotación.
+
+**Decisión (dos partes).**
+
+**1. Modo solo-dev: los protocolos se mantienen, cambia quién los ejecuta.** El sistema debe soportar operar con una sola persona **sin desmontar los flujos** que permiten escalar después:
+- **Se mantienen:** ramas de feature (nunca commit directo a `main`), PRs, staging-primero, migraciones-como-código, el Orden A completo, las compuertas `npm run gate`.
+- **Se adapta la revisión de PR:** con equipo, la revisa el rol técnico; en modo solo-dev es **auto-revisión disciplinada** — el PR se abre igual, pasan las compuertas automatizadas, y Agustín lo lee con ojos de revisor antes de mezclar. La compuerta es **del proceso, no de una persona**.
+- **Queda en pausa (registrado como riesgo, no borrado):** el **pentest dirigido** (rol Pentester sin titular) y la **revisión por segunda persona** (separación de funciones real). Ambos se reactivan cuando el cargo se ocupe — o se contratan puntualmente. El hub OWASP (A03, §"separación de funciones") registra la degradación temporal.
+
+**2. Política de nombres: los canónicos describen cargos, no personas.** Desde esta versión, **ningún rol, protocolo o tarea de los canónicos se asigna a una persona con nombre propio**. Se describen **cargos** (CTO, revisor, Test Master, Pentester, Cib,Seg…) y quien los ocupe en cada momento los ejerce. Razones: (a) la rotación de personas no debe obligar a reescribir los documentos; (b) evita que las IAs que consumen estos documentos infieran que un proceso está limitado a una persona específica. **Excepciones acotadas:** (i) **Agustín Muñoz Rocha**, dueño y creador del producto — su nombre es estructural; (ii) nombres en **changelogs y registro de decisiones**, que son trazabilidad histórica (quién decidió/hizo qué y cuándo) y se marcan como tal ("registro histórico"), nunca como asignación vigente.
+
+**Consecuencias.** Una incorporación futura es "alguien toma tal cargo", no una reescritura documental. El costo real del modo solo-dev es la pérdida temporal del segundo par de ojos; se compensa parcialmente con las compuertas automatizadas y se registra como riesgo abierto (Roadmap §6). Esta ADR es también la referencia para redactar futuros documentos: **cargos, no nombres**.
+
+---
+
 # Parte 2 — Decisiones abiertas (se espera la opinión del desarrollador)
 
 ## ADR-F — Departamentos de servicios: por-productora vs. catálogo global *(NUEVO en v1.12 · ⚠ ABIERTA · arbitraje de Agustín)*
@@ -681,9 +707,9 @@ LIMIT 1;
 ## ADR-A — Acceso del fundador / conflicto de interés competitivo
 **Estado:** Abierta · **Crítica para la adopción** · **Etapa:** SaaS *(reflejado en PRD §17)*
 
-**Contexto.** TakeOS es del dueño de una productora y se venderá a la competencia. Para el **MVP no aplica** (Primate usa sus propios datos); es una decisión de **etapa SaaS**.
+**Contexto.** Rizora es del dueño de una productora y se venderá a la competencia. Para el **MVP no aplica** (Primate usa sus propios datos); es una decisión de **etapa SaaS**.
 
-**Dirección recomendada (a validar).** No-abuso de **cuatro patas**: estructural (mínimo privilegio + break-glass), auditoría (`audit_log`), reputacional, legal (Ley 21.719). Llaves gestionadas por la plataforma (no del cliente: cegar la plataforma mataría el Reporte y el cross-tenant). Evaluar **separación societaria** de TakeOS.
+**Dirección recomendada (a validar).** No-abuso de **cuatro patas**: estructural (mínimo privilegio + break-glass), auditoría (`audit_log`), reputacional, legal (Ley 21.719). Llaves gestionadas por la plataforma (no del cliente: cegar la plataforma mataría el Reporte y el cross-tenant). Evaluar **separación societaria** de Rizora.
 
 **Actualización v1.5 — separación societaria confirmada como dirección (Legal + BD).** La parte de **separación societaria** deja de ser solo "a evaluar": **La Hectárea SpA no será la Encargada del tratamiento de datos**. El software vivirá en una **sociedad nueva y separada**, que actuará como Proveedor/Encargado; La Hectárea sigue siendo la productora audiovisual. La **identidad del Proveedor** (razón social, RUT, domicilio) debe ser **dato configurable**, nunca hardcodeado (el dev y el BD Expert ya están instruidos). Los textos legales y el futuro contrato de encargo (DPA) usan hoy "La Hectárea" como **placeholder**, a actualizar cuando se constituya la sociedad. El resto de ADR-A (modelo de no-abuso del acceso del fundador) sigue abierto.
 
@@ -725,7 +751,7 @@ LIMIT 1;
 
 # Apéndice — Glosario rápido
 
-- **Backend / frontend / cliente / servidor** — frontend corre en el navegador; backend, en un servidor que controla TakeOS; cliente = navegador; servidor = máquina siempre encendida.
+- **Backend / frontend / cliente / servidor** — frontend corre en el navegador; backend, en un servidor que controla Rizora; cliente = navegador; servidor = máquina siempre encendida.
 - **Supabase** — plataforma que entrega PostgreSQL administrado, autenticación, storage y API listos para usar.
 - **Edge Functions** — código server-side de Supabase donde corre la lógica crítica (no en el cliente).
 - **RLS (Row Level Security)** — reglas de PostgreSQL que deciden qué *filas* puede ver/tocar cada usuario.
@@ -739,7 +765,7 @@ LIMIT 1;
 - **`project_members`** — rol descriptivo por proyecto (PE, JP, DoP…). No controla acceso; define quién es quién para RECI y, para externos, qué proyectos puede ver.
 - **`permission_grants`** — overrides puntuales tipo Google Drive (ampliar/restringir acceso en un proyecto/módulo específico); HORIZONTE, no MVP.
 - **Roadmap Operativo** — tercer documento canónico (junto al PRD y este ADR). Define la secuencia de ejecución, los gates entre fases, el ciclo de evolución circular y el modelo de trabajo entre chats. Referencia: Roadmap Operativo v1.0.
-- **RBAC / ABAC** — permisos por rol fijo vs. por atributo/estado del recurso. En TakeOS: el "rol fijo" son perfiles asignados via membresía; ABAC aplica al estado del proyecto (ej. Cerrado bloquea edición independientemente del perfil).
+- **RBAC / ABAC** — permisos por rol fijo vs. por atributo/estado del recurso. En Rizora: el "rol fijo" son perfiles asignados via membresía; ABAC aplica al estado del proyecto (ej. Cerrado bloquea edición independientemente del perfil).
 - **Optimistic concurrency / sello de versión** — evita que un guardado pise otro comparando una marca de versión.
 - **Transacción / atomicidad / rollback** — pasos que ocurren todos o ninguno; rollback deshace si algo falla a mitad.
 - **Migración / idempotente** — cambiar la forma de los datos; idempotente = re-ejecutable sin daño.

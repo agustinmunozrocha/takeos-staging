@@ -1,4 +1,4 @@
-# TakeOS · PRD V3.0
+# Rizora · PRD V3.0
 
 **Product Requirements Document**
 
@@ -6,9 +6,9 @@
 
 | | |
 |---|---|
-| **Versión** | V3.6 |
-| **Fecha** | Junio 2026 |
-| **Estado** | Borrador para aprobación · V3.6 corrige el **cupo de colaboradores a "por proyecto"** (§22), actualiza el estado real del frontend verificado contra el build vivo (Centro de Privacidad y cinco flujos de derechos **ya construidos en UI**, refresco resuelto, acceso de externos y transferencia de administración en producción) y registra el cierre del flujo "BD en código" (detalle técnico en ADR v1.8 / Arquitectura v1.4) · reemplaza V2.0 |
+| **Versión** | V3.7 |
+| **Fecha** | 10 de julio de 2026 |
+| **Estado** | Borrador para aprobación · **V3.7 renombra el producto a Rizora** (orden de Agustín, 10-jul) sin cambios de producto: Rizora es el **SaaS**; **La Hectárea SpA** es la sociedad sobre la que opera **Primate Films** (la productora); ⚠ queda pendiente definir la sociedad sobre la cual operará Rizora. Rige la política "cargos, no nombres" (ADR-027). Las menciones "V3.6" en el cuerpo son registro histórico de esa versión · V3.6 corrigió el **cupo de colaboradores a "por proyecto"** (§22), actualiza el estado real del frontend verificado contra el build vivo (Centro de Privacidad y cinco flujos de derechos **ya construidos en UI**, refresco resuelto, acceso de externos y transferencia de administración en producción) y registra el cierre del flujo "BD en código" (detalle técnico en ADR v1.8 / Arquitectura v1.4) · reemplaza V2.0 |
 | **Autor** | Agustín Ignacio Muñoz Rocha |
 | **Razón social** | La Hectárea SpA |
 | **Marca comercial** | Primate Films |
@@ -22,7 +22,7 @@ Documento fundacional del sistema operativo de producción audiovisual desarroll
 
 > **PROPIEDAD INTELECTUAL — DOCUMENTO PROTEGIDO**
 >
-> Este documento, el software **TakeOS**, su arquitectura conceptual, lógica operativa, workflows, módulos, plantillas, documentación, denominación, identidad visual asociada y contenido estratégico constituyen obra original de **Agustín Ignacio Muñoz Rocha** (RUT 20.287.686-2), titular de los derechos de autor, en el contexto de las operaciones de **La Hectárea SpA** (RUT 77.398.011-K), operando comercialmente bajo la marca **Primate Films**.
+> Este documento, el software **Rizora**, su arquitectura conceptual, lógica operativa, workflows, módulos, plantillas, documentación, denominación, identidad visual asociada y contenido estratégico constituyen obra original de **Agustín Ignacio Muñoz Rocha** (RUT 20.287.686-2), titular de los derechos de autor, en el contexto de las operaciones de **La Hectárea SpA** (RUT 77.398.011-K), operando comercialmente bajo la marca **Primate Films**.
 
 Toda la información aquí contenida se encuentra protegida bajo las leyes de propiedad intelectual vigentes en Chile y en los tratados internacionales aplicables.
 
@@ -34,7 +34,7 @@ Este documento es estrictamente confidencial. Su acceso está restringido al equ
 
 © 2026 Agustín Ignacio Muñoz Rocha — La Hectárea SpA — Primate Films. Todos los derechos reservados.
 
-> **Nota sobre nomenclatura legada:** A partir de esta versión, la marca **AMR Films** se elimina por completo de la documentación activa de TakeOS. La razón social sigue siendo La Hectárea SpA; la marca comercial es **Primate Films**. Cualquier referencia a «AMR» en documentos anteriores debe considerarse histórica y obsoleta.
+> **Nota sobre nomenclatura legada:** A partir de esta versión, la marca **AMR Films** se elimina por completo de la documentación activa de Rizora. La razón social sigue siendo La Hectárea SpA; la marca comercial es **Primate Films**. Cualquier referencia a «AMR» en documentos anteriores debe considerarse histórica y obsoleta.
 
 ---
 
@@ -86,7 +86,7 @@ Cada frente de asesoría trabajó aislado de los demás, a propósito, para no c
 - *Decisión (fundador):* **Reemplazo/absorción.** Rinde Gastos sale del horizonte de integración y queda como herramienta legada en transición. La disciplina financiera es nativa.
 
 **4 · Naming comercial**
-- *Decisión (actualizada V3.3):* **ningún nombre comercial es oficial todavía** —ni «TakeOS», que es solo el **nombre de trabajo/proyecto** y será reemplazado—. La búsqueda sigue abierta (§22): se abandona el sufijo «-OS»; *Keel* y otros quedaron descartados; el candidato principal es **Cinelium** (en clearance legal), con **Savia** de respaldo. Se espera fijar el nombre oficial en la próxima consolidación y reemplazar «TakeOS» en todos los documentos.
+- *Decisión (actualizada V3.3):* **ningún nombre comercial es oficial todavía** —ni «Rizora», que es solo el **nombre de trabajo/proyecto** y será reemplazado—. La búsqueda sigue abierta (§22): se abandona el sufijo «-OS»; *Keel* y otros quedaron descartados; el candidato principal es **Cinelium** (en clearance legal), con **Savia** de respaldo. Se espera fijar el nombre oficial en la próxima consolidación y reemplazar «Rizora» en todos los documentos.
 
 **5 · Alcance y GTM**
 - *Decisión:* La dirección de marketing se incorpora a §22 como decisiones tomadas (premium, ICP publicidad, moat del Reporte agregado), porque vive en una capa que no choca con backend ni frontend.
@@ -115,22 +115,22 @@ Cada frente de asesoría trabajó aislado de los demás, a propósito, para no c
 - Manual de Marca en v0 (no oficial, en corrección). El diseño se alinea cuando se finalice.
 - Nombre comercial definitivo, cifra exacta de pricing y línea final de copy de posicionamiento: pendientes, todos posteriores a las entrevistas de validación.
 
-> **Estado de aprobación:** **V3.0 — Borrador para aprobación.** Una vez aprobado, este documento reemplaza completamente la V2.0 en todos los procesos del ecosistema TakeOS. Cualquier referencia a la V2.0 debe considerarse obsoleta. **Breaking changes documentales:** la reclasificación de módulos y la decisión RECI alteran cómo se leía el V2; ningún cambio rompe datos del software.
+> **Estado de aprobación:** **V3.0 — Borrador para aprobación.** Una vez aprobado, este documento reemplaza completamente la V2.0 en todos los procesos del ecosistema Rizora. Cualquier referencia a la V2.0 debe considerarse obsoleta. **Breaking changes documentales:** la reclasificación de módulos y la decisión RECI alteran cómo se leía el V2; ningún cambio rompe datos del software.
 
 ---
 
 ## 00.C — Prefacio · Por qué existe este documento
 
-Este PRD nace de una necesidad concreta: no depender de un solo chat ni de la memoria de una sola persona. TakeOS se construye paso a paso, con criterio incremental, y debe poder ser retomado por cualquiera en cualquier momento sin perder coherencia con la visión original.
+Este PRD nace de una necesidad concreta: no depender de un solo chat ni de la memoria de una sola persona. Rizora se construye paso a paso, con criterio incremental, y debe poder ser retomado por cualquiera en cualquier momento sin perder coherencia con la visión original.
 
 Es el cimiento. No describe cómo se ven los botones ni qué tipografía usa cada pantalla —eso vive en el Manual de Marca. Describe qué problema resuelve el software, cómo está pensado para escalar, qué decisiones ya están tomadas, qué decisiones se difieren intencionalmente y, ahora, **qué está realmente construido**.
 
 Está escrito para dos lectores. El equipo interno de Primate Films, que lo usa como guía estratégica para evaluar cada nueva funcionalidad. Y el desarrollador profesional que tomará el software para construirle un backend real. Para ese segundo lector, este documento —junto al ADR de Backend v1— es la diferencia entre construir lo correcto y rehacer todo más adelante.
 
-> **Principio de lectura:** Este documento debe leerse completo al menos una vez antes de tomar decisiones estructurales sobre TakeOS. Las decisiones tomadas aquí tienen prioridad sobre interpretaciones individuales. Si algo se contradice con la práctica, debe levantarse formalmente para discusión, no resolverse en silencio.
+> **Principio de lectura:** Este documento debe leerse completo al menos una vez antes de tomar decisiones estructurales sobre Rizora. Las decisiones tomadas aquí tienen prioridad sobre interpretaciones individuales. Si algo se contradice con la práctica, debe levantarse formalmente para discusión, no resolverse en silencio.
 
 **Documentos hermanos:**
-- **Biblia Primate** — Filosofía y procesos. Framework, sistema operativo conceptual y Manual. TakeOS hereda sus principios.
+- **Biblia Primate** — Filosofía y procesos. Framework, sistema operativo conceptual y Manual. Rizora hereda sus principios.
 - **ADR Backend v1** — Detalle técnico de arquitectura. El PRD remite a él; se mantiene narrativo.
 - **Manual de Marca** — Autoridad visual (Magdalena Ríos). v0 en corrección. Rige todo lo estético.
 
@@ -168,25 +168,25 @@ Está escrito para dos lectores. El equipo interno de Primate Films, que lo usa 
 
 ---
 
-## 01 — Identidad del software · Qué es TakeOS
+## 01 — Identidad del software · Qué es Rizora
 
-TakeOS es el sistema operativo de producción audiovisual desarrollado por Primate Films. No es un gestor de tareas. No es una hoja de cálculo. No es un CRM. Es el entorno único donde vive cada proyecto audiovisual desde el primer contacto con el cliente hasta el cierre contable final.
+Rizora es el sistema operativo de producción audiovisual desarrollado por Primate Films. No es un gestor de tareas. No es una hoja de cálculo. No es un CRM. Es el entorno único donde vive cada proyecto audiovisual desde el primer contacto con el cliente hasta el cierre contable final.
 
-**Definición operativa.** TakeOS centraliza la información, organiza los proyectos, automatiza tareas repetitivas, hace visible la responsabilidad y reduce el caos operativo propio de la producción audiovisual. Funciona bajo un modelo **proyecto-céntrico**: cada proyecto es una unidad autónoma que nace, se desarrolla, se cierra y queda bloqueada como fuente histórica.
+**Definición operativa.** Rizora centraliza la información, organiza los proyectos, automatiza tareas repetitivas, hace visible la responsabilidad y reduce el caos operativo propio de la producción audiovisual. Funciona bajo un modelo **proyecto-céntrico**: cada proyecto es una unidad autónoma que nace, se desarrolla, se cierra y queda bloqueada como fuente histórica.
 
 **Propuesta de valor.** Reemplazar el caos de hojas de cálculo, mails sueltos, mensajes de WhatsApp y documentos duplicados con un sistema que tiene una sola fuente de verdad por proyecto, automatiza lo repetitivo, deja trazables todas las decisiones y permite que una sola persona sea tan productiva como dos con métodos anticuados. El norte emocional es concreto: que la producción deje de correr con cortisol. Que el caos no cueste el producto, ni el margen, ni la paz.
 
 **Visión a largo plazo.** Convertirse en un software vendible por suscripción a productoras audiovisuales del mundo. Modular en su funcionalidad, adaptable en su UX según el tamaño de la productora, y extensible mediante integraciones con servicios externos.
 
-> **El nombre:** **TakeOS** tiene un doble sentido intencional: *take* es la unidad mínima de una grabación —la toma— y, en inglés, también significa *tomar el control*. El sufijo *OS* comunica que no es una herramienta puntual sino un sistema operativo completo. **Tagline:** *Take control of your production. Take control of your time. Take control of your life.*
+> **El nombre:** **Rizora** tiene un doble sentido intencional: *take* es la unidad mínima de una grabación —la toma— y, en inglés, también significa *tomar el control*. El sufijo *OS* comunica que no es una herramienta puntual sino un sistema operativo completo. **Tagline:** *Take control of your production. Take control of your time. Take control of your life.*
 
-> **Nota sobre el nombre comercial:** «TakeOS» se usa como nombre interno y de proyecto. La marca comercial definitiva está en evaluación (ver §22): marketing recomienda abandonar el sufijo «-OS» por su pronunciación en español. El concepto de «sistema operativo» se conservará como descriptor, no necesariamente en el nombre.
+> **Nota sobre el nombre comercial:** «Rizora» se usa como nombre interno y de proyecto. La marca comercial definitiva está en evaluación (ver §22): marketing recomienda abandonar el sufijo «-OS» por su pronunciación en español. El concepto de «sistema operativo» se conservará como descriptor, no necesariamente en el nombre.
 
 ---
 
 ## 02 — Filosofía y principios fundamentales · Los diez principios
 
-TakeOS hereda y formaliza los principios definidos en la Biblia Primate. Estos diez principios deben sobrevivir a cualquier cambio tecnológico, rediseño visual o iteración de producto. **Sobrevivieron intactos a toda la serie V8 del software** —ese es el mejor argumento de su solidez. Si una decisión técnica futura entra en conflicto con uno de ellos, lo correcto es cuestionar la decisión, no el principio.
+Rizora hereda y formaliza los principios definidos en la Biblia Primate. Estos diez principios deben sobrevivir a cualquier cambio tecnológico, rediseño visual o iteración de producto. **Sobrevivieron intactos a toda la serie V8 del software** —ese es el mejor argumento de su solidez. Si una decisión técnica futura entra en conflicto con uno de ellos, lo correcto es cuestionar la decisión, no el principio.
 
 1. **Proyecto-céntrico.** Cada proyecto es la unidad mínima. Toda la información vive en función de un proyecto concreto. No existe información huérfana.
 2. **Fuente única de verdad.** Cada dato tiene un único lugar donde se ingresa. Desde ahí alimenta al resto. La misma información nunca se escribe a mano en dos lugares.
@@ -203,9 +203,9 @@ TakeOS hereda y formaliza los principios definidos en la Biblia Primate. Estos d
 
 ---
 
-## 03 — Usuarios y roles · Para quién es TakeOS
+## 03 — Usuarios y roles · Para quién es Rizora
 
-TakeOS escala progresivamente en tipos de usuario. La arquitectura debe permitir agregar nuevos tipos sin rediseñar el sistema completo. Cada tipo tiene una vista filtrada, accesos diferenciados y permisos específicos.
+Rizora escala progresivamente en tipos de usuario. La arquitectura debe permitir agregar nuevos tipos sin rediseñar el sistema completo. Cada tipo tiene una vista filtrada, accesos diferenciados y permisos específicos.
 
 | Nivel | Quiénes | Implementación |
 |---|---|---|
@@ -226,7 +226,7 @@ TakeOS escala progresivamente en tipos de usuario. La arquitectura debe permitir
 
 ## 04 — Arquitectura general del sistema · Cómo está estructurado
 
-TakeOS tiene tres capas conceptuales que conviven en cada proyecto. No son etapas cronológicas ni secciones visuales: son dimensiones funcionales. *(Esta es la arquitectura de dominio. La arquitectura técnica de tres capas —cliente, backend, base de datos— es otra cosa y vive en §19.)*
+Rizora tiene tres capas conceptuales que conviven en cada proyecto. No son etapas cronológicas ni secciones visuales: son dimensiones funcionales. *(Esta es la arquitectura de dominio. La arquitectura técnica de tres capas —cliente, backend, base de datos— es otra cosa y vive en §19.)*
 
 1. **Identidad del proyecto.** Qué es el proyecto y quién responde. Cliente, agencia, nombre, PE, fechas, servicio. Un proyecto no existe sin esta capa completa.
 2. **Estados e hitos.** Dónde está parado en su ciclo. Los estados son globales (uno activo a la vez). Los hitos son eventos que gatillan el avance.
@@ -250,7 +250,7 @@ TakeOS tiene tres capas conceptuales que conviven en cada proyecto. No son etapa
 
 ## 05 — El Control Room · El corazón visible del sistema
 
-El Control Room es la pantalla principal de TakeOS, lo primero que ve un usuario interno al iniciar sesión. Comunica el estado global de la operación en una sola vista: qué proyectos hay, en qué estado están, qué requiere atención, qué va bien.
+El Control Room es la pantalla principal de Rizora, lo primero que ve un usuario interno al iniciar sesión. Comunica el estado global de la operación en una sola vista: qué proyectos hay, en qué estado están, qué requiere atención, qué va bien.
 
 **Qué muestra:**
 - Vista de tarjetas o columnas por estado (Venta → Cerrado, Rechazado).
@@ -261,13 +261,13 @@ El Control Room es la pantalla principal de TakeOS, lo primero que ve un usuario
 - Métricas globales agregadas: proyectos activos, monto total en producción, cerrados en el mes.
 - Búsqueda transversal por nombre de cliente, proyecto o persona.
 
-**Por qué importa tanto.** El Control Room es la diferencia entre operar a ciegas y operar con visión panorámica. Sin él, TakeOS sería una colección de pestañas. Con él, es un sistema operativo real. En la etapa SaaS, el Control Room se vuelve **cross-tenant** para el freelancer que trabaja en varias productoras (ver §03 y ADR-013).
+**Por qué importa tanto.** El Control Room es la diferencia entre operar a ciegas y operar con visión panorámica. Sin él, Rizora sería una colección de pestañas. Con él, es un sistema operativo real. En la etapa SaaS, el Control Room se vuelve **cross-tenant** para el freelancer que trabaja en varias productoras (ver §03 y ADR-013).
 
 > **Regla crítica del Control Room:** El Control Room **no debe contener información que no exista en otro lugar.** Es una vista derivada, no una fuente de verdad. Si un dato aparece aquí, debe poder rastrearse hasta su origen con un clic. Esto preserva el principio de fuente única de verdad y evita inconsistencias entre el dashboard y los módulos.
 
 ---
 
-## 06 — Módulos del software · Lo que TakeOS hace
+## 06 — Módulos del software · Lo que Rizora hace
 
 El cambio más concreto del V3 vive aquí. El V2 subrepresentaba lo construido: clasificaba como «futuro cercano» módulos que la serie V8 ya entregó. Esta tabla reconcilia el PRD con la realidad del código, módulo por módulo.
 
@@ -361,7 +361,7 @@ Visión a años de distancia: integración Chipax/SII, App móvil nativa, plataf
 
 > **Actualizado: 6 de junio de 2026.** Esta sección fue reescrita a partir del **Handoff de Permisos** (aprobado, junio 2026) y **reemplaza el modelo Submitter / Approver del V3.0** como capa de control de acceso. El detalle técnico (esquema y RLS) vive en el Handoff de Permisos y en el **ADR de Backend** (ADR-003, ADR-004, ADR-013).
 
-El V3.0 definía tres niveles —Submitter, Approver, Administrator— con cadenas de aprobación. Ese modelo **mezclaba dos cosas distintas**: el *control de acceso* (quién ve y edita qué) y el *flujo de aprobación* (quién aprueba lo que otro subió). El sistema real de TakeOS las separa: los permisos los define el **modelo de perfiles** descrito aquí. El flujo Submitter/Approver podría regresar más adelante como un *workflow de aprobación* aparte (horizonte), pero no es lo que define el acceso.
+El V3.0 definía tres niveles —Submitter, Approver, Administrator— con cadenas de aprobación. Ese modelo **mezclaba dos cosas distintas**: el *control de acceso* (quién ve y edita qué) y el *flujo de aprobación* (quién aprueba lo que otro subió). El sistema real de Rizora las separa: los permisos los define el **modelo de perfiles** descrito aquí. El flujo Submitter/Approver podría regresar más adelante como un *workflow de aprobación* aparte (horizonte), pero no es lo que define el acceso.
 
 ### Las dos dimensiones del acceso
 
@@ -440,7 +440,7 @@ El perfil **7 (Invitado) no sirve para clientes ni agencias**: les daría acceso
 
 ---
 
-## 08 — Notificaciones y comunicación · Cómo TakeOS habla con las personas
+## 08 — Notificaciones y comunicación · Cómo Rizora habla con las personas
 
 Uno de los módulos más estratégicos. Reemplaza el caos de mails sueltos, mensajes de WhatsApp y olvidos por una infraestructura ordenada de comunicación.
 
@@ -516,9 +516,9 @@ RECI es una adaptación al español de RACI, para uso interno de Primate. Equiva
 
 ---
 
-## 11 — Entregables y exportación · Cómo TakeOS produce documentos
+## 11 — Entregables y exportación · Cómo Rizora produce documentos
 
-TakeOS genera documentos exportables que combinan información del sistema con plantillas predefinidas, reemplazando el copiar-y-pegar en Word o Pages.
+Rizora genera documentos exportables que combinan información del sistema con plantillas predefinidas, reemplazando el copiar-y-pegar en Word o Pages.
 
 **Documentos exportables a PDF:** Hoja de Llamado, Cotización (versionado), Contratos y Cesiones (módulo Legal), Crewlist, Plan de Rodaje, Reportes financieros, Reporte Inteligente de Cierre (ver §14), Mapa de Entregables, README para Cliente (automático).
 
@@ -534,9 +534,9 @@ TakeOS genera documentos exportables que combinan información del sistema con p
 
 ## 12 — Manejo financiero · El dinero, en orden
 
-El rol financiero de TakeOS es operativo: registrar, calcular, conciliar internamente y preparar la información. La disciplina financiera es **nativa y global** —es la cuña que viaja a cualquier país— mientras la cañería tributaria local se mantiene desacoplada.
+El rol financiero de Rizora es operativo: registrar, calcular, conciliar internamente y preparar la información. La disciplina financiera es **nativa y global** —es la cuña que viaja a cualquier país— mientras la cañería tributaria local se mantiene desacoplada.
 
-**Qué hace TakeOS:**
+**Qué hace Rizora:**
 - Construye presupuestos con cálculo de costos, márgenes y totales.
 - Registra gastos reales, en espejo con la cuenta bancaria de producción.
 - Compara **cotizado vs. real** al cierre, con margen efectivo.
@@ -550,7 +550,7 @@ El rol financiero de TakeOS es operativo: registrar, calcular, conciliar interna
 - No es contador ni asesor tributario.
 - No mantiene la contabilidad legal de la empresa.
 
-*Cambio respecto al V2: Rinde Gastos ya **no** figura aquí. TakeOS lo absorbe.*
+*Cambio respecto al V2: Rinde Gastos ya **no** figura aquí. Rizora lo absorbe.*
 
 **Capacidades financieras construidas (nuevas en el PRD):**
 
@@ -567,7 +567,7 @@ El rol financiero de TakeOS es operativo: registrar, calcular, conciliar interna
 
 ## 13 — Portal de clientes · Trazabilidad para quien paga
 
-El Portal de Clientes es la cara externa de TakeOS: lo que ve un cliente al iniciar sesión. Genera confianza operativa al permitirle ver el avance del proyecto sin estar preguntando por mail.
+El Portal de Clientes es la cara externa de Rizora: lo que ve un cliente al iniciar sesión. Genera confianza operativa al permitirle ver el avance del proyecto sin estar preguntando por mail.
 
 > **Principio rector:** El cliente **solo ve lo que Primate Films decide compartir.** El Portal es una vista filtrada, no acceso al sistema. Preserva la confidencialidad de la operación interna (costos reales, márgenes, comunicaciones) y entrega la transparencia operativa que el cliente necesita.
 
@@ -581,7 +581,7 @@ El Portal de Clientes es la cara externa de TakeOS: lo que ve un cliente al inic
 
 ## 14 — Reportes inteligentes de cierre · El Spotify Wrapped del proyecto
 
-Al cerrar un proyecto, TakeOS genera un PDF de business intelligence que convierte el cierre operativo en aprendizaje organizacional. Es donde TakeOS deja de ser un gestor de tareas y se vuelve inteligencia operacional.
+Al cerrar un proyecto, Rizora genera un PDF de business intelligence que convierte el cierre operativo en aprendizaje organizacional. Es donde Rizora deja de ser un gestor de tareas y se vuelve inteligencia operacional.
 
 **Qué contiene:**
 - Diseño alineado al Manual de Marca.
@@ -600,13 +600,13 @@ Al cerrar un proyecto, TakeOS genera un PDF de business intelligence que convier
 - **Desempeño individual: memoria, no vigilancia.** Si se mide a personas, se permisa fuerte y se enmarca como «memoria de equipo», nunca ranking. Riesgo legal y de marca.
 - **Claridad de costos, no la conclusión.** Se entrega la claridad (sueldos/equipos/freelance) en el producto; jamás se marketea la conclusión (despidos/optimización de planilla). El cliente concluye en privado.
 
-> **Por qué puede ser el feature que vende el SaaS:** Muchas productoras gestionan proyectos; pocas extraen aprendizaje estructurado de cada uno. El Reporte de Cierre convierte a TakeOS en **memoria operativa organizada**: un diferenciador que ningún competidor ofrece hoy.
+> **Por qué puede ser el feature que vende el SaaS:** Muchas productoras gestionan proyectos; pocas extraen aprendizaje estructurado de cada uno. El Reporte de Cierre convierte a Rizora en **memoria operativa organizada**: un diferenciador que ningún competidor ofrece hoy.
 
 ---
 
 ## 15 — Seguridad y datos sensibles · Un blanco de alto valor
 
-*(Sección nueva.)* TakeOS guarda RUTs, datos bancarios, direcciones, teléfonos y mails —y a nivel SaaS, de miles de personas. Es un blanco de alto valor, y el daño escala con la cantidad. El V2 no tenía una sección que lo tratara como lo que es. El V3 sí.
+*(Sección nueva.)* Rizora guarda RUTs, datos bancarios, direcciones, teléfonos y mails —y a nivel SaaS, de miles de personas. Es un blanco de alto valor, y el daño escala con la cantidad. El V2 no tenía una sección que lo tratara como lo que es. El V3 sí.
 
 **Controles base · no negociables:**
 
@@ -629,7 +629,7 @@ Al cerrar un proyecto, TakeOS genera un PDF de business intelligence que convier
 
 *(Sección nueva.)*
 
-> **Hito de negocio:** La **Ley 21.719** de protección de datos personales entra en plena vigencia el **1 de diciembre de 2026.** Está inspirada en el GDPR: Agencia fiscalizadora, deber de notificar brechas **sin dilaciones indebidas** y multas significativas. **Aplica a TakeOS.** Fiscaliza evidencia operativa —logs, registros datados—, no buenas intenciones.
+> **Hito de negocio:** La **Ley 21.719** de protección de datos personales entra en plena vigencia el **1 de diciembre de 2026.** Está inspirada en el GDPR: Agencia fiscalizadora, deber de notificar brechas **sin dilaciones indebidas** y multas significativas. **Aplica a Rizora.** Fiscaliza evidencia operativa —logs, registros datados—, no buenas intenciones.
 
 Esto convierte al audit log (§10) y a la observabilidad (logs, métricas, alertas) en **requisito de cumplimiento, no en lujo de ingeniería.** El diseño debe contemplar los derechos del titular y la capacidad de notificar brechas.
 
@@ -647,7 +647,7 @@ Esto convierte al audit log (§10) y a la observabilidad (logs, métricas, alert
 
 ## 17 — Confianza del cliente y conflicto de interés · El problema del dueño que mira
 
-*(Sección nueva.)* TakeOS es propiedad del dueño de una productora y se venderá a otras productoras —su competencia. Estas confiarán datos extremadamente sensibles: presupuestos, márgenes, tarifas, clientes. Es razonable que desconfíen de que el fundador pueda verlos. No es solo privacidad: es **conflicto de interés competitivo**, y mal resuelto, frena la venta. Es un riesgo de adopción, no un detalle.
+*(Sección nueva.)* Rizora es propiedad del dueño de una productora y se venderá a otras productoras —su competencia. Estas confiarán datos extremadamente sensibles: presupuestos, márgenes, tarifas, clientes. Es razonable que desconfíen de que el fundador pueda verlos. No es solo privacidad: es **conflicto de interés competitivo**, y mal resuelto, frena la venta. Es un riesgo de adopción, no un detalle.
 
 **Dirección recomendada — modelo de no-abuso de cuatro patas:**
 1. **Estructural.** Mínimo privilegio + acceso **break-glass**: nadie tiene acceso permanente a datos de clientes; mirarlos exige una acción explícita, justificada y registrada.
@@ -668,7 +668,7 @@ Esto convierte al audit log (§10) y a la observabilidad (logs, métricas, alert
 
 ## 18 — Integraciones futuras · Conexiones con el mundo exterior
 
-TakeOS es un sistema operativo central, pero no debe convertirse en una isla. Principio rector heredado de marketing: **«lo nativo viaja, las integraciones anclan».** La disciplina financiera se mantiene nativa (cuña global); la cañería tributaria local va en cuarentena, por país, nunca cableada al core.
+Rizora es un sistema operativo central, pero no debe convertirse en una isla. Principio rector heredado de marketing: **«lo nativo viaja, las integraciones anclan».** La disciplina financiera se mantiene nativa (cuña global); la cañería tributaria local va en cuarentena, por país, nunca cableada al core.
 
 | Integración | Qué aporta | Prioridad |
 |---|---|---|
@@ -681,7 +681,7 @@ TakeOS es un sistema operativo central, pero no debe convertirse en una isla. Pr
 | **Stripe / Wise** | Pagos internacionales para clientes extranjeros. | Horizonte |
 | **Uber API** | Agendamiento desde Plan de Locomoción. Nota de horizonte (≈2030), no módulo numerado. | Nota |
 
-> **Cambio respecto al V2:** **Rinde Gastos sale de esta tabla.** Dejó de ser integración futura: TakeOS lo absorbe como funcionalidad nativa (ver §12). Mantenerlo como «integración» contradecía la decisión de reemplazo.
+> **Cambio respecto al V2:** **Rinde Gastos sale de esta tabla.** Dejó de ser integración futura: Rizora lo absorbe como funcionalidad nativa (ver §12). Mantenerlo como «integración» contradecía la decisión de reemplazo.
 
 ---
 
@@ -749,9 +749,9 @@ El principio 9 (§02) dice «versionar en vez de eliminar». El V2 lo enunció c
 
 ## 21 — Principios de UX y diseño · Cómo se ve y se siente
 
-TakeOS debe sentirse premium, claro y cinematográfico. La estética no es decoración: es parte del valor percibido y del posicionamiento de marca. Una herramienta que se ve seria, inspira confianza seria.
+Rizora debe sentirse premium, claro y cinematográfico. La estética no es decoración: es parte del valor percibido y del posicionamiento de marca. Una herramienta que se ve seria, inspira confianza seria.
 
-> **Autoridad de diseño · el Manual de Marca manda:** La autoridad visual de TakeOS es el **Manual de Marca de Primate Films**, elaborado por Magdalena Ríos. **Existe en versión v0 (no oficial, en corrección).** Hasta que se finalice, el diseño actual opera con un sistema de **tokens CSS provisionales** que deben alinearse al Manual cuando esté listo —incluida la sustitución de cualquier fuente provisional por la tipografía oficial.
+> **Autoridad de diseño · el Manual de Marca manda:** La autoridad visual de Rizora es el **Manual de Marca de Primate Films**, elaborado por Magdalena Ríos. **Existe en versión v0 (no oficial, en corrección).** Hasta que se finalice, el diseño actual opera con un sistema de **tokens CSS provisionales** que deben alinearse al Manual cuando esté listo —incluida la sustitución de cualquier fuente provisional por la tipografía oficial.
 
 **Tokens de marca vigentes (del Manual v0):**
 
@@ -818,12 +818,12 @@ El modelo es **premium**: no se compite por precio sino por valor percibido, dis
 | Competidor | Lectura |
 |---|---|
 | **Wrapbook** | Competidor **real**, no aspiracional. Fuerte en nómina/pagos de crew y compliance. Referencia obligada de lo que el mercado ya espera resuelto. |
-| **StudioBinder** | Fuerte en preproducción (guion, storyboard, hojas de llamado). Débil en la cadena financiera y de cierre donde TakeOS apuesta. |
-| **Movie Magic** | Estándar histórico de presupuesto/scheduling. Pesado, caro, anticuado en UX. El contraste de experiencia juega a favor de TakeOS. |
+| **StudioBinder** | Fuerte en preproducción (guion, storyboard, hojas de llamado). Débil en la cadena financiera y de cierre donde Rizora apuesta. |
+| **Movie Magic** | Estándar histórico de presupuesto/scheduling. Pesado, caro, anticuado en UX. El contraste de experiencia juega a favor de Rizora. |
 
 **Secuencia de mercado y naming.** **Chile → Latinoamérica → EE.UU.**, en ese orden: validar y endurecer en casa, expandir a un mercado culturalmente cercano, después atacar el premium global.
 
-**Naming comercial (abierto — ningún nombre es oficial todavía).** «TakeOS» es **solo el nombre de trabajo/proyecto** y se reemplazará; **no es un nombre oficial en ningún lado**. La búsqueda: se **abandona el sufijo «-OS»** (difícil en español); *Keel* y otras opciones quedaron descartadas; el candidato principal es **Cinelium** (en clearance legal), con **Savia** de respaldo. *(El nombre «Mycelium» quedó bloqueado legalmente; el micelio se conserva como **territorio de posicionamiento**, no como nombre.)* Se espera fijar el nombre oficial en la próxima consolidación y cambiarlo en todos los documentos.
+**Naming comercial (abierto — ningún nombre es oficial todavía).** «Rizora» es **solo el nombre de trabajo/proyecto** y se reemplazará; **no es un nombre oficial en ningún lado**. La búsqueda: se **abandona el sufijo «-OS»** (difícil en español); *Keel* y otras opciones quedaron descartadas; el candidato principal es **Cinelium** (en clearance legal), con **Savia** de respaldo. *(El nombre «Mycelium» quedó bloqueado legalmente; el micelio se conserva como **territorio de posicionamiento**, no como nombre.)* Se espera fijar el nombre oficial en la próxima consolidación y cambiarlo en todos los documentos.
 
 > **Independencia de marca (Marketing/GTM).** El producto se presenta como **marca independiente de Primate**: no comparte logo, tipografía ni paleta con la productora. La única conexión visible es el respaldo «**by Primate Films**». Es coherente con la separación societaria (§17): el software es su propia empresa, no una extensión de Primate. *(La narrativa de marca —incluida la metáfora del micelio como territorio— vive en los documentos de marca de marketing, no en este PRD.)*
 
@@ -908,7 +908,7 @@ Una vez que una pieza está cerrada, aprobada y final, **se mueve automáticamen
 
 **Idea B — plan de pago para personas naturales** *(horizonte más lejano).* Un plan barato (referencia lanzada al aire: **~$25.000/mes, no es pricing**) con el **toolkit creativo** (Plan de Rodaje, hoja de llamado, etc.), **sin** la capa financiera/CFO ni multiusuario. Es la versión monetizada del mismo movimiento.
 
-**Por qué tiene sentido (land-and-expand / PLG).** Cuando mucha gente use el software dentro de muchas productoras, descubre que las herramientas son **notablemente mejores** que lo que usa hoy. Ejemplo: el **Plan de Rodaje** en Excel es un calvario (cargar imágenes, reformatear, fórmulas que se corren, archivo pesado); en TakeOS es intuitivo, **comprime las imágenes** (archivo liviano para enviar), formatea solo y **evita errores de tiempos** porque los calcula. Ese freelancer es **canal de distribución gratis**: se lleva la herramienta a su próximo proyecto, la recomienda, y cuando entra o arma una productora, **trae el producto de empresa con él**.
+**Por qué tiene sentido (land-and-expand / PLG).** Cuando mucha gente use el software dentro de muchas productoras, descubre que las herramientas son **notablemente mejores** que lo que usa hoy. Ejemplo: el **Plan de Rodaje** en Excel es un calvario (cargar imágenes, reformatear, fórmulas que se corren, archivo pesado); en Rizora es intuitivo, **comprime las imágenes** (archivo liviano para enviar), formatea solo y **evita errores de tiempos** porque los calcula. Ese freelancer es **canal de distribución gratis**: se lleva la herramienta a su próximo proyecto, la recomienda, y cuando entra o arma una productora, **trae el producto de empresa con él**.
 
 **Cuidados (explícitos).**
 - **Limitar lo gratis a solo el Plan de Rodaje** —no la suite creativa, no lo financiero, no multiusuario—. Se da a probar el mejor pedazo, no la caja entera.
@@ -941,7 +941,7 @@ Una posibilidad para más adelante: exponer un **MCP server de solo lectura** �
 
 ## 25 — Plantilla permanente de changelog · Cómo se documenta cada versión
 
-Todo cambio relevante en TakeOS —software o documentación— debe registrarse con esta estructura. Es requisito permanente: ninguna entrega se considera completa sin su changelog. Garantiza que cualquiera pueda retomar el proyecto sin perder contexto.
+Todo cambio relevante en Rizora —software o documentación— debe registrarse con esta estructura. Es requisito permanente: ninguna entrega se considera completa sin su changelog. Garantiza que cualquiera pueda retomar el proyecto sin perder contexto.
 
 | Campo | Contenido |
 |---|---|
@@ -957,7 +957,7 @@ Todo cambio relevante en TakeOS —software o documentación— debe registrarse
 | **Pendientes conocidos** | Lo que queda sin resolver y se sabe. |
 | **Estado de aprobación** | Borrador / En revisión / Aprobado. |
 
-> **Por qué es innegociable:** TakeOS se construye de forma incremental, muchas veces a partir de notas de voz consolidadas. Sin changelog formal, el conocimiento se fragmenta y el proyecto se vuelve dependiente de la memoria de una persona. El changelog es lo que permite que el cimiento —este PRD— y el software evolucionen sin perderse a sí mismos.
+> **Por qué es innegociable:** Rizora se construye de forma incremental, muchas veces a partir de notas de voz consolidadas. Sin changelog formal, el conocimiento se fragmenta y el proyecto se vuelve dependiente de la memoria de una persona. El changelog es lo que permite que el cimiento —este PRD— y el software evolucionen sin perderse a sí mismos.
 
 > **Recordatorio de despliegue (para versiones de software):** Aplica a entregas del archivo `index.html`, no a este PRD: renombrar el archivo nuevo a `index.html` → en el repo, «Add file» → «Upload files» → arrastrar `index.html` (el mismo nombre reemplaza al existente) → «Commit changes». GitHub Pages se actualiza solo en ~1–2 min. La URL no cambia; Firestore no se ve afectado.
 
@@ -990,15 +990,15 @@ Todo cambio relevante en TakeOS —software o documentación— debe registrarse
 
 ### Cierre
 
-TakeOS nació de una incomodidad concreta: la producción audiovisual corre con demasiado caos, y ese caos se paga en dinero, en calidad y en salud. Este documento es el cimiento de la respuesta. No describe una herramienta: describe una forma de trabajar con control, claridad y trazabilidad.
+Rizora nació de una incomodidad concreta: la producción audiovisual corre con demasiado caos, y ese caos se paga en dinero, en calidad y en salud. Este documento es el cimiento de la respuesta. No describe una herramienta: describe una forma de trabajar con control, claridad y trazabilidad.
 
-La V3.0 hace algo que la V2.0 no podía: **decir la verdad sobre lo que TakeOS ya es.** Dejó de ser un prototipo que promete. Es un sistema que opera, con un camino claro hacia convertirse en producto. Lo que sigue —el backend real, la confianza del cliente, la salida al mercado— está mapeado. El trabajo ahora es ejecutarlo sin perder los principios que lo hicieron valer.
+La V3.0 hace algo que la V2.0 no podía: **decir la verdad sobre lo que Rizora ya es.** Dejó de ser un prototipo que promete. Es un sistema que opera, con un camino claro hacia convertirse en producto. Lo que sigue —el backend real, la confianza del cliente, la salida al mercado— está mapeado. El trabajo ahora es ejecutarlo sin perder los principios que lo hicieron valer.
 
 > *«Take control of your production.*
 > *Take control of your time.*
 > *Take control of your life.»*
 
-**Take control. TakeOS.**
+**Take control. Rizora.**
 
 ---
 

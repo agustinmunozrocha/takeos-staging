@@ -1,14 +1,20 @@
-# TakeOS — Arquitectura Técnica y Flujo de Trabajo de Equipo
+# Rizora — Arquitectura Técnica y Flujo de Trabajo de Equipo
 
-**Versión:** 1.8
-**Fecha:** 8 de julio de 2026
+**Versión:** 1.9
+**Fecha:** 10 de julio de 2026
 **Autor:** Chat de Profesor/Asesor de Software (Claude), por encargo de Agustín Muñoz Rocha
 **Estado:** **Aprobada y en ejecución** — Prioridad #1 y #2 **cerradas**; Prioridad #3 (modularización con Vite) **esencialmente completa en `staging/main`** (arquitectura modular de 25 módulos, delegación de eventos, CSP endurecida), **pendiente el corte a producción**, que hoy sigue en el monolito.
-**Para quién es:** Agustín (product owner) y Juan de la Cuadra (CTO del proyecto)
-**Documentos relacionados:** PRD V3.6 · ADR de Backend v1.12 · Roadmap Operativo v1.10 · Seguridad OWASP Top 10:2025 v1.5
+**Para quién es:** Agustín (product owner) y quien ocupe los cargos técnicos del proyecto (hoy en modo solo-dev; ver §0, regla de nombres)
+**Documentos relacionados:** PRD V3.7 · ADR de Backend v1.13 · Roadmap Operativo v1.11 · Seguridad OWASP Top 10:2025 v1.6
 
 > **⚠ Eje transversal desde v1.8 — producción ≠ staging.** El Informe Técnico de Arquitectura (6-jul) halló que **los dos remotos del repo ya no son el mismo software** y divergieron **189 commits**: `origin/main` (`fa008d5`) sirve el **monolito** (producción real: `index.html` de 28.649 líneas, 549 handlers inline, CSP con `unsafe-inline`); `staging/main` (`4c8067b`) sirve la **arquitectura modular** que describe este documento. Salvo que se diga lo contrario, lo que sigue describe la **rama modular (staging)**; el estado de producción se marca aparte. Esta divergencia + el corte a producción son el **riesgo abierto principal** (§5).
 
+> **Cambios respecto a v1.8** (esta versión — renombre a **Rizora** + salida del CTO, por orden de Agustín del 10-jul):
+> 1. **El producto se llama Rizora.** Renombrada toda la prosa. Rizora (SaaS) ≠ La Hectárea SpA (sociedad de Primate Films) ≠ Primate Films (productora); pendiente la sociedad de Rizora. Los artefactos técnicos reales conservan su nombre hasta renombrarse (ver deuda abajo).
+> 2. **Modo solo-dev (ADR-027).** El cargo de CTO queda **vacante**; los protocolos se mantienen (PRs, staging, gates) con revisión adaptada a auto-revisión. §0, §1, §4 y §7 despersonalizados: **cargos, no nombres** — regla nueva en §0.
+>
+> **⚠ Deuda de renombre técnico (Rizora).** El producto se llama **Rizora**, pero varios artefactos **reales** conservan el nombre anterior y los canónicos los citan tal cual hasta que se renombren de verdad (documentar un nombre que no existe rompería la fidelidad): los repos `agustinmunozrocha/Take-OS` (producción) y `agustinmunozrocha/takeos-staging`, la URL `https://agustinmunozrocha.github.io/takeos-staging/`, la propiedad `window.__TAKEOS_USER`, la clave de autosave `takeos_autosave_v1`, las policies de Storage `takeos_storage_*` y el paquete `takeos-frontend`. Cuando se renombren en el sistema, se actualizan aquí.
+>
 > **Cambios respecto a v1.7** (esta versión — consolida el **Informe Técnico de Arquitectura del 6-jul**, `staging/main` @ `4c8067b`, con addenda 6–8-jul, + el cierre del handoff de Code de `service_role`):
 > 1. **⚠ Producción ≠ staging (nuevo eje, encabezado + §2.4/§5).** Los dos remotos divergieron **189 commits**: producción = monolito, staging = modular. Todo estado de frontend y cifra viva se leen etiquetados por rama.
 > 2. **Modularización esencialmente completa en staging (§2.4/§3/§7).** No es "Etapa 2 pendiente / <1% hecho": el monolito quedó reemplazado por **40 archivos ES Modules (25.327 líneas en `frontend/src/`: 14 `lib/` + 25 `modules/`)**, con un sistema de **delegación de eventos** que retiró los `onclick` inline, **ganchos** (inversión de control) y **época** multi-org. Lo que queda es el **corte a producción**, no la modularización.
@@ -27,7 +33,7 @@
 > *(El fix del IVA hardcodeado se corrigió en el ADR-018, v1.10 — no afecta este documento.)*
 >
 > **Cambios respecto a v1.4** (versión anterior):
-> 1. **Modularización — estado real, corte por corte (§3 y §7).** Con la bitácora de Juan + Code verificada contra el código vivo: **Etapa 0 hecha** (Vite + deploy automático + CSS extraído a `src/styles.css`), **Etapa 1 hecha y verificada en staging** (el *cimiento*: 12 funciones a `src/lib/` + el "puente" `main.js`), **Etapa 2 pendiente**. Se actualiza el árbol del repo (§3.4) a la estructura real con `src/`.
+> 1. **Modularización — estado real, corte por corte (§3 y §7).** Con la bitácora del entonces-CTO + Code verificada contra el código vivo: **Etapa 0 hecha** (Vite + deploy automático + CSS extraído a `src/styles.css`), **Etapa 1 hecha y verificada en staging** (el *cimiento*: 12 funciones a `src/lib/` + el "puente" `main.js`), **Etapa 2 pendiente**. Se actualiza el árbol del repo (§3.4) a la estructura real con `src/`.
 > 2. **La magnitud, sin maquillaje (§7).** El cimiento es **<1% de las funciones** (12 de ~1.290); el monolito sigue con ~1.278 funciones / 23.369 líneas. **El 88% del trabajo es la Etapa 2** (módulos de negocio + pegamento de UI). Lo hecho es chico en volumen pero crítico: es lo que destraba el trabajo en paralelo.
 > 3. **Esto vive en staging; producción sigue siendo el monolito (§5).** El corte de producción a la build de Vite está **pendiente** (junto con el diagnóstico del "404 real"). El `base: './'` de Vite es el arreglo de fondo del 404; se matiza la nota previa sobre la ubicación del `index.html`.
 > 4. **Patrones de diseño de la migración (§7 + glosario):** el puente a `window`, el estado mutable cruzando la frontera módulo/clásico, el timing de módulos diferidos, las credenciales por entorno (`import.meta.env`) y `base: './'`. El objetivo final de seguridad es **quitar `'unsafe-inline'` del CSP** (cruza con OWASP A05).
@@ -48,25 +54,27 @@
 > 5. **`Winterfell` se elimina de todo registro.** Era data de una prueba vieja; ya no existe en ninguna base. Si quedan vestigios en el frontend, son tarea de limpieza del dev.
 > 6. **Correcciones:** el **parche de XSS** ya estaba cerrado (no era pendiente); los **toggles de Auth** están hechos; el **motor de organización activa** está construido y operativo (pendiente solo su validación multi-org por QA).
 >
-> **Cambios respecto a v1.1** (histórico, tras alinear el concepto frontend/backend con Agustín y Juan):
-> 1. **La base de datos "en código" vuelve a ser la PRIORIDAD #1, sin asteriscos** (sección 7). En v1.1 la habíamos bajado a "snapshot en paralelo"; Agustín y Juan la confirman como lo primero.
+> **Cambios respecto a v1.1** (histórico, tras alinear el concepto frontend/backend entre Agustín y el CTO de entonces —Juan de la Cuadra, registro de trazabilidad—):
+> 1. **La base de datos "en código" vuelve a ser la PRIORIDAD #1, sin asteriscos** (sección 7). En v1.1 la habíamos bajado a "snapshot en paralelo"; Agustín y el CTO de entonces la confirmaron como lo primero.
 > 2. **Se ordena el concepto frontend/backend** en un modelo de "dos baldes" (nueva sección 3.0). Queda escrito explícito que *el JavaScript de interfaz no "se mueve al backend"*: es la interfaz misma y vive en el navegador.
 > 3. **La idea de "sacar la lógica del frontend" se reduce a una auditoría dirigida** (acotada): revisar si alguna regla autoritativa —sobre todo cálculos financieros— vive *solo* en el frontend o se le cree al cliente, y mover **solo esas piezas** a RPC. No es una migración de las 26.000 líneas.
 > 4. **La modularización del frontend se reencuadra y baja a prioridad #3:** es por **mantenibilidad y claridad**, **no por seguridad**.
 >
-> *Se mantienen del v1.1:* Juan es CTO; seguridad desinflada a "basal para el beta" + horizonte; Git directo (sin GitHub Desktop); versiones en el historial de Git; cifras vivas.
+> *Se mantienen del v1.1 (registro histórico; el cargo de CTO está hoy vacante — §1):* se creó el cargo de CTO; seguridad desinflada a "basal para el beta" + horizonte; Git directo (sin GitHub Desktop); versiones en el historial de Git; cifras vivas.
 
 ---
 
-## 0. Cómo leer este documento (parte para Juan)
+## 0. Cómo leer este documento (parte para quien entre al proyecto)
 
-Juan, bienvenido. Este documento es tu mapa para entrar a TakeOS. No supone que sepas nada previo del proyecto ni que seas un programador con años de experiencia. Cada vez que aparezca un término técnico importante, lo vas a encontrar explicado "con peras y manzanas" en el **Glosario (sección 10)**. Si en algún punto algo no se entiende, eso es un problema del documento, no tuyo: lo dejamos por escrito justamente para que nadie tenga que adivinar.
+Bienvenido/a. Este documento es tu mapa para entrar a Rizora. No supone que sepas nada previo del proyecto ni que seas un programador con años de experiencia. Cada vez que aparezca un término técnico importante, lo vas a encontrar explicado "con peras y manzanas" en el **Glosario (sección 10)**. Si en algún punto algo no se entiende, eso es un problema del documento, no tuyo: lo dejamos por escrito justamente para que nadie tenga que adivinar.
+
+> **Regla de nombres (desde v1.9).** Los canónicos **no asignan roles ni protocolos a personas con nombre propio**: describen **cargos, tareas y protocolos** (CTO, revisor, Pentester…), que ocupa quien corresponda en cada momento. La única excepción es **Agustín Muñoz Rocha**, dueño y creador del producto. Los demás nombres que aparezcan en changelogs o en el registro de decisiones son **información histórica de trazabilidad** (quién decidió/hizo qué y cuándo), **nunca** una asignación vigente: ningún proceso de este proyecto está limitado a una persona específica.
 
 La forma en que trabajamos acá tiene una regla de fondo: **no se entregan resultados en bandeja, se educa**. Cuando recibas o produzcas algo, la idea es que entiendas *por qué* se hace así, no solo *qué* hacer. Este documento está escrito con ese espíritu.
 
 Una aclaración importante desde ya: en este texto la palabra **"framework"** aparece con dos sentidos distintos, y conviene no confundirlos.
 
-1. El **framework de trabajo** (sección 4): la *forma* en que dos personas colaboran sobre el mismo código sin pisarse —control de versiones, ramas, revisión, tablero de tareas—.
+1. El **framework de trabajo** (sección 4): la *forma* en que varias personas colaboran sobre el mismo código sin pisarse —control de versiones, ramas, revisión, tablero de tareas—.
 2. El **modelo arquitectónico** (sección 3): las *piezas técnicas* con las que está construido el producto —dónde vive el frontend, dónde el backend, cómo se separan—.
 
 Cuando Agustín pidió "elegir un framework que calce", se refería a las dos cosas. Las resolvemos por separado para que cada una quede clara.
@@ -75,30 +83,32 @@ Cuando Agustín pidió "elegir un framework que calce", se refería a las dos co
 
 ## 1. Propósito y contexto
 
-TakeOS es un SaaS de gestión de producción audiovisual. Hoy lo construye principalmente Agustín, que **no es ingeniero**: es el dueño de producto y el orquestador. Agustín toma todas las decisiones de producto y de experiencia de usuario, dicta por voz, coordina un ecosistema de chats de Claude especializados (Dev, BD Expert, Auth Expert, Pentester, etc.) pasándoles documentos de handoff, y ejecuta SQL directamente en Supabase cuando corresponde. No escribe el código él mismo.
+Rizora es un SaaS de gestión de producción audiovisual. Hoy lo construye principalmente Agustín, que **no es ingeniero**: es el dueño de producto y el orquestador. Agustín toma todas las decisiones de producto y de experiencia de usuario, dicta por voz, coordina un ecosistema de chats de Claude especializados (Dev, BD Expert, Auth Expert, Pentester, etc.) pasándoles documentos de handoff, y ejecuta SQL directamente en Supabase cuando corresponde. No escribe el código él mismo.
 
-Con la llegada de **Juan** el equipo pasa de una a dos personas, y eso cambia las reglas. El flujo "lo tengo más o menos en mi cabeza" deja de servir: dos personas necesitan un flujo **explícito y escrito**, o se van a pisar el trabajo.
+**El modelo de equipo (actualizado v1.9): hoy una persona, protocolos para más.** El proyecto opera en **modo solo-dev**: Agustín trabaja solo (con su ecosistema de chats/IAs) y **el sistema debe soportar ese modo**. Los flujos de este documento (ramas, PRs, revisión, staging) **se mantienen** aunque haya una sola persona — precisamente porque son lo que permite que **mañana entre más gente sin reescribir nada**: los protocolos están definidos **por cargo, no por nombre**, y una incorporación futura es "alguien toma tal cargo", no "rehacer el flujo". La regla de fondo sigue viva: en cuanto el equipo pase de uno, el flujo "lo tengo más o menos en mi cabeza" no sirve; por eso queda **explícito y escrito** desde ya.
 
 Este documento responde a tres preguntas que Agustín planteó:
 
-1. **¿Qué flujo de trabajo (framework de trabajo) adoptamos** ahora que somos dos, simple y realista para un equipo poco técnico?
+1. **¿Qué flujo de trabajo (framework de trabajo) adoptamos**, simple y realista para un equipo poco técnico, que funcione en solitario y escale a varios?
 2. **¿A qué modelo arquitectónico migramos** para pasar del "todo en un HTML" a una separación profesional y segura de frontend y backend?
 3. **¿Estamos listos para hacerlo?** (Agustín cree que "ya se cerraron todos los gates necesarios". La respuesta honesta está en la sección 2 y la sección 9: **en parte sí, en parte no**.)
 
 Todas las recomendaciones de este documento se tomaron **mirando la información viva**: el archivo `index.html` real que está en producción hoy y la base de datos real en Supabase, no de memoria. Lo que sigue está anclado a hechos verificados el 15 de junio de 2026.
 
-### El rol de Juan: CTO
+### El cargo de CTO (hoy VACANTE — modo solo-dev)
 
-Juan se hace cargo de **todo lo que es código**: frontend, backend, base de datos, integración y seguridad. Es el **CTO** del proyecto. La idea de fondo es liberar a Agustín de la capa técnica para que se concentre en lo suyo —la parte creativa, las herramientas y sus módulos, marketing, finanzas y producto— mientras Juan responde por la salud, la claridad y la seguridad del código.
+El cargo de CTO se hace cargo de **todo lo que es código**: frontend, backend, base de datos, integración y seguridad. La idea de fondo es liberar a Agustín de la capa técnica para que se concentre en lo suyo —la parte creativa, las herramientas y sus módulos, marketing, finanzas y producto— mientras el CTO responde por la salud, la claridad y la seguridad del código.
 
-En concreto, Juan:
+En concreto, el CTO:
 
-- **Diseña y custodia la arquitectura del código**: que la estructura sea segura, confiable, clara y fácil de seguir. Esta es su prioridad inmediata.
-- **Integra** al `index` principal lo que Agustín desarrolla con los chats de módulos.
+- **Diseña y custodia la arquitectura del código**: que la estructura sea segura, confiable, clara y fácil de seguir.
+- **Integra** al código principal lo que Agustín desarrolla con los chats de módulos.
 - **Monta y opera el entorno de prueba** (frontend y backend): el espejo donde se experimenta y se actualiza sin tocar producción.
-- **Responde por la seguridad** del sistema. Esto **incluye** el pentesting, pero el pentesting **no es lo primero**: solo tiene sentido atacar una seguridad ya consolidada. Hoy la tarea es *construir* esa base segura; *vulnerarla a propósito* viene después (ver sección 6 y el horizonte de seguridad).
+- **Responde por la seguridad** del sistema. Esto **incluye** el pentesting, pero el pentesting **no es lo primero**: solo tiene sentido atacar una seguridad ya consolidada.
 
-> El Roadmap anticipaba dos figuras —**Test Master** (gestiona el entorno de prueba) y **Pentester** (lo ataca)—. Juan las absorbe a ambas, pero como **parte** de un rol más amplio de CTO, no como su definición. La seguridad es una de varias aristas que cubre.
+> El Roadmap anticipaba dos figuras —**Test Master** (gestiona el entorno de prueba) y **Pentester** (lo ataca)—. El cargo de CTO las absorbe a ambas, pero como **parte** de un rol más amplio, no como su definición.
+
+> **⚠ Estado del cargo (v1.9): vacante.** El CTO que ejerció el cargo hasta julio 2026 dejó el proyecto (sin malos términos; posible retorno). **Mientras el cargo esté vacante, sus tareas las absorbe Agustín** apoyado en las IAs y en las compuertas automatizadas (`npm run gate`), con las adaptaciones de solo-dev registradas en §4.4 y en ADR-027. Esta vacante **no borra el cargo ni sus protocolos**: quedan definidos para que cualquier persona calificada los tome en el futuro.
 
 ---
 
@@ -137,7 +147,7 @@ Hasta esta sesión, toda la base de datos existía **únicamente en el servidor 
 
 ```
   1. RAMA          2. PR + PRUEBA        3. REVISIÓN      4. MERGE         5. PRODUCCIÓN
-  (migración   ──► (preview branch;  ──► (Juan mira   ──► a `main`    ──► (Branching aplica
+  (migración   ──► (preview branch;  ──► (revisión de PR   ──► a `main`    ──► (Branching aplica
    en su rama)      required check:       la PR)           (punto de        la migración SOLA
                     si falla, no se                        no retorno)       al mergear =
                     puede mergear)                                           "merge = deploy")
@@ -150,7 +160,7 @@ Hasta esta sesión, toda la base de datos existía **únicamente en el servidor 
 flowchart LR
     A["1 · Migración<br/>en una rama"] --> B["2 · PR + prueba<br/>(preview branch)<br/>required check"]
     B -->|falla| X["No se puede<br/>mergear"]
-    B -->|pasa| C["3 · Revisión<br/>de Juan"]
+    B -->|pasa| C["3 · Revisión<br/>de PR"]
     C --> D["4 · Merge a main<br/>(punto de no retorno)"]
     D --> E["5 · Branching aplica<br/>a producción SOLA<br/>(merge = deploy)"]
     P["Editor SQL /<br/>conector MCP a prod"] -.->|PROHIBIDO| E
@@ -165,7 +175,7 @@ Una **migración** es un archivo de texto que describe un cambio en la base de d
 
 ### 2.3. Seguridad: postura fuerte, y la lista corta del beta ya cerrada
 
-La postura general de seguridad es **fuerte** (RLS en todas las tablas, escrituras por RPC, auditoría inmutable). La **lista corta de ajustes para el beta ya se cerró** en esta sesión (contraseñas filtradas, toggle de registro, OAuth External, CSP, revocación de funciones internas, auditoría dirigida; el XSS ya estaba cerrado de antes). El detalle, con lo hecho y lo que queda, está en la **sección 6**. Quedan dos pendientes antes de abrir el beta a terceros —el header `frame-ancestors` del hosting y un **backlog de endurecimiento**— y el endurecimiento continuo (pentesting sistemático que dirige Juan) sigue anotado como **horizonte**.
+La postura general de seguridad es **fuerte** (RLS en todas las tablas, escrituras por RPC, auditoría inmutable). La **lista corta de ajustes para el beta ya se cerró** en esta sesión (contraseñas filtradas, toggle de registro, OAuth External, CSP, revocación de funciones internas, auditoría dirigida; el XSS ya estaba cerrado de antes). El detalle, con lo hecho y lo que queda, está en la **sección 6**. Quedan dos pendientes antes de abrir el beta a terceros —el header `frame-ancestors` del hosting y un **backlog de endurecimiento**— y el endurecimiento continuo (pentesting sistemático, rol Pentester — hoy sin titular) sigue anotado como **horizonte**.
 
 ### 2.4. El frontend: monolito en producción, modular en staging
 
@@ -214,8 +224,8 @@ Antes de cualquier decisión técnica, conviene fijar el concepto que ordena tod
 De acá salen tres consecuencias que gobiernan el resto del documento:
 
 1. **El JavaScript de interfaz no "se mueve al backend".** Es la interfaz misma; el navegador lo necesita para funcionar, así que vive en el navegador. JavaScript es un *lenguaje*, no un lugar; que algo esté en JS no significa que sea "lógica mal puesta".
-2. **Lo que de verdad hay que proteger se hace Balde 2.** Si una regla o un cálculo tiene que ser inviolable o secreto, se implementa como **RPC** (no como JS de frontend): el navegador solo la *llama* y recibe el resultado, sin ver cómo funciona por dentro —igual que nunca ve las migraciones—. En TakeOS, lo autoritativo ya vive sobre todo en **RPC + RLS**; las Edge Functions son para tareas puntuales de servidor (correos, validación bancaria).
-3. **La seguridad no viene de esconder el Balde 1, viene de que el Balde 2 no le crea.** Aunque alguien lea todo el frontend, no puede hacer nada no autorizado, porque el RLS y las RPC lo deciden en el servidor (la doctrina *"nunca confiar en el cliente"*). El patrón ya está en TakeOS: el frontend muestra un total en vivo para la UX (`valor`), pero el backend congela el total autoritativo al cerrar (`costo_real`), sin creerle al cliente.
+2. **Lo que de verdad hay que proteger se hace Balde 2.** Si una regla o un cálculo tiene que ser inviolable o secreto, se implementa como **RPC** (no como JS de frontend): el navegador solo la *llama* y recibe el resultado, sin ver cómo funciona por dentro —igual que nunca ve las migraciones—. En Rizora, lo autoritativo ya vive sobre todo en **RPC + RLS**; las Edge Functions son para tareas puntuales de servidor (correos, validación bancaria).
+3. **La seguridad no viene de esconder el Balde 1, viene de que el Balde 2 no le crea.** Aunque alguien lea todo el frontend, no puede hacer nada no autorizado, porque el RLS y las RPC lo deciden en el servidor (la doctrina *"nunca confiar en el cliente"*). El patrón ya está en Rizora: el frontend muestra un total en vivo para la UX (`valor`), pero el backend congela el total autoritativo al cerrar (`costo_real`), sin creerle al cliente.
 
 > **Nota sobre "modularizar" (porque es la fuente del enredo):** modularizar el frontend = partir el monolito en archivos chicos. Eso cambia el **empaque** (más ordenado, ofuscado, opcionalmente cargado por partes a pedido) y, sobre todo, da **claridad** para razonar el código y trabajar de a dos. Lo que **no** hace es esconder la lógica de interfaz ni "moverla al backend": lo que el usuario necesita correr, le llega igual. Por eso la modularización se justifica por mantenibilidad, no por seguridad (ver 3.3 y sección 7).
 
@@ -249,15 +259,15 @@ El razonamiento, honesto:
 - El dolor real **no es** "nos falta un framework". El dolor real es "todo está en un archivo gigante". Eso se arregla **partiendo el archivo en piezas**, no cambiando de tecnología.
 - **Vite** (ver Glosario) resuelve exactamente eso con un costo de aprendizaje bajo: te deja escribir el código repartido en muchos archivos chicos (módulos), te da un servidor de desarrollo que refresca solo cuando guardas, y al final "empaqueta" todo en archivos estáticos listos para publicar. Conserva el modelo mental que ya tienen; solo lo ordena.
 
-Una capacidad extra que Vite habilita, **opcional y para más adelante**: hoy TakeOS es una *página única* (un solo `index.html`, por eso la URL no cambia al navegar y se carga todo de entrada). Con módulos, se puede agregar un **router** (que hace que la URL cambie por vista, ej. `/login`, `/presupuesto`) y **carga diferida** (que el código de un módulo le llegue al usuario recién cuando abre ese módulo, no todo junto). Eso mejora la **velocidad de carga**; ojo: cambia *cuándo* se descarga cada parte, **no** la visibilidad —cuando navegas a Presupuesto, ese código baja y se puede leer igual—. Es una optimización, no una medida de seguridad.
+Una capacidad extra que Vite habilita, **opcional y para más adelante**: hoy Rizora es una *página única* (un solo `index.html`, por eso la URL no cambia al navegar y se carga todo de entrada). Con módulos, se puede agregar un **router** (que hace que la URL cambie por vista, ej. `/login`, `/presupuesto`) y **carga diferida** (que el código de un módulo le llegue al usuario recién cuando abre ese módulo, no todo junto). Eso mejora la **velocidad de carga**; ojo: cambia *cuándo* se descarga cada parte, **no** la visibilidad —cuando navegas a Presupuesto, ese código baja y se puede leer igual—. Es una optimización, no una medida de seguridad.
 
-> **Esto es una recomendación firme, pero es de las pocas que conviene que Agustín y Juan ratifiquen juntos**, porque Juan es quien va a vivir dentro del código. Si más adelante el equipo crece y se siente la necesidad real de un framework, el candidato más suave sería Svelte —pero hoy no es necesario y agregaría riesgo—.
+> **Esto es una recomendación firme, pero es de las pocas que conviene que Agustín ratifique junto al responsable técnico (cuando el cargo esté ocupado)**, porque ese rol es quien va a vivir dentro del código. Si más adelante el equipo crece y se siente la necesidad real de un framework, el candidato más suave sería Svelte —pero hoy no es necesario y agregaría riesgo—.
 
 La estructura interna del frontend queda así (de lo más compartido a lo más específico):
 
 - `src/lib/` — código compartido por todo: el cliente de Supabase, la lógica de autenticación, utilidades, la carga de las tasas de impuesto (`IVA`, etc.) desde la tabla `tax_rates` al arrancar.
 - `src/components/` — piezas de interfaz reutilizables.
-- `src/modules/<módulo>/` — **un módulo por carpeta**: `proyectos/`, `cotizacion/`, `legal/`, `notificaciones/`, `plan_rodaje/`, etc. Aquí es donde Agustín y los chats de módulos trabajan, y donde Juan integra.
+- `src/modules/<módulo>/` — **un módulo por carpeta**: `proyectos/`, `cotizacion/`, `legal/`, `notificaciones/`, `plan_rodaje/`, etc. Aquí es donde Agustín y los chats de módulos trabajan, y donde el rol técnico integra.
 - `src/styles/` — los tokens de diseño (colores, tipografías de la marca) y el CSS por módulo.
 
 ### 3.4. Cómo se ve el repositorio completo
@@ -304,7 +314,7 @@ takeos/
 >
 > Es decir: ya **no** queda un monolito en staging. La comunicación entre módulos se resuelve por los **tres canales** (imports ESM / ganchos / delegación de eventos — ADR-026 y §7), con estado de dueños y aislamiento multi-org por época. **Lo que queda no es modularizar, es el corte a producción** (§5): producción (`origin/main`) **todavía corre el monolito**, y las dos ramas divergieron 189 commits.
 
-Esta forma permite que **las dos personas trabajen en paralelo sin chocar**: Juan vive sobre todo en `supabase/`, `tests/` y `frontend/src/lib` (la infraestructura); el trabajo de módulos de Agustín entra en `frontend/src/modules/<módulo>`.
+Esta forma permite que **varias personas trabajen en paralelo sin chocar** cuando el equipo crezca: la infraestructura vive en `supabase/`, `tests/` y `frontend/src/lib` (terreno del rol técnico); el trabajo de módulos entra en `frontend/src/modules/<módulo>`. En modo solo-dev, la misma separación ordena el trabajo de Agustín con las IAs.
 
 ---
 
@@ -316,7 +326,7 @@ Esta sección reemplaza el viejo flujo "en la cabeza de Agustín" por uno explí
 
 Hoy el código se publica arrastrando el `index.html` a GitHub. Eso tiene que cambiar, porque no deja trabajar a dos personas con orden. Adoptamos **Git** (el sistema que registra cada cambio y permite trabajar en paralelo, ver Glosario) sobre **GitHub**, usándolo de verdad: ramas, Pull Requests y revisión.
 
-La buena noticia es que esto no parte de cero: **Agustín y Juan ya trabajan con Git directamente y con Claude Code**. Agustín ya conectó el repositorio a GitHub, maneja `commit`/`push`/ramas/`merge` por línea de comandos, y Claude Code se encarga de las operaciones de Git cuando edita el repositorio. O sea, la herramienta ya está en las manos del equipo; lo que agregamos es la **disciplina de a dos** (ramas cortas + PR con revisión), no una herramienta nueva.
+La buena noticia es que esto no parte de cero: **Agustín ya trabaja con Git directamente y con Claude Code**. Agustín ya conectó el repositorio a GitHub, maneja `commit`/`push`/ramas/`merge` por línea de comandos, y Claude Code se encarga de las operaciones de Git cuando edita el repositorio. O sea, la herramienta ya está en las manos del equipo; lo que agregamos es la **disciplina de a dos** (ramas cortas + PR con revisión), no una herramienta nueva.
 
 ### 4.2. Ramas y revisión: "trunk-based" liviano
 
@@ -332,7 +342,7 @@ Usamos un modelo simple y estándar:
 | Quién | De qué se hace cargo | Qué produce |
 |-------|----------------------|-------------|
 | **Agustín** | Producto y experiencia de usuario, lógica del mundo audiovisual (vía los chats de módulos), **herramientas y módulos de producto, marketing, finanzas**, revisión de correctitud de dominio, decisiones de arquitectura y producto. | Decisiones de producto, handoffs, aprobación. |
-| **Juan (CTO)** | **Todo el código**: arquitectura, frontend, backend, base de datos, **integración** del trabajo de módulos al `index`, el **entorno de prueba**, herramientas de build y la **seguridad** (incluido el pentest, más adelante). | Estructura de código segura y clara, entorno de staging, PRs revisados, integraciones probadas, base "en código". |
+| **CTO** *(cargo hoy VACANTE; sus tareas las absorbe Agustín en modo solo-dev — ADR-027)* | **Todo el código**: arquitectura, frontend, backend, base de datos, **integración** del trabajo de módulos, el **entorno de prueba**, herramientas de build y la **seguridad** (incluido el pentest, más adelante). | Estructura de código segura y clara, entorno de staging, PRs revisados, integraciones probadas, base "en código". |
 | **Chats de Claude** (Dev, BD Expert, Auth Expert, Pentester…) | Producen el código y el SQL a partir de los handoffs. | Implementaciones y SQL, por handoff. |
 | **Claude Code** | Edita el repositorio: crea ramas, aplica los cambios, hace las operaciones de Git. | Cambios en archivos, dentro de ramas de feature. |
 
@@ -344,23 +354,23 @@ Este es el loop que se repite para cada cambio:
 2. **Handoff.** Sale un documento de handoff estructurado. Se mantiene la disciplina actual: **handoffs separados** para Dev y para BD Expert cuando necesitan información distinta.
 3. **Implementación.** El chat correspondiente produce el código o el SQL.
 4. **A una rama.** Claude Code aplica ese cambio en una **rama de feature** (no en `main`).
-5. **Prueba en staging.** Juan integra, prueba y, si es un cambio sensible, lo ataca, en el **entorno de prueba** —nunca en producción—.
-6. **Pull Request + revisión.** Se abre el PR; la otra persona revisa. Juan revisa la parte de infraestructura/integración; Agustín revisa la correctitud de producto y de dominio.
+5. **Prueba en staging.** El rol técnico integra, prueba y, si es un cambio sensible, lo ataca, en el **entorno de prueba** —nunca en producción—. *(Modo solo-dev: lo hace Agustín con las IAs.)*
+6. **Pull Request + revisión.** Se abre el PR y se revisa. Con equipo: el rol técnico revisa infraestructura/integración y Agustín la correctitud de producto y de dominio. **Modo solo-dev:** la revisión es **auto-revisión disciplinada** — el PR igual se abre (nunca commit directo a `main`), pasan las compuertas `npm run gate`, y Agustín lo lee con ojos de revisor antes de mezclar (ADR-027).
 7. **Merge y publicación.** Aprobado el PR, se mezcla a `main` y se publica.
 8. **Documentar.** Se actualizan los documentos canónicos que corresponda.
 
-Juan es, en este loop, **la puerta de calidad e integración**.
+La **puerta de calidad e integración** de este loop es el paso 6: el PR revisado. La puerta es **del proceso, no de una persona** — en modo solo-dev la sostienen la auto-revisión + las compuertas automatizadas; con equipo, el revisor del cargo técnico.
 
 ### 4.5. Tablero de tareas y "Definición de Terminado"
 
 - **Tablero liviano** con GitHub Projects: cuatro columnas —*Backlog · En curso · En revisión · Listo*—. Nada más pesado que eso; cero ceremonias innecesarias. Sincronizaciones cortas y asíncronas.
-- **Definición de Terminado (Definition of Done):** una tarea está terminada cuando está *probada* (Playwright o pentest según corresponda), *revisada* por la otra persona, *mezclada* a `main`, *publicada*, y con los *documentos actualizados*. No antes.
+- **Definición de Terminado (Definition of Done):** una tarea está terminada cuando está *probada* (Playwright o pentest según corresponda), *revisada* (por otra persona cuando haya equipo; auto-revisión + `npm run gate` en modo solo-dev), *mezclada* a `main`, *publicada*, y con los *documentos actualizados*. No antes.
 
 ---
 
 ## 5. Los dos entornos: producción y prueba
 
-Esta separación es el corazón del mandato de Juan, y ya **está montada y funcionando** (posible gracias a las migraciones-como-código, §2.2).
+Esta separación es el corazón del mandato del cargo técnico (montada en junio 2026 por el CTO de entonces), y ya **está montada y funcionando** (posible gracias a las migraciones-como-código, §2.2).
 
 - **Producción.** Lo que usan las productoras reales. Es el proyecto Supabase vivo (`zplcgetquwxybkrpmcvl`) más el sitio público. **Acá no se experimenta nunca.**
 - **Staging / Prueba.** Una **branch de Supabase** llamada `staging` (no un proyecto aparte): un entorno efímero que **paga solo por horas activas** y nace con el esquema y las migraciones aplicadas, más una publicación de prueba del frontend en un repo propio. Acá se rompe, se prueba y se actualiza libremente, **sin tocar ni un dato real** (la base de prueba quedó con cero datos reales; sus catálogos se copiaron desde producción). Cuando un cambio está sólido en staging, recién ahí se promueve a producción vía PR.
@@ -385,7 +395,7 @@ Esta separación es el corazón del mandato de Juan, y ya **está montada y func
 
 - **Hacer un cambio en staging:** se edita el `index.html` en `/Software-staging` (no en `/Software`, que es producción), `git add/commit/push` a `main`, y GitHub Pages reconstruye en ~1–2 minutos (verificar con refresh duro, Cmd+Shift+R).
 - **⚠ Sincronizar producción ↔ staging — hoy es el riesgo principal (actualizado v1.8).** El Informe Técnico halló que **los dos remotos ya no son el mismo software**: `origin/main` (`fa008d5`, producción) sirve el **monolito**; `staging/main` (`4c8067b`) sirve la **arquitectura modular completa** (delegación, CSP endurecida, 25 módulos). Divergencia: **189 commits**. Consecuencia: el **corte de producción** ya no es "pasar a la build de Vite" —es **cortar toda la reescritura modular a producción**—, y mientras no ocurra, todo el trabajo nuevo se acumula en una rama que la operación no usa. En staging el frontend se construye con **Vite** (`vite build` → `dist/`, `base: './'`, credenciales por `import.meta.env`) y la BD se aplica por **Branching al mergear** (merge = deploy, §2.2). **Pendientes del corte:** el corte en sí, su **verificación** y el **diagnóstico del "404 real"** (`PENDIENTES_Migracion_Vite.md`). Es un frente de primera clase, no un ajuste de build.
-- **Acceso por persona, no "por cuenta de Claude".** Para que Juan (u otro) trabaje el frontend, Agustín lo agrega como **colaborador** del repo en GitHub; cada quien clona el repo y autentica con **su propia cuenta de GitHub**. Si usa Claude Code, este opera con las credenciales de esa persona.
+- **Acceso por persona, no "por cuenta de Claude".** Para que cualquier colaborador trabaje el frontend, Agustín lo agrega como **colaborador** del repo en GitHub; cada quien clona el repo y autentica con **su propia cuenta de GitHub**. Si usa Claude Code, este opera con las credenciales de esa persona.
 
 > **Datos de prueba.** La base de staging se puebla con nombres ficticios tomados de **ambos mundos de ejemplo (El Señor de los Anillos y Game of Thrones)**, con montos reales pero RUTs y cuentas bancarias falseados. Nunca datos reales de terceros.
 
@@ -405,7 +415,7 @@ El backend ya es fuerte. La lista corta para el **beta** se trabajó completa en
 4. ✅ **Funciones internas sin acceso público** (migración `revoke_funciones_internas`): se revocó `EXECUTE` a `public`/`anon`/`authenticated` sobre **20 funciones internas** (14 de trigger + 6 con prefijo `_`). De aquí en adelante, las funciones internas nacen ya revocadas.
 5. ✅ **CSP agregada y commiteada** como `<meta>` en el `<head>`. Acota los orígenes externos a los de confianza (incluye los dos CDN reales: `cdn.jsdelivr.net` y `cdnjs.cloudflare.com`), cierra `object-src`, fija `base-uri` y permite `frame-src 'self' blob:` para los previews. Mantiene `'unsafe-inline'` a propósito (la app es un HTML único con miles de `onclick`/`style` en línea; una CSP estricta la rompería).
 6. ✅ **Google OAuth de "Internal" a "External"** (habilita multi-tenant real, no solo el dominio `amrfilms.com`). *(Agustín.)*
-7. ✅ **Auditoría dirigida de lógica sensible.** Se revisaron las 7 RPC de escritura financiera. **Veredicto: hoy no hay hueco explotable** — el backend no produce números financieros autoritativos; es una capa de persistencia fiel (guarda verbatim lo que el usuario declara, que es lo correcto). *(Juan + BD Expert.)*
+7. ✅ **Auditoría dirigida de lógica sensible.** Se revisaron las 7 RPC de escritura financiera. **Veredicto: hoy no hay hueco explotable** — el backend no produce números financieros autoritativos; es una capa de persistencia fiel (guarda verbatim lo que el usuario declara, que es lo correcto). *(Trabajo del CTO de entonces + BD Expert, jun-2026 — registro histórico.)*
 
 **Pendiente antes de abrir el beta a terceros:**
 
@@ -426,7 +436,7 @@ El backend ya es fuerte. La lista corta para el **beta** se trabajó completa en
 - `project_financials.frozen` **no es inmutable**: se reescribe en cada `guardar_proyecto`. La regla "congelar al cerrar el proyecto" vive solo en el frontend. *Pendiente:* una RPC `cerrar_proyecto` que marque el cierre, congele totales del lado servidor y bloquee escrituras.
 - **Regla de oro del futuro `reporte_cierre`:** debe **recalcular desde las líneas** (presupuesto, comisiones, riesgos, extras, costo real) y leer el IVA desde `tax_rates`; **nunca** confiar en `frozen` ni en los snapshots de cotización.
 
-**Horizonte (cuando se trabaje seguridad en serio):** ya con la base consolidada, **el programa de pentesting continuo** que dirige Juan —atacar el sistema de forma sistemática para encontrar debilidades antes que un atacante real—. Se documentará aparte cuando llegue su momento; hoy no es la prioridad.
+**Horizonte (cuando se trabaje seguridad en serio):** ya con la base consolidada, **el programa de pentesting continuo** a cargo del rol **Pentester** (hoy sin titular) —atacar el sistema de forma sistemática para encontrar debilidades antes que un atacante real—. Se documentará aparte cuando llegue su momento; hoy no es la prioridad.
 
 ---
 
@@ -434,7 +444,7 @@ El backend ya es fuerte. La lista corta para el **beta** se trabajó completa en
 
 Principio innegociable: **esto se hace por etapas, de forma incremental. No hay "gran reescritura de golpe".** Cada paso deja el sistema funcionando.
 
-El orden, ya alineado con Agustín y Juan, es por prioridad. Lo de producto y módulos de Agustín (con los chats + Code) **sigue corriendo en paralelo** a todo esto; lo que sigue es la secuencia de la **ingeniería**, que lidera Juan como CTO.
+El orden, alineado y ratificado por Agustín, es por prioridad. Lo de producto y módulos de Agustín (con los chats + Code) **sigue corriendo en paralelo** a todo esto; lo que sigue es la secuencia de la **ingeniería**, que corresponde al cargo de CTO (hoy vacante; en modo solo-dev lo lleva Agustín con las IAs).
 
 ### Prioridad #1 — La base de datos "en código" · ✅ CERRADA
 
@@ -451,7 +461,7 @@ El orden, ya alineado con Agustín y Juan, es por prioridad. Lo de producto y m�
 Con la base "en código", el entorno de prueba (la branch `staging`, §5) quedó montado y la lista corta de seguridad del beta, cerrada (§6).
 
 - **Entorno de prueba (staging):** una **branch de Supabase** (`staging`, §5), levantada desde el esquema y las migraciones, más una publicación de prueba del frontend. Es donde se rompe y se prueba sin tocar producción. Se puebla con datos ficticios (nombres de ambos mundos de ejemplo), montos reales y RUTs/cuentas bancarias falseados; cero datos reales.
-- **Seguridad basal del beta:** Juan trabaja la lista corta de la sección 6 **como migraciones** y ajustes de Auth, **probando primero en staging**. Incluye la **auditoría dirigida** (ítem 7 de la sección 6): cerrar los pocos puntos donde una regla autoritativa pudiera vivir solo en el frontend. Esto, además, hace avanzar los Gates B y C.
+- **Seguridad basal del beta:** el rol técnico trabaja la lista corta de la sección 6 **como migraciones** y ajustes de Auth, **probando primero en staging**. Incluye la **auditoría dirigida** (ítem 7 de la sección 6): cerrar los pocos puntos donde una regla autoritativa pudiera vivir solo en el frontend. Esto, además, hace avanzar los Gates B y C.
 
 *Al terminar, existe un lugar seguro para probar y la seguridad basal está cerrada.*
 
@@ -459,7 +469,7 @@ Con la base "en código", el entorno de prueba (la branch `staging`, §5) quedó
 
 > **⚠ Actualización v1.8 — la etapa cambió de estado.** Cuando se escribió esto, la modularización iba por "Etapas 0 y 1 hechas, ~88% pendiente (Etapa 2)". El **Informe Técnico del 6-jul** lo corrige: en `staging/main` el monolito **ya quedó reemplazado** por la arquitectura modular completa (40 archivos, 25 módulos, delegación de eventos, ganchos, época — ver §3.4 y ADR-026). **La narrativa de etapas de abajo se conserva como registro histórico del método**, pero el "grueso" (Etapa 2) ya se hizo. Lo que queda es un frente distinto: **cortar la rama modular a producción** (§5), que hoy sigue en el monolito y divergió 189 commits. Las cifras "12 de ~1.290 / <1% / 88% pendiente" quedan **superseded**.
 
-Es el frente que fue activo. Partir el monolito en módulos: un archivo que tocan Juan, Agustín y Code a la vez es una fábrica de choques, y *todos* los frentes de frontend del beta son trabajo sobre este código. Fue **después** de la base en código y el entorno de prueba. Es un **refactor que preserva comportamiento** (sin features mezcladas), con **Vite incremental** (vanilla JS se mantiene; sin framework). **Todo se hizo y se verificó en staging primero; producción sigue siendo el monolito** (el corte de producción está pendiente, §5).
+Es el frente que fue activo. Partir el monolito en módulos: un archivo que tocan varias manos a la vez (Agustín, las IAs, cualquier colaborador) es una fábrica de choques, y *todos* los frentes de frontend del beta son trabajo sobre este código. Fue **después** de la base en código y el entorno de prueba. Es un **refactor que preserva comportamiento** (sin features mezcladas), con **Vite incremental** (vanilla JS se mantiene; sin framework). **Todo se hizo y se verificó en staging primero; producción sigue siendo el monolito** (el corte de producción está pendiente, §5).
 
 **La estrategia: de afuera hacia adentro, de fácil a difícil.** Las funciones se ordenan en un espectro por **acoplamiento** (cuánto arrastran al moverse):
 
@@ -473,7 +483,7 @@ scalars            funciones puras    funciones con estado   funciones acopladas
 
 El **orden de las etapas no es casualidad: copia ese espectro**, por dos razones que apuntan al mismo lado: **dependencias** (los módulos *importan* el cimiento, no al revés → el cimiento va primero por obligación) y **riesgo** (lo puro es lo más seguro → se prueba el patrón del puente en piezas inofensivas antes que en las peligrosas).
 
-- **Etapa 0 — andamiaje + CSS · ✅ HECHA.** Juan introdujo **Vite**, montó la estructura y el **deploy automático**, y extrajo el **CSS** del monolito a `src/styles.css`. El CSS es como un *scalar gigante*: datos puros, sin comportamiento, sin dependencias → lo primero y lo más seguro. El `index.html` ya carga `/src/main.js` y `/src/styles.css`.
+- **Etapa 0 — andamiaje + CSS · ✅ HECHA.** Se introdujo **Vite** *(trabajo del CTO de entonces, jun-2026 — registro histórico)*, montó la estructura y el **deploy automático**, y extrajo el **CSS** del monolito a `src/styles.css`. El CSS es como un *scalar gigante*: datos puros, sin comportamiento, sin dependencias → lo primero y lo más seguro. El `index.html` ya carga `/src/main.js` y `/src/styles.css`.
 - **Etapa 1 — el cimiento · ✅ HECHA y verificada en staging.** Se extrajo a `frontend/src/lib/` **lo de bajo acople** —lo que *todos* los módulos importan—: `helpers.js` (escapeHtml, safeUrl, showToast), `supabase.js` (cliente `sb` + supabaseInit), `rates.js` (IVA/tasas + dalBootTaxRates), `state.js` (el objeto `STATE` + scalars de organización, usuario, perfil, acceso e identidad) y `auth.js` (authNivel, authNivelModulo, authPuedeVer/Editar, authEsAdmin, MODULE_PERM_CODE). El `main.js` importa todo y lo **puentea a `window`**. Son **12 funciones** + el estado compartido.
   - **Diferido a Etapa 2 a propósito (no es olvido):** el **login** (`cloudGate`, que es una vista) y los **cargadores de identidad** (`dalResolveIdentidad`, `dalLoadPermisos`, acoplados a contactos + UI) y la **sesión**. El *estado* de identidad ya quedó coherente en `state.js`; las *funciones* que lo escriben se sacan limpio con sus vecinos cuando toque su módulo.
 - **Etapa 2 — los módulos de negocio · ⬜ PENDIENTE (el grueso).** Cotización, Legal, Finanzas, Kanban, Plan de Rodaje… más el **pegamento de UI** (login, cargadores, funciones de render). Es *la app misma* interconectada. Se extrae **un módulo a la vez** a `frontend/src/modules/<módulo>`, en PRs chicos y revisables, dejando el resto del monolito intacto hasta que le toque. **Nunca todo de golpe.** Cada módulo tiene su **propio mini-espectro** (sus scalars, sus puras, su estado, su UI), así que el patrón de la Etapa 1 se repite adentro de cada uno.
@@ -486,11 +496,11 @@ El **orden de las etapas no es casualidad: copia ese espectro**, por dos razones
 - **Credenciales por entorno.** La URL/clave de Supabase se inyectan por `import.meta.env` (Vite las reemplaza en build): producción usa la base real, staging la de staging, sin filtrar una en la otra.
 - **`base: './'` y el 404.** Vite construye con **rutas relativas**, así la misma build funciona en producción y en staging sin cambios — el arreglo de fondo del 404.
 
-> **Reparto (el "SYNC").** Cerrado el cimiento, el plan dice: muéstrale a Agustín la estructura nueva y acuerden el **reparto de módulos** de la Etapa 2. Ahí arranca el trabajo en paralelo: **Juan toma lo estructural** (infraestructura, librería compartida) y **Agustín entra en la Etapa 2** con los módulos de dominio, uno por vez. *(Plan de detalle en `docs/Planes/Plan_Modularizacion_Vite.md`; pendientes operativos del corte de producción en `PENDIENTES_Migracion_Vite.md`.)*
+> **Reparto (el "SYNC").** Cerrado el cimiento, el plan dice: muéstrale a Agustín la estructura nueva y acuerden el **reparto de módulos** de la Etapa 2. Ahí arranca el trabajo en paralelo: **el rol técnico toma lo estructural** (infraestructura, librería compartida) y **Agustín entra en la Etapa 2** con los módulos de dominio, uno por vez. *(Plan de detalle en `docs/Planes/Plan_Modularizacion_Vite.md`; pendientes operativos del corte de producción en `PENDIENTES_Migracion_Vite.md`.)*
 
 > **El objetivo final de seguridad — ✅ logrado en staging (v1.8).** El premio era **quitar `'unsafe-inline'` del CSP**, posible solo cuando no queden `onclick`/`<script>` inline. La **delegación de eventos** lo consiguió: en staging el `script-src` ya va **sin `'unsafe-inline'`** (queda `style-src`, deuda "proyecto S"). Cruza con OWASP A05. El endurecimiento **llega a producción con el corte** (§5); hasta entonces, producción conserva `'unsafe-inline'` por el monolito.
 
-> **Por qué es prioridad #3 y no seguridad (alineado con Agustín y Juan):** modularizar cambia el **empaque** y da **claridad** para razonar el código; **no esconde** la lógica de interfaz ni la "mueve al backend" —lo que el usuario necesita correr, le llega igual (ver 3.0)—. Esconder funciones de `window` **no es** un muro de seguridad en el navegador. Se justifica por **mantenibilidad y trabajo de a dos**; el premio de seguridad concreto (quitar `'unsafe-inline'`) llega **al final** del camino, no por modularizar una función suelta.
+> **Por qué es prioridad #3 y no seguridad (decisión ratificada por Agustín):** modularizar cambia el **empaque** y da **claridad** para razonar el código; **no esconde** la lógica de interfaz ni la "mueve al backend" —lo que el usuario necesita correr, le llega igual (ver 3.0)—. Esconder funciones de `window` **no es** un muro de seguridad en el navegador. Se justifica por **mantenibilidad y trabajo de a dos**; el premio de seguridad concreto (quitar `'unsafe-inline'`) llega **al final** del camino, no por modularizar una función suelta.
 
 
 
@@ -513,7 +523,7 @@ El **orden de las etapas no es casualidad: copia ese espectro**, por dos razones
 | D-4 | Estructura | **Monorepo** (`frontend/`, `supabase/`, `tests/`, `docs/`) | Dos personas trabajan en paralelo sin chocar; todo en un lugar. |
 | D-5 | Control de versiones | **Git + GitHub** usado de verdad (ramas + PR). Ambos ya usan Git directo y Claude Code. | Reemplaza el "arrastrar el HTML"; habilita trabajo de a dos con red. |
 | D-6 | Ramas | **Trunk-based liviano**: `main` siempre publicable + ramas de feature + PR con revisión | Estándar, simple, con red de seguridad. |
-| D-7 | Entornos | **Producción separada de Staging** (branch de Supabase `staging`, efímera, paga por horas) | Mandato de Juan: romper y probar sin tocar datos reales. Más barata y fiel que un proyecto aparte. |
+| D-7 | Entornos | **Producción separada de Staging** (branch de Supabase `staging`, efímera, paga por horas) | Mandato del CTO de entonces (jun-2026, registro histórico): romper y probar sin tocar datos reales. Más barata y fiel que un proyecto aparte. |
 | D-8 | Orden de la migración | **Por prioridades:** #1 base en código · #2 staging + seguridad basal (incl. auditoría dirigida) · #3 modularización del frontend. El trabajo de producto de Agustín corre en paralelo. | La base sin reproducibilidad es el mayor riesgo; la modularización es mantenibilidad, no seguridad, y va después. |
 | D-10 | Frontend vs backend | **Modelo de "dos baldes" (ver 3.0):** la interfaz (HTML/CSS/JS) viaja y es visible; lo autoritativo/secreto se hace RPC/RLS (no viaja). | El JS de interfaz no "se mueve al backend"; lo que se protege se hace backend desde el diseño. |
 | D-9 | Hosting *(a ratificar)* | **Recomendado:** mover a Cloudflare Pages o Netlify (gratis, build automático, vistas previas por PR). GitHub Pages sigue siendo viable con un paso de build. | Las vistas previas por PR son muy útiles para revisar de a dos. |
@@ -536,7 +546,7 @@ Parte del trato en este equipo es la franqueza. Estos son los puntos donde convi
 
 ---
 
-## 10. Glosario (peras y manzanas, para Juan)
+## 10. Glosario (peras y manzanas)
 
 **Git.** Un sistema que registra cada cambio que se le hace al código, como un historial con "puntos de guardado". Permite que varias personas trabajen sobre lo mismo sin pisarse y volver atrás si algo sale mal.
 
@@ -556,9 +566,9 @@ Parte del trato en este equipo es la franqueza. Estos son los puntos donde convi
 
 **Trunk-based.** Una forma simple de trabajar con ramas: una sola rama principal siempre lista para publicar, y ramas cortas que se mezclan rápido. Evita el enredo de muchas ramas largas conviviendo.
 
-**Backend.** La parte del sistema que el usuario no ve: la base de datos, la seguridad, la lógica de servidor. En TakeOS, es Supabase.
+**Backend.** La parte del sistema que el usuario no ve: la base de datos, la seguridad, la lógica de servidor. En Rizora, es Supabase.
 
-**Frontend.** La parte que el usuario sí ve y toca: la interfaz en el navegador. En TakeOS, hoy es el `index.html`.
+**Frontend.** La parte que el usuario sí ve y toca: la interfaz en el navegador. En Rizora, hoy es el `index.html`.
 
 **BaaS (Backend-as-a-Service).** Un backend ya construido y administrado por un tercero, que usás como servicio en vez de armarlo y mantenerlo vos. Supabase es nuestro BaaS: nos da base de datos, autenticación, almacenamiento y seguridad, listos.
 
@@ -572,7 +582,7 @@ Parte del trato en este equipo es la franqueza. Estos son los puntos donde convi
 
 **RLS (Row Level Security / Seguridad a nivel de fila).** El portero de la base de datos. Decide, **fila por fila**, qué usuario puede ver o tocar qué. Es lo que garantiza que una productora no vea los datos de otra.
 
-**RPC.** Una función que vive dentro de la base de datos y que el frontend "llama" para hacer una operación. En TakeOS, las escrituras importantes pasan por RPCs que aplican el "estado completo" de una vez, de forma controlada.
+**RPC.** Una función que vive dentro de la base de datos y que el frontend "llama" para hacer una operación. En Rizora, las escrituras importantes pasan por RPCs que aplican el "estado completo" de una vez, de forma controlada.
 
 **SECURITY DEFINER.** Una marca en una función de base de datos que hace que corra con los privilegios de quien la creó, no de quien la llama. Es potente y útil, pero por eso mismo cada función así debe revisar internamente quién la está usando, y las que son de uso interno no deberían poder llamarse desde internet.
 
@@ -628,7 +638,7 @@ Parte del trato en este equipo es la franqueza. Estos son los puntos donde convi
 
 **XSS (Cross-Site Scripting).** Un tipo de ataque donde alguien logra meter código malicioso que se ejecuta en el navegador de otro usuario. Se previene escapando bien los datos y con una buena CSP.
 
-**Pentest (prueba de penetración).** Atacar el propio sistema a propósito, de forma controlada, para encontrar sus debilidades antes de que las encuentre un atacante real. Es **una** de las aristas del rol de Juan (CTO), no su centro, y no es lo inmediato: primero se consolida una base segura, y recién después se la ataca de forma sistemática.
+**Pentest (prueba de penetración).** Atacar el propio sistema a propósito, de forma controlada, para encontrar sus debilidades antes de que las encuentre un atacante real. Es **una** de las aristas del cargo de CTO, no su centro, y no es lo inmediato: primero se consolida una base segura, y recién después se la ataca de forma sistemática.
 
 **Playwright.** Una herramienta para escribir pruebas automáticas que manejan un navegador como lo haría una persona (abrir páginas, hacer clic, verificar resultados). La usamos para probar que el software funciona.
 
@@ -640,7 +650,7 @@ Parte del trato en este equipo es la franqueza. Estos son los puntos donde convi
 
 **Router.** El componente que hace que la **URL cambie por vista** (`/login`, `/presupuesto`) en una app de una sola página, y que coordina qué se muestra (y, con carga diferida, qué se descarga) en cada una.
 
-**Página única (SPA, Single Page Application).** Una app que vive en una sola página de HTML y cambia lo que muestra con JavaScript, sin recargar. Hoy TakeOS es así (por eso la URL no cambia al navegar).
+**Página única (SPA, Single Page Application).** Una app que vive en una sola página de HTML y cambia lo que muestra con JavaScript, sin recargar. Hoy Rizora es así (por eso la URL no cambia al navegar).
 
 **Multi-tenant.** Un sistema donde conviven muchos clientes (acá, muchas productoras) sobre la misma infraestructura, pero con sus datos completamente aislados entre sí. "Tenant" = cada productora.
 
@@ -659,7 +669,7 @@ Las prioridades #1 y #2 ya están cerradas, igual que los *quick wins* de un cli
 
 ---
 
-*Documento canónico v1.8 — aprobado y en ejecución. **Cifras vivas duales** (los dos remotos divergieron 189 commits):*
+*Documento canónico v1.9 — aprobado y en ejecución. **Cifras vivas duales** (los dos remotos divergieron 189 commits):*
 - ***Producción** (`origin/main` · monolito): base Supabase `zplcgetquwxybkrpmcvl` con **77 tablas con RLS, 147 políticas, 8→9 migraciones**, base reproducible, producción que se actualiza por Branching al mergear, una organización real (Primate, plan producción), enforcement de planes cableado. Frontend: `index.html` monolítico, CSP con `'unsafe-inline'`.*
 - ***Staging** (`staging/main` @ `4c8067b` · modular, censo del Informe Técnico contado con comando): **72 tablas · 157 policies RLS · 76 funciones `SECURITY DEFINER` · 14 migraciones · 9.349 líneas SQL**. Frontend modular: **40 archivos, 25.327 líneas** (14 `lib/` + 25 `modules/`), delegación de eventos, ganchos, época, CSP sin `'unsafe-inline'` en `script-src`, compuertas `npm run gate`.*
 
