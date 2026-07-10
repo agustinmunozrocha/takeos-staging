@@ -17,7 +17,7 @@ import { PROJECTS, STATE, TRASH, ORG_ID, PROJECTS_SOURCE, TAKEOS_PERFIL, _TIENE_
 import { buildProjectData } from '../lib/modelo.js';
 import { _authBlockWriteToast, authNivel, authPuedeVer } from '../lib/auth.js';
 import { formatCLP } from '../lib/calc.js';
-import { closeModal, showModal } from '../lib/ui.js';
+import { closeModal, showModal, comboboxOpen, comboboxFilter, comboboxCloseDelayed } from '../lib/ui.js';
 import { navigateToModule } from '../lib/nav.js';
 import { calcSummaryFin } from './presupuesto-cotizacion.js';
 import { DAL_KNOWN_PROJECT_IDS, dalTouchProyecto, dalFlushProyectos, dalGuardarCargos } from './dal.js';
@@ -225,17 +225,12 @@ export function navigateToProject(projectId) {
 
 // ── Crear proyecto ───────────────────────────────────────────────────────────
 
-export async function newProject() {
+export function newProject() {
   if (authNivel('crear_proyecto') !== 'E') { _authBlockWriteToast(); return; }
   _npDraft = { nombre: '', cliente: '', pe: '', director: '', jp: '' };
-  // I11b · lista de internos de la productora para los desplegables de roles.
-  let internos = [];
-  try { internos = (await gancho('_cargoCargarInternos')()) || []; } catch (e) {}
-  const dlOpts = internos.map(function (n) { return '<option value="' + escapeHtml(n) + '">'; }).join('');
   showModal({
     title: 'Nuevo proyecto',
     body: `
-      <datalist id="np-internos">${dlOpts}</datalist>
       <div style="display:flex; flex-direction:column; gap:12px;">
         <div>
           <label class="field-label">Nombre del proyecto *</label>
@@ -247,15 +242,24 @@ export async function newProject() {
         </div>
         <div>
           <label class="field-label">Productor/a Ejecutivo/a</label>
-          <input class="input" list="np-internos" ${accionHTML('kanban.npDraft', 'pe', { on: 'input' })} placeholder="Elige un interno o escribe un nombre">
+          <span class="combobox-wrap cbx-anchored" style="display:block;">
+            <input class="input combobox-input" value="" autocomplete="off" ${accionHTML('kanban.npPersona', 'pe', { on: 'focus input blur change' })} placeholder="Elige o escribe un nombre">
+            <div class="combobox-dropdown" hidden></div>
+          </span>
         </div>
         <div>
           <label class="field-label">Director/a</label>
-          <input class="input" list="np-internos" ${accionHTML('kanban.npDraft', 'director', { on: 'input' })} placeholder="Elige un interno o escribe un nombre">
+          <span class="combobox-wrap cbx-anchored" style="display:block;">
+            <input class="input combobox-input" value="" autocomplete="off" ${accionHTML('kanban.npPersona', 'director', { on: 'focus input blur change' })} placeholder="Elige o escribe un nombre">
+            <div class="combobox-dropdown" hidden></div>
+          </span>
         </div>
         <div>
           <label class="field-label">Jefe/a de Producción</label>
-          <input class="input" list="np-internos" ${accionHTML('kanban.npDraft', 'jp', { on: 'input' })} placeholder="Elige un interno o escribe un nombre">
+          <span class="combobox-wrap cbx-anchored" style="display:block;">
+            <input class="input combobox-input" value="" autocomplete="off" ${accionHTML('kanban.npPersona', 'jp', { on: 'focus input blur change' })} placeholder="Elige o escribe un nombre">
+            <div class="combobox-dropdown" hidden></div>
+          </span>
         </div>
         <p style="font-size:12px; color:var(--ink-faint); margin:0;">Se crea en estado <strong>Venta</strong>. Los responsables quedan asignados y como cargos reales en el módulo Cargos.</p>
       </div>`,
@@ -380,6 +384,13 @@ registrarAcciones('kanban', {
   controlRoom: function () { navigateToControlRoom(); },
   exportar: function (a) { gancho('exportSingleProject')(a[0]); },
   npDraft: function (a, el) { _npDraft[a[0]] = el.value; },
+  npPersona: function (a, el, ev) {
+    // I11b · combobox estrella de personas (mismo de Presupuesto): filtra la BD,
+    // permite tipear libre y "+ Agregar a la BD". a[0] = pe | director | jp.
+    if (ev.type === 'focus') comboboxOpen(el);
+    else if (ev.type === 'blur') comboboxCloseDelayed(el);
+    else { if (ev.type === 'input') comboboxFilter(el); _npDraft[a[0]] = el.value; }
+  },
   delCheck: function (a, el) { document.getElementById('delConfirmBtn').disabled = (el.value.trim() !== _delExpected); },
   delConfirm: function (a) { confirmDeleteProject(a[0]); },
 });

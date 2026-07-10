@@ -447,7 +447,6 @@ registrarAcciones('cargo', {
 
 // D4b · ganchos definidos por este módulo (consumidos por módulos más tempranos)
 define('_cargoContactIdPorNombre', _cargoContactIdPorNombre);
-define('_cargoCargarInternos', _cargoCargarInternos);   // I11b · kanban.js lo usa para el desplegable de roles al crear proyecto
 define('_cargosDerivarRECI', _cargosDerivarRECI);
 define('_cargosKey', _cargosKey);
 define('renderCargos', renderCargos);
