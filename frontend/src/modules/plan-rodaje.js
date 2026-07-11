@@ -742,7 +742,12 @@ function renderHojaLlamado() {
                 ${crew.map((c, _vi) => {
                   const ov = dia.crewOverrides[c.nombre] || {};
                   const bd = BD_PERSONAS[c.nombre] || null;
-                  const nm = escapeHtml(c.nombre);
+                  // nm viaja SOLO como argumento por data-args (JSON) a accionHTML,
+                  // que ya escapa (escapeHtml(JSON.stringify(args))). Debe ir CRUDO:
+                  // pre-escaparlo produce doble escape y el handler recibe la clave
+                  // equivocada -> el override se guarda bajo una clave fantasma y se
+                  // pierde al re-render/PDF para nombres con & < > " '.
+                  const nm = c.nombre;
                   const presente = isCrewPresente(dia, c.nombre);
                   const rolOrig = c.rol || '';
                   const rolEd = (ov.rol != null && String(ov.rol) !== '' && ov.rol !== rolOrig);
