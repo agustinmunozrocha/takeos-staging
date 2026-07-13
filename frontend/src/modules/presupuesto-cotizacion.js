@@ -223,7 +223,7 @@ function snapshotFullBudget(project) {
   }));
 }
 function presupHistSummaryHTML(fin) {
-  const cliente = fin.presupuestoCliente || 0;
+  const cliente = fin.presupCliente || 0;
   const costo = fin.costoProd ? fin.costoProd.cot : 0;
   const gan = fin.gananciaFinal ? fin.gananciaFinal.cot : 0;
   const margen = cliente > 0 ? (gan / cliente) : 0;
@@ -2529,7 +2529,7 @@ function cotContarEntregables(c) {
    congelado al momento en que dejaron de ser la última. */
 function cotCaptureResumen(project, c) {
   const fin = calcSummaryFin(project);
-  const valor = fin.presupuestoCliente || 0;
+  const valor = fin.presupCliente || 0;
   const base = (c.ofertas || []).find(o => o.esBase);
   c.resumen = {
     valor: valor,
@@ -2642,7 +2642,7 @@ function cmpOfferFin(project, cs, v, o) {
   }
   const fin = ofertaCosteo(project, o);
   if (!fin) return { valor: (o.valorCliente != null ? o.valorCliente : null), costo: null, ganancia: null, margen: null };
-  const valor = (fin.presupuestoCliente != null && fin.presupuestoCliente > 0) ? fin.presupuestoCliente : (o.valorCliente || 0);
+  const valor = (fin.presupCliente != null && fin.presupCliente > 0) ? fin.presupCliente : (o.valorCliente || 0);
   const costo = fin.costoProd ? fin.costoProd.cot : null;
   const ganancia = fin.gananciaFinal ? fin.gananciaFinal.cot : null;
   const margen = (valor > 0 && ganancia != null) ? (ganancia / valor) : null;
@@ -3118,7 +3118,7 @@ function cotSnapEditorHTML(project, o) {
   for (const dept in snap.servicios) {
     serv += `<div class="cot-snap-section-name">Servicios — ${escapeHtml(dept)}</div>`
       + cotSnapTableHTML(o.id, 'servicios', dept, snap.servicios[dept], 'Rol')
-      + `<div class="row-add" style="margin:0 0 8px;" ${accionHTML('pre.d', 'cotSnapAdd', o.id, 'servicios', jsq(dept))}>+ Agregar rol a ${escapeHtml(dept)}</div>`;
+      + `<div class="row-add" style="margin:0 0 8px;" ${accionHTML('pre.d', 'cotSnapAdd', o.id, 'servicios', dept)}>+ Agregar rol a ${escapeHtml(dept)}</div>`;
   }
   return `<div class="cot-card" style="margin-top:4px;">
     <div class="cot-card-title">Presupuesto alternativo · copia del real, editable en ambos sentidos</div>
@@ -3146,7 +3146,7 @@ function cotSnapTableHTML(ofId, section, dept, rows, firstCol) {
 }
 function cotSnapRowHTML(ofId, section, dept, r, idx) {
   const isServ = section === 'servicios';
-  const dq = jsq(dept || '');
+  const dq = dept || '';   // dept CRUDO: la delegación (JSON) no consume las comillas como el onclick inline del monolito
   const refA = [ofId, section, dq, idx];
   const firstVal = isServ ? r.rol : r.item;
   const firstField = isServ ? 'rol' : 'item';
