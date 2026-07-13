@@ -511,7 +511,7 @@ function openEmpresaEdit(empId) {
           <div class="combobox-dropdown" hidden></div>
         </span>
       </div>
-      <div class="field" style="margin-top:8px;"><label class="field-label">Observaciones</label><textarea class="input" rows="3" ${accionHTML('bd.empSet', empId, 'notas', { on: 'change' })}>${esc(e.observaciones || e.notas || '')}</textarea></div>
+      <div class="field" style="margin-top:8px;"><label class="field-label">Observaciones</label><textarea class="input" rows="3" ${accionHTML('bd.empSet', empId, 'notas', { on: 'change' })}>${esc(e.notas || e.observaciones || '')}</textarea></div>
     </div>
     <div class="modal-footer">${_bdPuedeArchivar() ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);margin-right:auto;" ${accionHTML('bd.archivarEmp', empId)}>Archivar</button>` : ''}<button class="btn" data-accion="bd.listo">Cerrar</button><button class="btn btn-primary" ${accionHTML('bd.guardarEmp', empId)}>Guardar cambios</button></div>
   </div></div>`;
