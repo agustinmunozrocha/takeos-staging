@@ -3,6 +3,15 @@
 **Estado: ninguna vuelta en curso.**
 
 <!--
+CERRADO 2026-07-13 — branch feat/bd-esconder-pantalla-lectores (merge → etapa4-integracion):
+la pantalla de Base de Datos ahora solo la ven/abren los editores del módulo 'bd';
+Coordinación y Creativo (lectores) ya no la ven. auth.js (authPuedeVer caso
+'bd-personas'==='E') + bd.js (gate en openGlobalBDPersonas + redirect). No afecta
+comboboxes. Aprobado por Agustín (probó editor y lector). El mismo cambio va al
+monolito de main (producción).
+-->
+
+<!--
 CERRADO 2026-07-13 — branch fix/contactos-persistencia-guardado (merge 7ec4011 →
 etapa4-integracion): el guardado de la ficha de persona verifica que la base haya
 recibido la escritura (dal.js con .select()) y bd.js espera la confirmación,
