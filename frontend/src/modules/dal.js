@@ -752,19 +752,26 @@ async function _dalReplaceChildren(table, fk, id, rows) {
 }
 
 /* --- Guardado de un contacto a Supabase --- */
-export async function dalGuardarContacto(c) {
+export async function dalGuardarContacto(c, opts) {
+  opts = opts || {};
   if (!sb || CONTACTS_SOURCE !== 'supabase' || !c || !c.id) return { ok: false, skipped: true };
   const uid = DAL_SESSION_UID || null;
   const isNew = !DAL_KNOWN_CONTACT_IDS.has(c.id);
   const row = _dalContactRowPayload(c);
   try {
     if (isNew) {
-      const ins = await sb.from('contacts').insert(Object.assign({ id: c.id, organization_id: ORG_ID, created_by: uid, updated_by: uid }, row));
+      // .select('id') fuerza a la base a devolver la fila creada. Si RLS la
+      // rechaza sin lanzar error (0 filas), lo detectamos en vez de mentir éxito.
+      const ins = await sb.from('contacts').insert(Object.assign({ id: c.id, organization_id: ORG_ID, created_by: uid, updated_by: uid }, row)).select('id');
       if (ins.error) throw ins.error;
+      if (!ins.data || !ins.data.length) throw new Error('La base no aceptó crear el contacto (sin permiso de edición o rechazado).');
       DAL_KNOWN_CONTACT_IDS.add(c.id);
     } else {
-      const upd = await sb.from('contacts').update(Object.assign({ updated_by: uid }, row)).eq('id', c.id);
+      // Un UPDATE que no matchea filas por RLS devuelve { error: null, data: [] }.
+      // Con .select('id') vemos cuántas filas cambiaron: 0 = no persistió → error.
+      const upd = await sb.from('contacts').update(Object.assign({ updated_by: uid }, row)).eq('id', c.id).select('id');
       if (upd.error) throw upd.error;
+      if (!upd.data || !upd.data.length) throw new Error('El guardado no modificó ninguna fila: sin permiso de edición o el registro no existe.');
     }
     await _dalReplaceChildren('contact_roles', 'contact_id', c.id, _dalRoleRowsPayload(c));
     await _dalReplaceChildren('contact_bank_accounts', 'contact_id', c.id, _dalBankRowsPayload(c));
@@ -775,7 +782,11 @@ export async function dalGuardarContacto(c) {
     return { ok: true };
   } catch (e) {
     console.error('[dal] guardar contacto', c.id, e);
-    try { showToast({ kind: 'warning', title: 'Sincronización parcial', body: '«' + (c.nombre || c.id) + '» quedó en el respaldo local pero no se pudo sincronizar con Supabase. Reintenta al editar.', duration: 7000 }); } catch (x) {}
+    // El caller (la ficha) puede pedir silent:true para mostrar él su propio
+    // aviso claro y evitar dos toasts contradictorios. Sin silent, avisamos acá.
+    if (!opts.silent) {
+      try { showToast({ kind: 'warning', title: 'Sincronización parcial', body: '«' + (c.nombre || c.id) + '» quedó en el respaldo local pero no se pudo sincronizar con Supabase. Reintenta al editar.', duration: 7000 }); } catch (x) {}
+    }
     return { ok: false, error: e };
   }
 }

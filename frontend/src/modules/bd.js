@@ -1063,7 +1063,7 @@ function togglePfTalento() {
   if (sec) sec.style.display = (talentoCb && talentoCb.checked) ? '' : 'none';
 }
 
-function submitPersonaForm(mode, contactId) {
+async function submitPersonaForm(mode, contactId) {
   const isEdit = mode === 'edit';
   const val = id => (document.getElementById(id) || {}).value || '';
   const nombre = val('pf_nombre').trim();
@@ -1131,19 +1131,43 @@ function submitPersonaForm(mode, contactId) {
     perfilTalento: perfilTalento
   };
 
+  // Snapshot del estado local previo, por si la base rechaza el guardado y hay
+  // que revertir (no dejar un cambio "fantasma" que desaparece al refrescar).
+  const _prevContacto = (isEdit && BD_CONTACTOS[contactId]) ? BD_CONTACTOS[contactId] : null;
+  let _savedId;
   if (isEdit && BD_CONTACTOS[contactId]) {
     base.id = contactId;
     base.esSocio = BD_CONTACTOS[contactId].esSocio || false;            // V9.1.3: facetas persona↔empresa se conservan (aún sin UI)
     base.esRepresentante = BD_CONTACTOS[contactId].esRepresentante || false;
     BD_CONTACTOS[contactId] = base;
+    _savedId = contactId;
   } else {
     const _id = _genId('ctk', BD_CONTACTOS);
     base.id = _id;
     BD_CONTACTOS[_id] = base;
+    _savedId = _id;
   }
   syncLegacyFromContactos();
   autosaveNow();
-  dalGuardarContacto(base);   // V9.1.1: sincroniza el contacto a Supabase (fuente de verdad)
+  // Esperamos la confirmación de la base ANTES de dar el guardado por bueno.
+  // Un UPDATE/INSERT sin permiso devuelve 0 filas sin error: si no se verifica,
+  // la UI mentiría "guardado" y el dato (incluida la cuenta bancaria) se perdería
+  // en silencio al refrescar. Si la base rechaza, revertimos el cambio y avisamos.
+  const _res = await dalGuardarContacto(base, { silent: true });   // V9.1.1: sincroniza el contacto a Supabase (fuente de verdad)
+  if (_res && !_res.ok && !_res.skipped) {
+    if (isEdit) { if (_prevContacto) { BD_CONTACTOS[contactId] = _prevContacto; } else { delete BD_CONTACTOS[contactId]; } }
+    else { delete BD_CONTACTOS[_savedId]; }
+    syncLegacyFromContactos();
+    autosaveNow();
+    showToast({
+      kind: 'error',
+      title: 'No se guardó — el cambio NO quedó',
+      body: `«${nombre}» no se pudo guardar en la base (probablemente no tienes permiso para editar). El cambio no se aplicó: no lo des por hecho. Avísale a un administrador si necesitas editarla.`,
+      duration: 9000
+    });
+    if (STATE.currentModule === 'bd-personas') { renderBDPersonas(); }
+    return;   // el modal queda abierto para reintentar
+  }
   closeModal();
   STATE.ui.bdExpanded = nombre;
   showToast({
