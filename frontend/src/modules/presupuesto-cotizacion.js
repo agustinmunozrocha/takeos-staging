@@ -436,14 +436,25 @@ export function renderServiciosBody() {
 function _sanitizeDeptName(s) {
   return String(s == null ? '' : s).replace(/[<>"'`\\]/g, '').replace(/\s+/g, ' ').trim();
 }
-async function addServiceDept() {
+function addServiceDept() {
   const project = STATE.currentProject;
   const d = project.data.servicios;
-  const raw = window.prompt('Nombre de la nueva sub-sección (ej: Sonido, Grip, Maquillaje):', '');
-  if (raw === null) return;
-  const name = _sanitizeDeptName(raw);
-  if (!name) { showToast({ kind: 'warning', title: 'Nombre inválido', body: 'Escribe un nombre para la sub-sección.' }); return; }
-  if (d[name]) { showToast({ kind: 'warning', title: 'Ya existe', body: `Ya hay una sub-sección llamada «${name}».` }); return; }
+  // Modal propio de Rizora (reemplaza el window.prompt nativo del navegador).
+  showModal({
+    title: 'Nueva sub-sección',
+    body: 'Nombre de la nueva sub-sección (ej: Sonido, Grip, Maquillaje):<br><input id="ppNuevaSubseccion" class="input" style="width:100%;margin-top:10px;" placeholder="Sonido, Grip, Maquillaje…" autocomplete="off" autofocus>',
+    confirmLabel: 'Agregar', cancelLabel: 'Cancelar',
+    onConfirm: function () {
+      const el = document.getElementById('ppNuevaSubseccion');
+      const name = _sanitizeDeptName(el ? el.value : '');
+      if (!name) { showToast({ kind: 'warning', title: 'Nombre inválido', body: 'Escribe un nombre para la sub-sección.' }); return false; }
+      if (d[name]) { showToast({ kind: 'warning', title: 'Ya existe', body: `Ya hay una sub-sección llamada «${name}».` }); return false; }
+      _addServiceDeptCommit(project, name);
+    }
+  });
+}
+async function _addServiceDeptCommit(project, name) {
+  const d = project.data.servicios;
   let _deptId;
   try { _deptId = await gancho('dalCrearDepartamento')(project.id, name); }
   catch (e) { showToast({ kind: 'error', title: 'No se pudo crear', body: 'No se pudo guardar el departamento en el servidor. ' + (e && e.message ? e.message : '') }); return; }
@@ -480,12 +491,22 @@ async function _renameServiceDeptCore(idx, rawNew) {
   markDirty();
   return { oldName, newName };
 }
-async function renameServiceDept(idx) {
+function renameServiceDept(idx) {
   const names = Object.keys(STATE.currentProject.data.servicios);
   const oldName = names[idx];
   if (!oldName) return;
-  const raw = window.prompt('Nuevo nombre de la sub-sección:', oldName);
-  if (raw === null) return;
+  // Modal propio de Rizora (reemplaza el window.prompt nativo del navegador).
+  showModal({
+    title: 'Renombrar sub-sección',
+    body: 'Nuevo nombre de la sub-sección:<br><input id="ppRenombrarSubseccion" class="input" style="width:100%;margin-top:10px;" autocomplete="off" autofocus value="' + escapeHtml(oldName) + '">',
+    confirmLabel: 'Renombrar', cancelLabel: 'Cancelar',
+    onConfirm: function () {
+      const el = document.getElementById('ppRenombrarSubseccion');
+      _renameServiceDeptDone(idx, el ? el.value : '');
+    }
+  });
+}
+async function _renameServiceDeptDone(idx, raw) {
   const r = await _renameServiceDeptCore(idx, raw);
   if (!r) return;
   renderServiciosBody();
