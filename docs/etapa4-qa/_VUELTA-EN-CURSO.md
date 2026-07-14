@@ -46,10 +46,11 @@ Cola de BD:
   anotado como "contacto principal de empresa no persiste" (era el mismo hueco:
   el campo Representante).
 
-Migraciones aplicadas a staging pendientes de ir a prod (en el merge final):
+Migraciones aplicadas a staging pendientes de ir a prod (en el merge final) — R4: staging y main NO divergen, estas DEBEN llegar a main:
 - 20260710120000_organization_services.sql
 - 20260710130000_renombrar_servicio_rpc.sql
 - 20260710140000_companies_representante_duenos.sql
+- 20260714120000_storage_buckets_paridad_staging.sql  (crea los 10 buckets de Storage; en prod es no-op idempotente, ya los tiene)
 
 Cuando se abra una vuelta de fix (Paso 6), reemplazar lo de arriba por el bloque
 EN CURSO (branch, módulo, paso, bugs, fecha). Al cerrar (Paso 11), volver a
