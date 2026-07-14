@@ -6,7 +6,7 @@ Referencia de comportamiento: monolito en `main` (`git show main:index.html`).
 entregables, presupuesto alternativo costeable, versiones/comparador y la Carta de
 Cotización en PDF. **NO** cubre el grid de Presupuesto (`renderPresupuesto`), que
 ya está aprobado en [presupuesto.md](presupuesto.md) (P1–P36).
-Cobertura: 3/25 ✅ (3 verificadas por Agustín).
+Cobertura: 7/25 ✅ (3 verificadas por Agustín + C1–C4 verificadas por QA automatizado —Chrome MCP— el 2026-07-14, sin bugs).
 
 > **Cómo leer este catálogo.** Las pruebas **⭐** son donde el cruce
 > monolito↔modular levantó bug; **pruébalas primero**. El juez final eres tú en
@@ -20,10 +20,10 @@ Cobertura: 3/25 ✅ (3 verificadas por Agustín).
 ## A. Crear / editar / borrar oferta
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
-| C1 | Crear nueva oferta | Cotización → "+ Nueva oferta" | Aparece "Opción 0X", copia de la base (incluye/no incluye/entregables) con presupuesto alternativo propio; toast de éxito | ⬜ |
-| C2 | Editar nombre de oferta | Cambiar el input de nombre y salir del campo | Persiste tras recargar | ⬜ |
-| C3 | Borrar oferta alternativa | "Eliminar oferta" → confirmar | Se elimina; deshacible con Cmd+Z | ⬜ |
-| C4 | No se puede borrar la base | "Eliminar oferta" en la base | No existe el botón / toast "no se puede eliminar" | ⬜ |
+| C1 | Crear nueva oferta | Cotización → "+ Nueva oferta" | Aparece "Opción 0X", copia de la base (incluye/no incluye/entregables) con presupuesto alternativo propio; toast de éxito | ✅ |
+| C2 | Editar nombre de oferta | Cambiar el input de nombre y salir del campo | Persiste tras recargar | ✅ |
+| C3 | Borrar oferta alternativa | "Eliminar oferta" → confirmar | Se elimina; deshacible con Cmd+Z | ✅ |
+| C4 | No se puede borrar la base | "Eliminar oferta" en la base | No existe el botón / toast "no se puede eliminar" | ✅ |
 
 ## B. Valor
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
@@ -77,6 +77,24 @@ Cobertura: 3/25 ✅ (3 verificadas por Agustín).
 **Estados:** ⬜ pendiente · 🔄 probando · ✅ pasó (no re-probar) · ❌ falló (bug abierto) · 🔁 cambió a propósito.
 
 ## Notas
+
+### Tanda A (C1–C4) verificada por QA automatizado — 2026-07-14
+Corrida en `localhost:5173` (staging), proyecto "Verano en la Comarca", perfil
+Administrador, manejando el navegador con el MCP de Chrome. **Las 4 pasaron, cero
+bugs, consola limpia.** Detalle:
+- **C1** — "+ Nueva oferta" crea "Opción 02" como **copia profunda** real de la base
+  (mutar la nueva no toca la base), con su propio presupuesto alternativo; re-render OK.
+- **C2** — renombrar la oferta escribe `o.nombre` y **persiste tras recargar** (round-trip
+  a Supabase confirmado).
+- **C3** — "Eliminar oferta" abre modal de confirmación, borra por completo (hard-delete)
+  y **Cmd+Z restaura** la oferta íntegra (nombre + presupuesto).
+- **C4** — la oferta base **no tiene botón Eliminar** (tag "Base · Presupuesto real");
+  ningún botón de borrado apunta a su id.
+- Cruce de código previo (monolito `main` ↔ modular): las funciones de estas 4 son
+  idénticas a `main` salvo el cableado esperado `onclick`→`data-accion`, ya verificado.
+- Nota de método: el `fill` del MCP dispara `input` pero no `change`; los campos con
+  `data-on="change"` (como el nombre de oferta) requieren emitir `change` para simular
+  el blur real. No es bug de la app.
 
 ### Bug encontrado y arreglado — BUG-COT-1 (chips y comparador en $0)
 La lectura del resumen financiero de una versión leía `fin.presupuestoCliente`,

@@ -8,7 +8,7 @@ crea en Modo QA cuando Agustín pide "dame pruebas para testear X".
 | Módulo | Archivo | Catálogo | Cobertura |
 |--------|---------|----------|-----------|
 | Presupuesto (grilla) | `presupuesto-cotizacion.js` | [presupuesto.md](presupuesto.md) | ✅ 32/36 ✅ · 4 🔁 · 0 ❌ (todo cubierto) |
-| Cotización (ofertas) | `presupuesto-cotizacion.js` · renderCotizacion | [cotizacion.md](cotizacion.md) | 🔄 3/25 ✅ (BUG-COT-1/2 arreglados) |
+| Cotización (ofertas) | `presupuesto-cotizacion.js` · renderCotizacion | [cotizacion.md](cotizacion.md) | 🔄 7/25 ✅ (BUG-COT-1/2 arreglados · tanda A C1–C4 QA automatizado 14-jul) |
 | Gastos | `gastos.js` | [gastos.md](gastos.md) | 🔄 3/42 ✅ (BUG-GAS-1 arreglado) |
 | Crew | `crew.js` | [crew.md](crew.md) | 🔄 0/18 (limpio, 0 bugs) |
 | Cargos | `cargos.js` | [cargos.md](cargos.md) | 🔄 0/17 (limpio, 0 bugs) |
