@@ -3,10 +3,10 @@
 Referencia de comportamiento: monolito en `main` (`git show main:index.html`).
 Módulos de apoyo: `dal.js` (persistencia, RPC 4b/CFO), `presupuesto-cotizacion.js`
 (sync Costo Real, ver P36 ya aprobado), `lib/ui.js` (showModal), `lib/delegacion.js`.
-Cobertura: 39/42 ✅ · 0 bugs (3 por Agustín + 36 por QA automatizado —Chrome MCP— 14-jul).
-Pendientes: **GAS-6** (permiso: gate verificado por código = `main`, falta el live con re-login)
-y **GAS-21/GAS-22** (👁 comprobantes: ver/re-subir, necesitan la vista de Agustín —ya desbloqueadas
-al crear los buckets de staging). Cero regresiones de la Etapa 4.
+Cobertura: **CERRADO** — 41/42 ✅ + 1 🔁 (GAS-22 saltada por obsoleta) · 0 bugs. 36 por QA
+automatizado —Chrome MCP— + GAS-3/4/5, GAS-21 y GAS-6 con Agustín (14-jul). Cero regresiones
+de la Etapa 4. Único hueco de infra hallado y resuelto: buckets de Storage de staging
+(migración `20260714120000`, pendiente de prod en el merge final).
 
 **Reparto 🤖/👁 (14-jul):** de las 39 pendientes, **37 las corre Claude** (🤖 — verificables
 por modelo `goData`/`STATE`, DOM y consola) y **2 necesitan la vista de Agustín** (👁):
@@ -31,7 +31,7 @@ mira Agustín si quiere.
 | GAS-3 ⭐ | **EDITAR un presupuesto (BUG-GAS-1)** | Click en el lápiz ✎ de una tarjeta del strip | Abre el modal en modo edición con los datos precargados y "Guardar cambios" (antes **no existía** el ✎). Arreglado | ✅ |
 | GAS-4 ⭐ | **ELIMINAR un presupuesto sin gastos (BUG-GAS-1)** | Click en la × de una tarjeta sin movimientos → confirmar | Pide confirmación y elimina la caja (antes **no existía** la ×). Arreglado | ✅ |
 | GAS-5 ⭐ | **Eliminar presupuesto CON gastos ligados** | Intentar borrar una caja que tiene movimientos | Se niega con "Tiene gastos cargados" y NO borra (no orfana movimientos de plata) | ✅ |
-| GAS-6 | Permiso de crear/editar/borrar | Con perfil ≠ Admin/Ejecutivo/Producción | Toast "Sin permiso"; con perfil nulo, permite (fail-open) | 🔄 (código ✅; falta live con re-login) |
+| GAS-6 | Permiso de crear/editar/borrar | Con perfil ≠ Admin/Ejecutivo/Producción | Toast "Sin permiso"; con perfil nulo, permite (fail-open) | ✅ (gate verificado por código = `main`; Agustín aceptó sin re-login live) |
 | GAS-7 | Barra y "disponible" de la tarjeta | Cargar gastos hasta pasar el asignado | "disponible" se vuelve negativo (rojo), barra >100% | ✅ 🤖 |
 
 ### B. Registro de gastos (tabla)
@@ -58,8 +58,8 @@ mira Agustín si quiere.
 | ID | Qué probar | Pasos | Esperado (según main) | Estado |
 |----|-----------|-------|-----------------------|--------|
 | GAS-20 | Subir comprobante | Adjuntar foto/PDF en el gasto | Sube al bucket; persiste el path | ✅ 🤖 (tras crear los buckets: sube a `adjuntos-gastos`, path `ORG_ID/proyecto/…`, persiste el filePath; borrar el gasto también borra el archivo de Storage) |
-| GAS-21 | Ver comprobante | "✓ ver" en la fila | Link firmado; imagen se previsualiza, PDF/HEIC ofrece descarga | ⬜ |
-| GAS-22 | Comprobante legado roto | Gasto con comp pero sin path | "⚠ re-subir" y modal para re-adjuntar | ⬜ |
+| GAS-21 | Ver comprobante | "✓ ver" en la fila | Link firmado; imagen se previsualiza, PDF/HEIC ofrece descarga | ✅ (Agustín, 14-jul) |
+| GAS-22 | Comprobante legado roto | Gasto con comp pero sin path | "⚠ re-subir" y modal para re-adjuntar | 🔁 saltada (Agustín): estado legado viejo/obsoleto, no se prueba |
 
 ### E. CFO / Finanzas (global)
 | ID | Qué probar | Pasos | Esperado (según main) | Estado |

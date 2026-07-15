@@ -9,7 +9,7 @@ crea en Modo QA cuando Agustín pide "dame pruebas para testear X".
 |--------|---------|----------|-----------|
 | Presupuesto (grilla) | `presupuesto-cotizacion.js` | [presupuesto.md](presupuesto.md) | ✅ 32/36 ✅ · 4 🔁 · 0 ❌ (todo cubierto) |
 | Cotización (ofertas) | `presupuesto-cotizacion.js` · renderCotizacion | [cotizacion.md](cotizacion.md) | ✅ 24/25 ✅ · 1 🔁 (BUG-COT-1/2 arreglados · C1–C18/C22–C25 QA automatizado 14-jul, 0 bugs · C19/C21 por Agustín · C20 🔁 Carta/Manifiesto desconectadas) |
-| Gastos | `gastos.js` | [gastos.md](gastos.md) | 🔄 39/42 ✅ · 0 bugs (QA automatizado 14-jul, incl. Santander/Chipax) · pend: GAS-6 live, GAS-21/22 👁 (comprobantes) |
+| Gastos | `gastos.js` | [gastos.md](gastos.md) | ✅ 41/42 ✅ · 1 🔁 · 0 bugs (CERRADO 14-jul; QA automatizado + Agustín; buckets de Storage staging resueltos) |
 | Crew | `crew.js` | [crew.md](crew.md) | 🔄 0/18 (limpio, 0 bugs) |
 | Cargos | `cargos.js` | [cargos.md](cargos.md) | 🔄 0/17 (limpio, 0 bugs) |
 | Rodajes | `rodajes.js` | [rodajes.md](rodajes.md) | 🔄 0/22 (limpio, 0 bugs) |
