@@ -9,8 +9,8 @@
 | 1 | Cargos | 17 | ✅ 15/17 · 0 bugs (CG16 incompleto·tope, CG17 pendiente·permiso) |
 | 2 | Crew | 18 | ✅ 8/18 · 0 bugs (5 pend·espejo presupuesto, 2 incompl·proyecto vacío, 3 👁 PDF) |
 | 3 | Rodajes | 22 | ✅ 22/22 · 0 bugs (ROD-12 por código, ROD-15 con nota HdL) |
-| 4 | Documentos | 20 | 🔄 en curso |
-| 5 | Base de datos | 34 | ⬜ pendiente |
+| 4 | Documentos | 20 | ✅ 13/20 · 0 bugs (D8 incompl, D9-D13/D15 pend·infra/dnd) |
+| 5 | Base de datos | 34 | 🔄 en curso |
 
 ## Reglas de esta corrida
 - Solo corro las 🤖 (técnicas); las 👁 (PDF/visual) van al reporte final para Agustín.
