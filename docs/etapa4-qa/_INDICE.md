@@ -14,7 +14,7 @@ crea en Modo QA cuando Agustín pide "dame pruebas para testear X".
 | Cargos | `cargos.js` | [cargos.md](cargos.md) | 🔄 0/17 (limpio, 0 bugs) |
 | Rodajes | `rodajes.js` | [rodajes.md](rodajes.md) | 🔄 0/22 (limpio, 0 bugs) |
 | Plan de rodaje | `plan-rodaje.js` | [plan-rodaje.md](plan-rodaje.md) | ✅ 50/50 ✅ (0 bugs, cerrado) |
-| Hoja de Llamado | `plan-rodaje.js` · renderHojaLlamado | [hoja-llamado.md](hoja-llamado.md) | 🔄 1/33 ✅ (BUG-HL-1 arreglado) |
+| Hoja de Llamado | `plan-rodaje.js` · renderHojaLlamado | [hoja-llamado.md](hoja-llamado.md) | 🔄 32/33 ✅ (🤖 auto, 0 bugs) · 1 👁 pend. |
 | Kanban | `kanban.js` | — | ⬜ |
 | Tareas | `tareas.js` | — | ⬜ |
 | Locaciones | `locaciones.js` | [locaciones.md](locaciones.md) | 🔄 4/25 ✅ (BUG-LOC-1/2 arreglados) |
