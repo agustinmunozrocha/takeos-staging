@@ -10,7 +10,7 @@
 | 2 | Crew | 18 | ✅ 8/18 · 0 bugs (5 pend·espejo presupuesto, 2 incompl·proyecto vacío, 3 👁 PDF) |
 | 3 | Rodajes | 22 | ✅ 22/22 · 0 bugs (ROD-12 por código, ROD-15 con nota HdL) |
 | 4 | Documentos | 20 | ✅ 13/20 · 0 bugs (D8 incompl, D9-D13/D15 pend·infra/dnd) |
-| 5 | Base de datos | 34 | 🔄 en curso |
+| 5 | Base de datos | 34 | ✅ 12/35 · 0 bugs (resto: Excel/permisos/detalles → sesión dedicada) |
 
 ## Reglas de esta corrida
 - Solo corro las 🤖 (técnicas); las 👁 (PDF/visual) van al reporte final para Agustín.
@@ -34,3 +34,14 @@
   persistencia confirmados (project_shoot_days + hard refresh). Residuo: el proyecto
   QA quedó con 1 día (DIA-01) — el DIA-02 original se consumió probando ROD-11 (borrado
   sin reutilización de ID). No afecta a plan-rodaje/hoja-llamado (QA ya cerrado).
+- **Base de datos (2026-07-20):** 12/35 ✅, 0 bugs. CRUD de persona/empresa/talento/
+  locación + dedup + bloqueo sin email + código banco + persistencia (contacts /
+  contact_bank_accounts / companies incl. representante/duenos JSONB de la migración
+  20260710140000) confirmada en la base + hard refresh. Resto (Excel BD25-31, permisos
+  BD3/BD4, detalles BD5/6/8/13-18/20/21/24/33, archivar BD35) → sesión dedicada. Quedan
+  4 registros "QA Test" en la BD de staging (desechables).
+
+## Estado final de la corrida
+- **5 módulos corridos, 0 bugs en total.** Cargos 15/17, Crew 8/18, Rodajes 22/22,
+  Documentos 13/20, BD 12/35. Commits locales: 11e74ee, 7ae05ce, 498a64a, 33afb48
+  (+ el de BD). Nada pusheado (espera OK de Agustín).

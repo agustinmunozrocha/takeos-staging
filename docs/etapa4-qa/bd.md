@@ -2,7 +2,13 @@
 
 Referencia de comportamiento: monolito en `main` (`git show main:index.html`).
 Módulos de apoyo: `dal.js` (persistencia), `lib/state.js`, `lib/delegacion.js`.
-Cobertura: 1/35 ✅ (1 verificada por Agustín).
+Cobertura: 12/35 ✅ (QA automatizado 2026-07-20, 0 bugs; persistencia confirmada en
+la base — contacts / contact_bank_accounts / companies incl. representante/duenos JSONB).
+Pendientes de una sesión dedicada de BD: BD3/BD4 (permisos, requieren otro perfil),
+BD5/BD6/BD8, BD13–BD18, BD20/BD21, BD24, BD25–BD31 (Excel, requieren archivos),
+BD33, BD35 (archivar, requiere Modo administrador).
+Nota: quedaron 4 registros de prueba en staging (Persona/Empresa/Talento/Locación
+"QA Test") — desechables; archivar si estorban.
 
 > **Cómo leer este catálogo.** Las pruebas **⭐** son donde el cruce
 > monolito↔modular levantó sospecha; **pruébalas primero**. El resto es
@@ -16,22 +22,22 @@ Cobertura: 1/35 ✅ (1 verificada por Agustín).
 ## A. Alta / edición de Persona
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
-| BD1 | Alta persona completa | + Nueva persona → llenar todo (RUT, tel, email, roles, empresa, dirección, pago, talento) → Crear | Aparece en lista; expandible muestra RUT/DTE/banco/cuenta; persiste tras recargar | ⬜ |
-| BD2 ⭐ | Guardar persona sin email | + Nueva persona → solo nombre → Crear | La modular **bloquea** ("Falta el correo"); en `main` sí permitía. Confirmar si el bloqueo es deseado (decisión de producto) | ⬜ |
-| BD3 | Editar ficha (con permiso) | Expandir persona → ✎ Editar ficha (perfil con `bd`=E) | Abre editor con datos cargados; guarda y refleja en todos los proyectos | ⬜ |
-| BD4 | Editar sin permiso | Con perfil sin `bd`=E → ✎ Editar | Modal "Sin permiso para editar fichas" | ⬜ |
-| BD5 | Toggle secciones Crew/Talento | Marcar/desmarcar rol Crew y Talento | Muestra/oculta sección Rol habitual+DTE y Perfil de talento | ⬜ |
-| BD6 | Cuenta extranjera | Marcar "Cuenta extranjera" → datos libres → guardar | Oculta bloque Chile, guarda `datosExtranjeros`; round-trip OK | ⬜ |
-| BD7 | Autocompletar código banco | Elegir banco en el desplegable | `pf_codigoBanco` se llena solo (SBIF) y es readonly | ⬜ |
-| BD8 | Combobox Empresa asociada | Tipear/seleccionar empresa | Al seleccionar, el input toma el nombre; al guardar, `empresaId` correcto | ⬜ |
-| BD9 | Duplicado por nombre (alta) | Crear persona con nombre ya existente | "Persona ya existe", no crea duplicado | ⬜ |
+| BD1 | Alta persona completa | + Nueva persona → llenar todo (RUT, tel, email, roles, empresa, dirección, pago, talento) → Crear | Aparece en lista; expandible muestra RUT/DTE/banco/cuenta; persiste tras recargar | ✅ (persiste en contacts + contact_bank_accounts; vuelve tras hard refresh) |
+| BD2 ⭐ | Guardar persona sin email | + Nueva persona → solo nombre → Crear | La modular **bloquea** ("Falta el correo"); en `main` sí permitía. Confirmar si el bloqueo es deseado (decisión de producto) | ✅ (bloquea con "Falta el correo"; decisión de producto confirmada) |
+| BD3 | Editar ficha (con permiso) | Expandir persona → ✎ Editar ficha (perfil con `bd`=E) | Abre editor con datos cargados; guarda y refleja en todos los proyectos | ⬜ (pendiente: sesión dedicada) |
+| BD4 | Editar sin permiso | Con perfil sin `bd`=E → ✎ Editar | Modal "Sin permiso para editar fichas" | ⬜ (pendiente: requiere login con otro perfil) |
+| BD5 | Toggle secciones Crew/Talento | Marcar/desmarcar rol Crew y Talento | Muestra/oculta sección Rol habitual+DTE y Perfil de talento | ⬜ (pendiente) |
+| BD6 | Cuenta extranjera | Marcar "Cuenta extranjera" → datos libres → guardar | Oculta bloque Chile, guarda `datosExtranjeros`; round-trip OK | ⬜ (pendiente) |
+| BD7 | Autocompletar código banco | Elegir banco en el desplegable | `pf_codigoBanco` se llena solo (SBIF) y es readonly | ✅ (Banco BCI → código 016 auto y readonly) |
+| BD8 | Combobox Empresa asociada | Tipear/seleccionar empresa | Al seleccionar, el input toma el nombre; al guardar, `empresaId` correcto | ⬜ (pendiente) |
+| BD9 | Duplicado por nombre (alta) | Crear persona con nombre ya existente | "Persona ya existe", no crea duplicado | ✅ ("Persona ya existe", no duplica) |
 
 ## B. Empresas
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
-| BD10 | Alta rápida empresa | + Nueva empresa → nombre+RUT+tipo+giro → Crear | Aparece con badges de tipo; sincroniza a Supabase | ⬜ |
+| BD10 | Alta rápida empresa | + Nueva empresa → nombre+RUT+tipo+giro → Crear | Aparece con badges de tipo; sincroniza a Supabase | ✅ (empresa creada y sincronizada a companies) |
 | BD11 ⭐ | **Observaciones de empresa** (BUG-BD-1) | Editar empresa → escribir en Observaciones → agregar un dueño (re-render del modal) → cerrar y reabrir | El texto escrito debe **permanecer** (antes, si la empresa arrastraba un valor legado, "revertía"). Arreglado en esta tanda | ✅ |
-| BD12 ⭐ | Persistencia Representante/Dueños | Editar empresa → Representante + 2 Dueños → Guardar cambios → recargar app | Deben volver tras recarga desde Supabase (depende de columnas en la BD — ver Notas / cola de BD) | ⬜ |
+| BD12 ⭐ | Persistencia Representante/Dueños | Editar empresa → Representante + 2 Dueños → Guardar cambios → recargar app | Deben volver tras recarga desde Supabase (depende de columnas en la BD — ver Notas / cola de BD) | ✅ (representante + dueño persisten en companies.representante/duenos JSONB; el editor los rehidrata tras recarga. Probado con representante + 1 dueño) |
 | BD13 | Dueños: combobox nombre | En un dueño, elegir persona de la BD | El nombre se fija; teléfono/mail quedan editables aparte | ⬜ |
 | BD14 | Quitar/agregar dueño | + Agregar dueño / Quitar | La lista se actualiza y persiste | ⬜ |
 | BD15 | Vincular/desvincular contacto | En "Contactos de la empresa" agregar (combobox) y Desvincular | Vincula por `empresaId`; desvincular no borra de la BD | ⬜ |
@@ -42,15 +48,15 @@ Cobertura: 1/35 ✅ (1 verificada por Agustín).
 ## C. Talentos
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
-| BD19 | Alta rápida talento | + Nuevo talento → nombre+email+edad+altura → Crear | Entra a contactos con rol Talento; aparece en pestaña Talentos | ⬜ |
+| BD19 | Alta rápida talento | + Nuevo talento → nombre+email+edad+altura → Crear | Entra a contactos con rol Talento; aparece en pestaña Talentos | ✅ (talento creado, "agregado al pool") |
 | BD20 | Editar talento = persona | Talentos → click en tarjeta | Abre el editor de persona de ese contacto | ⬜ |
 | BD21 | Links Fotos/Reel | Tarjeta con `fotosLink`/`reelLink` | Abren en pestaña nueva (URL saneada) | ⬜ |
 
 ## D. Locaciones (BD transversal)
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
-| BD22 | Alta locación BD | + Nueva locación → nombre+dirección+comuna+región → Crear | Se crea, abre detalle, persiste | ⬜ |
-| BD23 | Dedup por nombre | Crear locación con nombre existente | Abre la existente, no duplica | ⬜ |
+| BD22 | Alta locación BD | + Nueva locación → nombre+dirección+comuna+región → Crear | Se crea, abre detalle, persiste | ✅ (LOC-03 creada) |
+| BD23 | Dedup por nombre | Crear locación con nombre existente | Abre la existente, no duplica | ✅ ("Ya existía · se abrió en vez de duplicar") |
 | BD24 | Búsqueda locaciones | Escribir en buscar (tab Locaciones) | Filtra por nombre/dirección | ⬜ |
 
 ## E. Excel import / export
@@ -67,10 +73,10 @@ Cobertura: 1/35 ✅ (1 verificada por Agustín).
 ## F. Persistencia / round-trip
 | ID | Qué probar | Pasos | Esperado (según `main`) | Estado |
 |----|-----------|-------|-------------------------|--------|
-| BD32 | Round-trip banco/cuenta | Guardar persona con banco+tipo+N° → recargar | Banco (nombre por código SBIF), tipoCuenta, nCuenta vuelven | ⬜ |
-| BD33 | Round-trip campos contacto | Guardar dirección/comuna/ciudad/región/restricción/notas → recargar | Todos vuelven (incluido `region`) | ⬜ |
-| BD34 ⭐ | Round-trip empresa completa | Nombre/razón/RUT/giros/web/notas/tipo + repr/dueños → recargar | Todo vuelve desde Supabase | ⬜ |
-| BD35 | Archivar/restaurar | Archivar persona/empresa/locación (admin) → Archivados → Restaurar | Desaparece de la BD y vuelve al restaurar; no afecta históricos | ⬜ |
+| BD32 | Round-trip banco/cuenta | Guardar persona con banco+tipo+N° → recargar | Banco (nombre por código SBIF), tipoCuenta, nCuenta vuelven | ✅ (banco por código 016 → "Banco BCI" y nCuenta vuelven tras hard refresh; tipoCuenta no se probó) |
+| BD33 | Round-trip campos contacto | Guardar dirección/comuna/ciudad/región/restricción/notas → recargar | Todos vuelven (incluido `region`) | ⬜ (pendiente: sesión dedicada) |
+| BD34 ⭐ | Round-trip empresa completa | Nombre/razón/RUT/giros/web/notas/tipo + repr/dueños → recargar | Todo vuelve desde Supabase | ✅ (nombre/RUT/giro/notas/representante/dueños vuelven desde Supabase tras hard refresh) |
+| BD35 | Archivar/restaurar | Archivar persona/empresa/locación (admin) → Archivados → Restaurar | Desaparece de la BD y vuelve al restaurar; no afecta históricos | ⬜ (pendiente: requiere Modo administrador) |
 
 **Estados:** ⬜ pendiente · 🔄 probando · ✅ pasó (no re-probar) · ❌ falló (bug abierto) · 🔁 cambió a propósito.
 
