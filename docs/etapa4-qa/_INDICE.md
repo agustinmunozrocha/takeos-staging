@@ -25,7 +25,7 @@ crea en Modo QA cuando Agustín pide "dame pruebas para testear X".
 | Calculadoras | `calculadoras.js` | [calculadoras.md](calculadoras.md) | 🔄 4/6 ✅ · 0 bugs (QA auto 20-jul; calc tributaria exacta; crc/hec por código·preproducción) |
 | Configuración | `config.js` | — | ⬜ |
 | Admin | `admin.js` | — | ⬜ |
-| Espacio | `espacio.js` | — | ⬜ |
+| Espacio | `espacio.js` | [espacio.md](espacio.md) | 🔄 7/8 ✅ · 0 bugs (QA auto 20-jul; ESP8 👁·derechos Gate C) |
 | Info proyecto | `info-proyecto.js` | [info-proyecto.md](info-proyecto.md) | ✅ 19/19 ✅ · Grupo 1 y 2 cerrados (2 pend. BD) |
 | Invitaciones | `invitaciones.js` | [invitaciones.md](invitaciones.md) | 🔄 4/9 ✅ + 5 👁 · 0 bugs (QA auto 20-jul; aceptar/rechazar 👁·destructivo) |
 | Notificaciones | `notificaciones.js` | [notificaciones.md](notificaciones.md) | 🔄 5/10 ✅ + 5 👁 · 0 bugs migración (QA auto 20-jul; ⚠ reglas no persisten = pre-existente/main) |
