@@ -70,7 +70,8 @@ Escribir catálogo (Modo QA) + correr 🤖 por módulo. Orden y estado:
 | 4 | Buscador | ✅ 9/9 · 0 bugs (cerrado) |
 | 5 | Perfil/Onboarding | ✅ 6/8 · 0 bugs (PF7/PF8 👁·invitación/banca) |
 | 6 | Plan/Límites | ✅ 4/6 (por código, port fiel) + 2 👁 · 0 bugs |
-| 7 | Invitaciones | 🔄 en curso (tanda B) |
-| 8-10 | Config, Espacio, Kanban | ⬜ (tanda B) |
+| 7 | Invitaciones | ✅ 4/9 + 5 👁 · 0 bugs (aceptar/rechazar 👁·destructivo; INV9 👁 revisar bandeja del emisor) |
+| 8 | Espacio | 🔄 en curso (tanda B) |
+| 9-10 | Config, Kanban | ⬜ (tanda B) |
 Fuera: Legal (👁/PDF), Admin (destructivo) → con Agustín.
 Commits locales por módulo; push lo hace Agustín. 👁 se acumulan para el resumen final.
