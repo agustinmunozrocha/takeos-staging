@@ -21,7 +21,7 @@ crea en Modo QA cuando Agustín pide "dame pruebas para testear X".
 | Documentos | `documentos.js` | [documentos.md](documentos.md) | 🔄 13/20 ✅ · 0 bugs (QA auto 20-jul; D8 tope, D9-D13/D15 infra/dnd) |
 | Legal | `legal.js` | — | ⬜ |
 | Base de datos | `bd.js` / `bd-excel.js` | [bd.md](bd.md) | 🔄 14/35 ✅ · 0 bugs (QA auto 20-jul; permisos BD3/BD4 verificados; resto Excel/detalles → sesión dedicada) |
-| Buscador | `buscador.js` | — | ⬜ |
+| Buscador | `buscador.js` | [buscador.md](buscador.md) | ✅ 9/9 ✅ · 0 bugs (QA auto 20-jul, cerrado) |
 | Calculadoras | `calculadoras.js` | [calculadoras.md](calculadoras.md) | 🔄 4/6 ✅ · 0 bugs (QA auto 20-jul; calc tributaria exacta; crc/hec por código·preproducción) |
 | Configuración | `config.js` | — | ⬜ |
 | Admin | `admin.js` | — | ⬜ |
