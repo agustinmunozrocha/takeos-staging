@@ -314,10 +314,16 @@ export async function newProject() {
       renderKanban();
       showToast({ kind: 'success', title: 'Proyecto creado', body: `“${escapeHtml(nombre)}” creado en Venta. Ábrelo para empezar a cotizar.` });
       navigateToProject(id);
+      // FIX persistencia · el proyecto nuevo se escribe SIEMPRE a la base apenas se
+      // crea. Antes esto solo pasaba si venía con cargos; sin cargos, markDirty() (más
+      // arriba) corría ANTES de navigateToProject y tocaba el proyecto anterior (o
+      // ninguno, en el Control Room), así que el proyecto recién creado nunca se
+      // guardaba y se perdía al recargar. dalTouchProyecto(nuevo) va tras navigate,
+      // cuando el nuevo ya es el proyecto abierto.
+      dalTouchProyecto(nuevo);
       // I11b · guardar el proyecto y RECIÉN DESPUÉS los cargos: project_cargos tiene
       // FK al proyecto, así que el RPC guardar_cargos necesita que ya exista en la base.
       if (cargosNuevos.length) {
-        dalTouchProyecto(nuevo);
         Promise.resolve(dalFlushProyectos()).then(function () { return dalGuardarCargos(nuevo); }).catch(function () {});
       }
     },

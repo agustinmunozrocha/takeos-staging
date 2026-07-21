@@ -67,6 +67,19 @@ la base (project_shoot_days) + hard refresh.
 
 **Estados:** ⬜ pendiente · 🔄 probando · ✅ pasó (no re-probar) · ❌ falló (bug abierto) · 🔁 cambió a propósito.
 
+## Bug encontrado y arreglado — persistencia de agregar/borrar día (2026-07-20)
+Branch `fix/persistencia-proyectos-crear-y-estado`. `addRodaje` y `deleteRodaje`
+mutaban el modelo (`rodajes.push` / `.splice`) pero **NO llamaban `markDirty()`**, y
+como son acciones de **botón** (no disparan el listener global de `change`/`input` de
+`boot.js`), el día agregado/borrado **no se guardaba** hasta que editabas algún campo.
+Si recargabas antes de editar, se perdía. Como **Rodajes es el módulo de la etapa
+Producción**, esto se veía como "los cambios no persisten cuando el proyecto está en
+Producción" (reportado por Agustín). Fix: `markDirty()` en `addRodaje` y `deleteRodaje`.
+Verificado: agregar un día (sin tocar nada más) ahora persiste en `project_shoot_days`.
+El monolito tiene el mismo `addRodaje` sin markDirty → producción necesita el mismo fix
+por su flujo aparte. Los demás módulos operacionales (crew, gastos, plan-rodaje,
+locaciones) ya llamaban markDirty; solo Rodajes tenía el hueco.
+
 ## Notas
 - **0 bugs.** Migración fiel: las acciones (`rodajes.add`, `rodajes.campo`,
   `rodajes.activo`, `rodajes.borrar`) tienen handler registrado; `recalcRodajesKPI`

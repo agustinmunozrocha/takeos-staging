@@ -4,6 +4,7 @@
 import { escapeHtml, showToast } from '../lib/helpers.js';
 import { STATE } from '../lib/state.js';
 import { showModal } from '../lib/ui.js';
+import { markDirty } from './persistencia-local.js';
 
 import { registrarAcciones, accionHTML } from '../lib/delegacion.js';
 import { define } from '../lib/ganchos.js';
@@ -159,6 +160,9 @@ function addRodaje() {
     descripcion: '',
     diaId: nextDiaId(rodajes)
   });
+  markDirty();   // FIX persistencia · agregar un día es un cambio de botón (no dispara el
+                 // listener global de 'change'); sin esto, el día no se guardaba hasta
+                 // editar algún campo, y si recargabas antes, se perdía.
   renderRodajes();
 }
 
@@ -201,6 +205,8 @@ function deleteRodaje(idx) {
       const hl = project.data.hojaLlamado;
       if (hl && hl.dias && hl.dias[r.diaId]) delete hl.dias[r.diaId];
       project.data.rodajes.splice(idx, 1);
+      markDirty();   // FIX persistencia · borrar un día es un cambio de botón; sin markDirty
+                     // no se guardaba hasta el próximo cambio de campo.
       renderRodajes();
       showToast({ kind: 'info', title: 'Día eliminado', body: `${r.diaId} fue eliminado del proyecto.` });
     },

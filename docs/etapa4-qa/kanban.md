@@ -31,7 +31,7 @@ hallazgo **pre-existente** — ver ⚠).
 | KB5 | Mover entre estados | Cambiar el estado del proyecto | La tarjeta se mueve de columna; el KPI se ajusta | 👁 (avance de estado / drag — sin acción 🤖 directa) |
 | KB6 | Eliminar proyecto | Eliminar (requiere tipear el nombre para confirmar) | Va a la Papelera (soft-delete `deleted_at`); "se puede restaurar" | 👁 (protegido tras Modo administrador — requiere la clave de admin) |
 | KB7 | Papelera / restaurar | "Papelera" → restaurar | El proyecto vuelve al Control Room | 👁 (depende de KB6) |
-| KB8 | Persistencia del proyecto nuevo | Crear proyecto → hard refresh | El proyecto debería seguir | ❌→🔁 **NO persiste si se crea sin PE/Director/JP y no se edita** — pero es **pre-existente (= `main`)**, no regresión de Etapa 4 (ver ⚠). Con cargos, o tras la primera edición, sí persiste |
+| KB8 | Persistencia del proyecto nuevo | Crear proyecto → hard refresh | El proyecto debería seguir | ✅ **ARREGLADO** (branch `fix/persistencia-proyectos-crear-y-estado`): `dalTouchProyecto(nuevo)` ahora corre tras `navigateToProject`, así que el proyecto nuevo se guarda SIEMPRE apenas se crea (con o sin responsables). Verificado en la base + hard refresh. (El monolito/producción tiene el mismo bug → arreglo aparte) |
 | KB9 | Filtros | "Todos / Mis proyectos / Con alertas / Recientes / Lista" | Filtra/cambia la vista sin error | ✅ |
 | KB10 | Exportar proyecto | Dentro del proyecto: "Exportar este proyecto" | Descarga un `.json` de ese proyecto (no toca la BD) | ✅ (botón presente; la descarga la miras tú) |
 
