@@ -65,8 +65,8 @@ Escribir catálogo (Modo QA) + correr 🤖 por módulo. Orden y estado:
 | # | Módulo | Estado |
 |---|--------|--------|
 | 1 | Tareas | ✅ 12/13 · 0 bugs (TM13 permiso·Invitado). 3 tareas de prueba quedan en la QA (sin borrado por UI) |
-| 2 | Calculadoras | 🔄 en curso |
-| 3 | Notificaciones | ⬜ |
+| 2 | Calculadoras | ✅ 4/6 · 0 bugs (calc tributaria exacta; crc/hec por código·preproducción) |
+| 3 | Notificaciones | 🔄 en curso |
 | 4 | Buscador | ⬜ |
 | 5 | Perfil/Onboarding | ⬜ |
 | 6 | Plan/Límites | ⬜ |

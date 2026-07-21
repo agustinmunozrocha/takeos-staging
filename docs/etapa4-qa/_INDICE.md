@@ -22,7 +22,7 @@ crea en Modo QA cuando Agustín pide "dame pruebas para testear X".
 | Legal | `legal.js` | — | ⬜ |
 | Base de datos | `bd.js` / `bd-excel.js` | [bd.md](bd.md) | 🔄 14/35 ✅ · 0 bugs (QA auto 20-jul; permisos BD3/BD4 verificados; resto Excel/detalles → sesión dedicada) |
 | Buscador | `buscador.js` | — | ⬜ |
-| Calculadoras | `calculadoras.js` | — | ⬜ |
+| Calculadoras | `calculadoras.js` | [calculadoras.md](calculadoras.md) | 🔄 4/6 ✅ · 0 bugs (QA auto 20-jul; calc tributaria exacta; crc/hec por código·preproducción) |
 | Configuración | `config.js` | — | ⬜ |
 | Admin | `admin.js` | — | ⬜ |
 | Espacio | `espacio.js` | — | ⬜ |
