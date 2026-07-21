@@ -68,8 +68,8 @@ Escribir catálogo (Modo QA) + correr 🤖 por módulo. Orden y estado:
 | 2 | Calculadoras | ✅ 4/6 · 0 bugs (calc tributaria exacta; crc/hec por código·preproducción) |
 | 3 | Notificaciones | ✅ 5/10 🤖 + 5 👁 · 0 bugs migración (⚠ reglas no persisten = pre-existente, igual en main) |
 | 4 | Buscador | ✅ 9/9 · 0 bugs (cerrado) |
-| 5 | Perfil/Onboarding | 🔄 en curso |
-| 6 | Plan/Límites | ⬜ |
+| 5 | Perfil/Onboarding | ✅ 6/8 · 0 bugs (PF7/PF8 👁·invitación/banca) |
+| 6 | Plan/Límites | 🔄 en curso |
 | 7-10 | Invitaciones, Config, Espacio, Kanban | ⬜ (tanda B) |
 Fuera: Legal (👁/PDF), Admin (destructivo) → con Agustín.
 Commits locales por módulo; push lo hace Agustín. 👁 se acumulan para el resumen final.
