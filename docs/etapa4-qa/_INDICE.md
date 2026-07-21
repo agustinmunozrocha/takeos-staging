@@ -23,7 +23,7 @@ crea en Modo QA cuando Agustín pide "dame pruebas para testear X".
 | Base de datos | `bd.js` / `bd-excel.js` | [bd.md](bd.md) | 🔄 14/35 ✅ · 0 bugs (QA auto 20-jul; permisos BD3/BD4 verificados; resto Excel/detalles → sesión dedicada) |
 | Buscador | `buscador.js` | [buscador.md](buscador.md) | ✅ 9/9 ✅ · 0 bugs (QA auto 20-jul, cerrado) |
 | Calculadoras | `calculadoras.js` | [calculadoras.md](calculadoras.md) | 🔄 4/6 ✅ · 0 bugs (QA auto 20-jul; calc tributaria exacta; crc/hec por código·preproducción) |
-| Configuración | `config.js` | — | ⬜ |
+| Configuración | `config.js` | [config.md](config.md) | 🔄 rebanada 4/7 ✅ + gates · 0 bugs (QA auto 20-jul; datos empresa/equipo tras Modo admin) |
 | Admin | `admin.js` | — | ⬜ |
 | Espacio | `espacio.js` | [espacio.md](espacio.md) | 🔄 7/8 ✅ · 0 bugs (QA auto 20-jul; ESP8 👁·derechos Gate C) |
 | Info proyecto | `info-proyecto.js` | [info-proyecto.md](info-proyecto.md) | ✅ 19/19 ✅ · Grupo 1 y 2 cerrados (2 pend. BD) |
