@@ -67,7 +67,7 @@ const CHIPAX_TIPODOC = {
   'Boleta': 'Boleta', 'Honorario': 'Boleta', 'Boleta de honorarios': 'Boleta',
   'Otro': 'Recibo'
 };
-const GO_MEDIOS = ['Tarjeta empresa (débito)', 'Tarjeta empresa (crédito)', 'Transferencia cuenta empresa', 'Caja de producción', 'Reembolso a colaborador', 'Otro'];
+const GO_MEDIOS = ['Tarjeta empresa (débito)', 'Tarjeta empresa (crédito)', 'Transferencia cuenta empresa', 'Fondos por rendir', 'Reembolso a colaborador', 'Otro'];
 const GO_TIPOS = ['Factura', 'Factura Exenta', 'Boleta', 'Invoice', 'Otro'];   // Pasada 4 (#6) · tipos de documento del gasto
 const GO_ESTADOS = { pendiente: 'Pendiente', por_revisar: 'Por revisar', validado: 'Validado', en_observacion: 'En observación' };
 
@@ -88,9 +88,22 @@ function goData(project) {
   if (!Array.isArray(d.presupuestos)) d.presupuestos = [];
   if (!Array.isArray(d.movimientos)) d.movimientos = [];
   if (!Array.isArray(d.lineasExtra)) d.lineasExtra = [];
-  if (typeof d.cajaProd !== 'number') d.cajaProd = 0;
-  if (typeof d.cajaDevuelto !== 'number') d.cajaDevuelto = 0;   // Pasada 4 · devoluciones de caja (no persiste aún; ver handoff BD)
-  if (!Array.isArray(d.cajaMovs)) d.cajaMovs = [];              // Pasada 4 · libreta de ingresos/devoluciones de caja (en memoria; persiste con el handoff BD)
+  if (typeof d.cajaProd !== 'number') d.cajaProd = 0;      // total salido de la empresa (entregado)
+  if (typeof d.cajaDevuelto !== 'number') d.cajaDevuelto = 0;   // total vuelto a la empresa (devuelto)
+  if (!Array.isArray(d.cajaMovs)) d.cajaMovs = [];              // libreta de movimientos de fondos por rendir (persiste vía caja_movimientos)
+  // Compat · renombre "Caja de producción" → "Fondos por rendir" (medio de pago) y
+  // migración del modelo de movimiento ingreso/devolución → origen/destino. Se
+  // normaliza en carga y migra hacia adelante al siguiente guardado (sin tocar BD).
+  d.movimientos.forEach(m => { if (m && m.medio === 'Caja de producción') m.medio = 'Fondos por rendir'; });
+  d.cajaMovs.forEach(c => {
+    if (!c) return;
+    if (c.origen === undefined && c.destino === undefined) {
+      if (c.tipo === 'ingreso') { c.origen = 'La empresa'; c.destino = ''; }
+      else if (c.tipo === 'devolucion') { c.origen = ''; c.destino = 'La empresa'; }
+    }
+    if (c.origen === undefined) c.origen = '';
+    if (c.destino === undefined) c.destino = '';
+  });
   return d;
 }
 function goPresById(project, id) { return goData(project).presupuestos.find(p => p.id === id) || null; }
@@ -102,7 +115,47 @@ function goCuentaChipax(linea) { return CHIPAX_CUENTA[linea] || 'Otros Costos Op
 function goTipoChipax(tipo) { return CHIPAX_TIPODOC[tipo] || 'Recibo'; }
 function goRealTotal(project) { return goMovs(project).reduce((s, m) => s + (m.monto || 0), 0); }
 /* goCotizadoTotal → movido a src/modules/presupuesto-cotizacion.js (Etapa 2) */
-function goCajaGastado(project) { return goMovs(project).filter(m => m.medio === 'Caja de producción').reduce((s, m) => s + (m.monto || 0), 0); }
+/* Un gasto se paga con fondos por rendir si su medio es 'Fondos por rendir' (o el
+   legacy 'Caja de producción', por si algún dato viejo no pasó por la normalización). */
+function goEsFondo(m) { return m.medio === 'Fondos por rendir' || m.medio === 'Caja de producción'; }
+function goCajaGastado(project) { return goMovs(project).filter(goEsFondo).reduce((s, m) => s + (m.monto || 0), 0); }
+/* Tipo deducido de un movimiento de fondos por rendir a partir de origen/destino. */
+function goCajaTipo(origen, destino) {
+  const emp = 'La empresa';
+  if (origen === emp && destino !== emp) return 'Entrega de fondo';
+  if (destino === emp && origen !== emp) return 'Devolución';
+  if (origen && destino && origen !== emp && destino !== emp) return 'Traspaso';
+  return 'Movimiento';
+}
+/* Canoniza una cuenta escrita a mano: cualquier variante de "la empresa"
+   (mayúsculas/espacios extra) se normaliza a la constante 'La empresa', para que
+   los agregados (cajaProd/cajaDevuelto) y el tipo deducido no se confundan si el
+   usuario tipea en vez de elegir la opción del datalist. */
+function goCanonCuenta(s) {
+  const t = (s || '').trim();
+  return t.replace(/\s+/g, ' ').toLowerCase() === 'la empresa' ? 'La empresa' : t;
+}
+/* Saldos por persona (estilo Tricount): para cada cuenta distinta de "La empresa"
+   que aparezca como origen/destino de un movimiento o como "quién gastó" de un
+   gasto pagado con fondos por rendir, calcula recibido − entregado − gastado.
+   saldo > 0 ⇒ esa persona aún tiene plata por rendir o devolver. */
+function goCajaSaldos(project) {
+  const emp = 'La empresa';
+  const acc = {};
+  const ensure = (n) => { if (n && n !== emp && !acc[n]) acc[n] = { nombre: n, recibido: 0, entregado: 0, gastado: 0 }; };
+  (goData(project).cajaMovs || []).forEach(c => {
+    const monto = c.monto || 0;
+    if (c.destino && c.destino !== emp) { ensure(c.destino); acc[c.destino].recibido += monto; }
+    if (c.origen && c.origen !== emp) { ensure(c.origen); acc[c.origen].entregado += monto; }
+  });
+  goMovs(project).filter(goEsFondo).forEach(m => {
+    const n = (m.quien && m.quien !== '—') ? m.quien : '';
+    if (n && n !== emp) { ensure(n); acc[n].gastado += (m.monto || 0); }   // 'La empresa' no es una persona con saldo
+  });
+  return Object.keys(acc).map(n => {
+    const a = acc[n]; a.saldo = a.recibido - a.entregado - a.gastado; return a;
+  }).sort((x, y) => y.saldo - x.saldo);
+}
 function goNeedsAction(m) { return m.estado === 'por_revisar' || m.estado === 'en_observacion'; }
 function goReembPend(project) { return goMovs(project).filter(m => m.medio === 'Reembolso a colaborador' && !m.fechaPago); }
 function goProjName(project) { return (project.data.infoProyecto && project.data.infoProyecto.nombreProyecto) || project.name || '(sin nombre)'; }
@@ -166,8 +219,8 @@ function renderGastos() {
     const cls = pct > 100 ? 'over' : (pct >= 85 ? 'mid' : '');
     return `<div class="go-pcard" style="position:relative;">
       <div class="go-pcard-acts" style="position:absolute;top:6px;right:6px;display:flex;gap:2px;">
-        <button title="Editar presupuesto" ${accionHTML('go.editPresup', e.id)} style="border:none;background:none;cursor:pointer;color:var(--ink-faint);font-size:12px;padding:2px 4px;line-height:1;border-radius:5px;">✎</button>
-        <button title="Eliminar presupuesto" ${accionHTML('go.delPresup', e.id)} style="border:none;background:none;cursor:pointer;color:var(--ink-faint);font-size:14px;padding:2px 4px;line-height:1;border-radius:5px;">×</button>
+        <button title="Editar fondo" ${accionHTML('go.editPresup', e.id)} style="border:none;background:none;cursor:pointer;color:var(--ink-faint);font-size:12px;padding:2px 4px;line-height:1;border-radius:5px;">✎</button>
+        <button title="Eliminar fondo" ${accionHTML('go.delPresup', e.id)} style="border:none;background:none;cursor:pointer;color:var(--ink-faint);font-size:14px;padding:2px 4px;line-height:1;border-radius:5px;">×</button>
       </div>
       <div class="go-pl" style="padding-right:40px;">→ ${escapeHtml(e.linea)}</div>
       <div class="go-pn" style="padding-right:40px;">${escapeHtml(e.nombre)}</div>
@@ -200,12 +253,12 @@ function renderGastos() {
     <div class="go-note">Bitácora operativa de gastos por proyecto (reemplaza a Rinde Gastos). El <b>Cotizado</b> se lee del Presupuesto y no se toca desde aquí (<i>regla madre</i>); los gastos solo suben el <b>Real</b>.</div>
 
     <div class="go-card">
-      <div class="go-card-h"><h3>Presupuestos <span class="go-faint">· asignaciones (sobres) creadas para este proyecto</span></h3>
-        <button class="btn btn-secondary btn-sm" data-accion="go.crearPresup">+ Crear presupuesto</button></div>
+      <div class="go-card-h"><h3>Fondos Asignados <span class="go-faint">· asignaciones por persona o área de este proyecto</span></h3>
+        <button class="btn btn-secondary btn-sm" data-accion="go.crearPresup">+ Asignar fondo</button></div>
       <div class="go-card-b">
         <div class="go-strip">
           ${presStrip}
-          <div class="go-pcard add" data-accion="go.crearPresup"><div style="font-size:24px;">+</div>Crear<br>presupuesto</div>
+          <div class="go-pcard add" data-accion="go.crearPresup"><div style="font-size:24px;">+</div>Asignar<br>fondo</div>
         </div>
       </div>
     </div>
@@ -229,14 +282,13 @@ function renderGastos() {
 
       <div class="go-side">
         <div class="go-card">
-          <div class="go-card-h"><h3 class="go-sm">Caja de producción</h3><button class="go-mini" data-accion="go.cajaHist" title="Ver el registro de ingresos y egresos de la caja chica.">Historial</button></div>
+          <div class="go-card-h"><h3 class="go-sm">Fondos por rendir</h3><button class="go-mini" data-accion="go.cajaHist" title="Ver los movimientos y los saldos por persona de los fondos por rendir.">Historial</button></div>
           <div class="go-card-b">
             <div class="go-kpi-l">Saldo a devolver</div>
             <div class="go-kpi-v ${cajaSaldo < 0 ? 'acc' : ''}">${fmtMoney(cajaSaldo)}</div>
             <div class="go-kpi-s">Entregado ${fmtMoney(cajaEntregado)} · gastado ${fmtMoney(cajaUsed)}${cajaDev ? ' · devuelto ' + fmtMoney(cajaDev) : ''}</div>
             <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
-              <button class="btn btn-secondary btn-sm" data-accion="go.cajaIngreso" title="Registrar dinero entregado a la caja chica de producción (sube lo entregado).">+ Registrar ingreso</button>
-              <button class="btn btn-secondary btn-sm" data-accion="go.cajaDevolucion" title="Registrar dinero que producción devuelve (baja el saldo a devolver).">↩ Registrar devolución</button>
+              <button class="btn btn-secondary btn-sm" data-accion="go.cajaMov" title="Registrar un movimiento de fondos: entrega de la empresa a una persona, traspaso entre personas, o devolución a la empresa.">↔ Registrar movimiento</button>
             </div>
           </div>
         </div>
@@ -320,7 +372,7 @@ function goRegRows(project) {
     const tot = g.arr.reduce((s, m) => s + (m.monto || 0), 0);
     const titulo = e
       ? `${escapeHtml(e.nombre)} <span class="go-faint" style="font-weight:400;text-transform:none;letter-spacing:0;">· línea ${escapeHtml(e.linea)} · ${g.arr.length} gasto${g.arr.length === 1 ? '' : 's'}</span>`
-      : `<span class="go-faint" style="text-transform:none;letter-spacing:0;">Sin presupuesto asignado · ${g.arr.length}</span>`;
+      : `<span class="go-faint" style="text-transform:none;letter-spacing:0;">Sin fondo asignado · ${g.arr.length}</span>`;
     html += `<tr class="go-grp"><td colspan="${COLS}" style="background:var(--bg-surface-soft);font-weight:700;font-size:11.5px;padding:8px;border-bottom:1px solid var(--rule);white-space:normal;">📁 ${titulo}<span style="float:right;color:var(--ink-secondary);">${fmtMoney(tot)}</span></td></tr>`;
     g.arr.forEach(x => { html += goRegFilaHTML(project, x); });
   });
@@ -344,90 +396,98 @@ function goRegFilaHTML(project, x) {
     <td>${est}</td>
     <td>${(x.estado === 'en_observacion' || goHiloDe(project, x.id).length) ? `<button class="go-mini" ${accionHTML('go.hilo', x.id)}>💬 responder</button> ` : ''}<button class="go-mini" ${accionHTML('go.editar', x.id)}>editar</button></td></tr>`;
 }
-/* ── Pasada 4 · Caja de producción: ingreso / devolución ──────────────────────
-   "Registrar ingreso" sube lo ENTREGADO (d.cajaProd) y "Registrar devolución"
-   baja el saldo a devolver (d.cajaDevuelto). Ambos, más la libreta d.cajaMovs,
-   PERSISTEN vía guardar_operaciones_4b (columnas caja_devuelto / caja_movimientos,
-   PR8 · migración 20260628120000). Antes la devolución vivía solo en memoria. */
-function goCajaIngreso() {
+/* ── Fondos por rendir: movimientos entre cuentas ─────────────────────────────
+   Un movimiento va de una cuenta ORIGEN a una cuenta DESTINO ('La empresa' o una
+   persona). El tipo se deduce (entrega / traspaso / devolución). Los agregados
+   d.cajaProd (salido de la empresa) y d.cajaDevuelto (vuelto a la empresa) se
+   ajustan por cada movimiento y, junto con la libreta d.cajaMovs, PERSISTEN vía
+   guardar_operaciones_4b (columnas caja_prod / caja_devuelto / caja_movimientos).
+   Los campos origen/destino viajan dentro del JSONB de cajaMovs (sin cambios de BD). */
+function goCajaMov() {
   if (!STATE.currentProject) return;
-  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Registrar ingreso a Caja de producción</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
+  const project = STATE.currentProject;
+  const cuentas = ['La empresa'].concat(goContactos(project));
+  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Registrar movimiento de fondos por rendir</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
     <div class="go-mb">
-      <div class="go-help" style="margin-bottom:10px;line-height:1.55;">Dinero <b>entregado</b> a la caja chica con la que opera producción. Aumenta lo entregado y, por lo tanto, el saldo a devolver.</div>
+      <div class="go-help" style="margin-bottom:10px;line-height:1.55;">Mueve fondos entre cuentas: de <b>la empresa</b> a una persona (entrega de fondo), entre dos personas (traspaso), o de una persona de vuelta a <b>la empresa</b> (devolución). Escribe el nombre; si la persona no está en la base de datos igual puedes ingresarla.</div>
       <div class="go-frow">
-        <div class="go-field half"><label>Monto (CLP)</label><input class="go-inp" id="ci_monto" placeholder="0" inputmode="numeric"></div>
-        <div class="go-field half"><label>Fecha de ingreso</label><input class="go-inp" type="date" id="ci_fecha" value="${goToday()}"></div>
+        <div class="go-field half"><label>Desde (origen)</label><input class="go-inp" id="cm_origen" list="go_dl_cuentas" placeholder="La empresa o una persona…" autocomplete="off" data-accion="go.cmHint" data-on="input change"></div>
+        <div class="go-field half"><label>Hacia (destino)</label><input class="go-inp" id="cm_destino" list="go_dl_cuentas" placeholder="La empresa o una persona…" autocomplete="off" data-accion="go.cmHint" data-on="input change"></div>
       </div>
-      <div class="go-field"><label>Nota (opcional)</label><input class="go-inp" id="ci_nota" placeholder="ej. adelanto al productor"></div>
-    </div>
-    <div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.cajaIngresoOk">Registrar ingreso</button></div></div>`);
-}
-function goCajaIngresoSave() {
-  const project = STATE.currentProject; const d = goData(project);
-  const monto = parseInt(((document.getElementById('ci_monto') || {}).value || '0').replace(/\D/g, '')) || 0;
-  if (monto <= 0) { showToast({ kind: 'warning', title: 'Monto inválido', body: 'Ingresa un monto mayor a 0.' }); return; }
-  const fecha = ((document.getElementById('ci_fecha') || {}).value) || goToday();
-  const nota = ((document.getElementById('ci_nota') || {}).value || '').trim();
-  d.cajaProd = (d.cajaProd || 0) + monto;
-  if (!Array.isArray(d.cajaMovs)) d.cajaMovs = [];
-  d.cajaMovs.push({ id: goNewId('c'), tipo: 'ingreso', monto: monto, fecha: fecha, nota: nota });
-  markDirty(); closeModal(); renderGastos();
-  showToast({ kind: 'success', title: 'Ingreso registrado', body: 'Se sumaron ' + fmtMoney(monto) + ' (' + fecha + ') a lo entregado a la caja.' });
-}
-function goCajaDevolucion() {
-  if (!STATE.currentProject) return;
-  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>Registrar devolución de Caja de producción</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
-    <div class="go-mb">
-      <div class="go-help" style="margin-bottom:10px;line-height:1.55;">Efectivo que producción <b>devuelve</b> de la caja chica. Baja el saldo a devolver. <i>Nota: la devolución aún no persiste al recargar; eso se cierra con la parte de base de datos del handoff.</i></div>
+      <div class="go-help" id="cm_tipo" style="margin:-4px 0 8px;color:var(--ink-secondary);"></div>
       <div class="go-frow">
-        <div class="go-field half"><label>Monto (CLP)</label><input class="go-inp" id="cd_monto" placeholder="0" inputmode="numeric"></div>
-        <div class="go-field half"><label>Fecha de devolución</label><input class="go-inp" type="date" id="cd_fecha" value="${goToday()}"></div>
+        <div class="go-field half"><label>Monto (CLP)</label><input class="go-inp" id="cm_monto" placeholder="0" inputmode="numeric"></div>
+        <div class="go-field half"><label>Fecha</label><input class="go-inp" type="date" id="cm_fecha" value="${goToday()}"></div>
       </div>
-      <div class="go-field"><label>Nota (opcional)</label><input class="go-inp" id="cd_nota" placeholder="ej. vuelto de caja al cierre"></div>
+      <div class="go-field"><label>Nota (opcional)</label><input class="go-inp" id="cm_nota" placeholder="ej. adelanto para arte / vuelto al cierre"></div>
+      <datalist id="go_dl_cuentas">${cuentas.map(c => '<option value="' + escapeHtml(c) + '">').join('')}</datalist>
     </div>
-    <div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.cajaDevolucionOk">Registrar devolución</button></div></div>`);
+    <div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.cajaMovOk">Registrar movimiento</button></div></div>`);
 }
-function goCajaDevolucionSave() {
+function goCajaMovHint() {
+  const o = goCanonCuenta((document.getElementById('cm_origen') || {}).value || '');
+  const dst = goCanonCuenta((document.getElementById('cm_destino') || {}).value || '');
+  const box = document.getElementById('cm_tipo'); if (!box) return;
+  if (!o || !dst) { box.textContent = ''; return; }
+  if (o === dst) { box.innerHTML = '⚠ El origen y el destino no pueden ser la misma cuenta.'; return; }
+  box.innerHTML = 'Tipo: <b>' + escapeHtml(goCajaTipo(o, dst)) + '</b>';
+}
+function goCajaMovSave() {
   const project = STATE.currentProject; const d = goData(project);
-  const monto = parseInt(((document.getElementById('cd_monto') || {}).value || '0').replace(/\D/g, '')) || 0;
+  const emp = 'La empresa';
+  const val = id => ((document.getElementById(id) || {}).value || '').trim();
+  const monto = parseInt((val('cm_monto') || '0').replace(/\D/g, '')) || 0;
+  const origen = goCanonCuenta(val('cm_origen')); const destino = goCanonCuenta(val('cm_destino'));
+  const fecha = val('cm_fecha') || goToday();
+  const nota = val('cm_nota');
   if (monto <= 0) { showToast({ kind: 'warning', title: 'Monto inválido', body: 'Ingresa un monto mayor a 0.' }); return; }
-  const fecha = ((document.getElementById('cd_fecha') || {}).value) || goToday();
-  const nota = ((document.getElementById('cd_nota') || {}).value || '').trim();
-  d.cajaDevuelto = (d.cajaDevuelto || 0) + monto;
+  if (!origen || !destino) { showToast({ kind: 'warning', title: 'Faltan cuentas', body: 'Indica desde qué cuenta sale el dinero y hacia cuál va.' }); return; }
+  if (origen === destino) { showToast({ kind: 'warning', title: 'Origen igual a destino', body: 'El dinero debe moverse entre dos cuentas distintas.' }); return; }
   if (!Array.isArray(d.cajaMovs)) d.cajaMovs = [];
-  d.cajaMovs.push({ id: goNewId('c'), tipo: 'devolucion', monto: monto, fecha: fecha, nota: nota });
+  d.cajaMovs.push({ id: goNewId('c'), fecha: fecha, origen: origen, destino: destino, monto: monto, nota: nota });
+  if (origen === emp) d.cajaProd = (d.cajaProd || 0) + monto;          // más dinero salido de la empresa
+  if (destino === emp) d.cajaDevuelto = (d.cajaDevuelto || 0) + monto; // dinero de vuelta a la empresa
+  const tipo = goCajaTipo(origen, destino);
   markDirty(); closeModal(); renderGastos();
-  showToast({ kind: 'success', title: 'Devolución registrada', body: 'Se descontaron ' + fmtMoney(monto) + ' (' + fecha + ') del saldo a devolver.' });
+  showToast({ kind: 'success', title: 'Movimiento registrado', body: tipo + ' · ' + fmtMoney(monto) + ' · ' + escapeHtml(origen) + ' → ' + escapeHtml(destino) + ' (' + fecha + ').' });
 }
-/* Pasada 4 (#1) · Historial de Caja de producción: ingresos (+), devoluciones (−)
-   y gastos pagados con caja (−), ordenados por fecha. Todo persiste: los gastos
-   por sus movimientos, y los ingresos/devoluciones por caja_devuelto /
-   caja_movimientos (PR8). */
+/* Historial de fondos por rendir (estilo Tricount): saldos por persona + libreta
+   cronológica de movimientos y de gastos pagados con fondos. Todo persiste. */
 function goCajaHistorial() {
   const project = STATE.currentProject; if (!project) return;
   const d = goData(project);
-  const rows = [];
-  (d.cajaMovs || []).forEach(c => rows.push({
-    fecha: c.fecha || '', tipo: c.tipo === 'ingreso' ? 'Ingreso' : 'Devolución',
-    detalle: c.nota || (c.tipo === 'ingreso' ? 'Ingreso a caja' : 'Devolución de caja'),
-    monto: (c.tipo === 'ingreso' ? 1 : -1) * (c.monto || 0)
-  }));
-  goMovs(project).filter(m => m.medio === 'Caja de producción').forEach(m => rows.push({
-    fecha: m.fecha || '', tipo: 'Gasto', detalle: m.concepto || '(sin concepto)', monto: -(m.monto || 0)
-  }));
-  rows.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
   const entregado = d.cajaProd || 0, gastado = goCajaGastado(project), devuelto = d.cajaDevuelto || 0;
   const saldo = entregado - gastado - devuelto;
-  const body = rows.length
-    ? '<table class="go-tbl" style="width:100%;"><thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th class="go-num">Monto</th></tr></thead><tbody>'
-      + rows.map(r => '<tr><td class="go-sub">' + escapeHtml((r.fecha || '').slice(5) || '—') + '</td><td>' + escapeHtml(r.tipo) + '</td><td>' + escapeHtml(r.detalle) + '</td><td class="go-num" style="color:' + (r.monto >= 0 ? 'var(--positive)' : 'var(--accent-deep)') + ';white-space:nowrap;">' + (r.monto >= 0 ? '+' : '−') + fmtMoney(Math.abs(r.monto)) + '</td></tr>').join('')
+  const saldos = goCajaSaldos(project);
+  const saldosTbl = saldos.length
+    ? '<table class="go-tbl" style="width:100%;margin-bottom:14px;"><thead><tr><th>Persona</th><th class="go-num">Recibido</th><th class="go-num">Gastado</th><th class="go-num">Devuelto / traspasado</th><th class="go-num">Saldo por rendir</th></tr></thead><tbody>'
+      + saldos.map(a => '<tr><td>' + escapeHtml(a.nombre) + '</td><td class="go-num">' + fmtMoney(a.recibido) + '</td><td class="go-num">' + fmtMoney(a.gastado) + '</td><td class="go-num">' + fmtMoney(a.entregado) + '</td><td class="go-num" style="font-weight:700;white-space:nowrap;color:' + (a.saldo > 0 ? 'var(--accent-deep)' : 'var(--positive)') + ';">' + fmtMoney(a.saldo) + '</td></tr>').join('')
       + '</tbody></table>'
-    : '<div class="go-faint" style="padding:14px;">Sin movimientos de caja todavía. Registra un ingreso para empezar.</div>';
-  goModal('<div class="go-mc"><div class="go-mh"><h3>Historial · Caja de producción</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>'
+    : '<div class="go-faint" style="padding:8px 0 12px;">Aún no hay personas con fondos por rendir.</div>';
+  const rows = [];
+  (d.cajaMovs || []).forEach(c => rows.push({
+    fecha: c.fecha || '', tipo: goCajaTipo(c.origen, c.destino),
+    detalle: (c.origen || '—') + ' → ' + (c.destino || '—') + (c.nota ? ' · ' + c.nota : ''),
+    monto: c.monto || 0, gasto: false
+  }));
+  goMovs(project).filter(goEsFondo).forEach(m => rows.push({
+    fecha: m.fecha || '', tipo: 'Gasto',
+    detalle: (m.concepto || '(sin concepto)') + (m.quien && m.quien !== '—' ? ' · por ' + m.quien : ''),
+    monto: m.monto || 0, gasto: true
+  }));
+  rows.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const ledger = rows.length
+    ? '<table class="go-tbl" style="width:100%;"><thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th class="go-num">Monto</th></tr></thead><tbody>'
+      + rows.map(r => '<tr><td class="go-sub">' + escapeHtml((r.fecha || '').slice(5) || '—') + '</td><td>' + escapeHtml(r.tipo) + '</td><td>' + escapeHtml(r.detalle) + '</td><td class="go-num" style="white-space:nowrap;' + (r.gasto ? 'color:var(--accent-deep);' : '') + '">' + (r.gasto ? '−' : '') + fmtMoney(r.monto) + '</td></tr>').join('')
+      + '</tbody></table>'
+    : '<div class="go-faint" style="padding:14px;">Sin movimientos todavía. Registra el primero con “Registrar movimiento”.</div>';
+  goModal('<div class="go-mc"><div class="go-mh"><h3>Fondos por rendir · movimientos y saldos</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>'
     + '<div class="go-mb">'
-    + '<div class="go-kpi-s" style="margin-bottom:10px;line-height:1.6;">Entregado <b>' + fmtMoney(entregado) + '</b> · gastado <b>' + fmtMoney(gastado) + '</b>' + (devuelto ? ' · devuelto <b>' + fmtMoney(devuelto) + '</b>' : '') + ' · saldo a devolver <b>' + fmtMoney(saldo) + '</b></div>'
-    + body
-    + '<div class="go-help" style="margin-top:10px;">Los <b>ingresos</b> y <b>devoluciones</b> de esta sesión aún no persisten al recargar (van en el handoff de BD). Los <b>gastos</b> pagados con caja sí persisten.</div>'
+    + '<div class="go-kpi-s" style="margin-bottom:12px;line-height:1.6;">Entregado <b>' + fmtMoney(entregado) + '</b> · gastado <b>' + fmtMoney(gastado) + '</b>' + (devuelto ? ' · devuelto <b>' + fmtMoney(devuelto) + '</b>' : '') + ' · saldo a devolver <b>' + fmtMoney(saldo) + '</b></div>'
+    + '<div class="go-kpi-l" style="margin-bottom:6px;">Saldos por persona</div>'
+    + saldosTbl
+    + '<div class="go-kpi-l" style="margin-bottom:6px;">Movimientos y gastos</div>'
+    + ledger
     + '</div>'
     + '<div class="go-mf"><button class="btn btn-secondary" data-accion="ui.cerrar">Cerrar</button></div></div>');
 }
@@ -608,7 +668,7 @@ function _puedeCrearPresupuestoGastos() {
   return TAKEOS_PERFIL.codigo === 1 || TAKEOS_PERFIL.codigo === 2 || TAKEOS_PERFIL.codigo === 3;
 }
 function goOpenPresup(editId) {
-  if (!_puedeCrearPresupuestoGastos()) { showToast({ kind: 'warning', title: 'Sin permiso', body: 'Crear y editar presupuestos es facultad de Administrador, Ejecutivo y Producción.' }); return; }
+  if (!_puedeCrearPresupuestoGastos()) { showToast({ kind: 'warning', title: 'Sin permiso', body: 'Asignar y editar fondos es facultad de Administrador, Ejecutivo y Producción.' }); return; }
   const project = STATE.currentProject; const jp = goJefeProd(project);
   const lineas = goGastosLineas(project);
   const contactos = goContactos(project);
@@ -618,23 +678,23 @@ function goOpenPresup(editId) {
   const ed = editId ? goPresList(project).find(p => p.id === editId) : null;
   const _selLinea = (l) => (ed && ed.linea === l) ? ' selected' : '';
 
-  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>${ed ? 'Editar' : 'Crear'} presupuesto · ${escapeHtml(goProjName(project))}</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
+  goModal(`<div class="go-mc narrow"><div class="go-mh"><h3>${ed ? 'Editar' : 'Asignar'} fondo · ${escapeHtml(goProjName(project))}</h3><button class="go-x" data-accion="ui.cerrar">×</button></div>
     <div class="go-mb">
       <div class="go-field"><label>Asociar a línea del Presupuesto</label>
         <select class="go-inp" id="pp_linea" data-accion="go.ppLinea" data-on="change"><option value="">— elige una línea —</option>${lineas.map(l => '<option' + _selLinea(l) + '>' + escapeHtml(l) + '</option>').join('')}<option value="__new__">+ Crear nueva línea (parte en $0)…</option></select>
         <div class="go-field" id="pp_newWrap" style="display:none;margin-top:10px;"><label>Nombre de la nueva línea</label><input class="go-inp" id="pp_newName" data-accion="go.ppNewName" data-on="input" placeholder="ej. Maquillaje"></div>
         <div class="go-help">Estas son las filas de <b>Gastos de producción</b> del Presupuesto. Si falta una, crea una nueva: se agrega al Presupuesto (parte en $0, marcada como EXTRA) y verás cuánto se pasa el proyecto.</div>
       </div>
-      <div class="go-field"><label>Nombre del presupuesto</label><input class="go-inp" id="pp_nombre" placeholder="Se completa con la línea; puedes cambiarlo" value="${ed ? escapeHtml(ed.nombre) : ''}"></div>
+      <div class="go-field"><label>Nombre del fondo</label><input class="go-inp" id="pp_nombre" placeholder="Se completa con la línea; puedes cambiarlo" value="${ed ? escapeHtml(ed.nombre) : ''}"></div>
       <div class="go-frow">
         <div class="go-field half"><label>Responsable</label><input class="go-inp" id="pp_resp" list="go_dl_contactos" placeholder="nombre" value="${ed && ed.resp && ed.resp !== '—' ? escapeHtml(ed.resp) : ''}"></div>
         <div class="go-field half"><label>Monto asignado (CLP)</label><input class="go-inp" id="pp_monto" placeholder="0" inputmode="numeric" value="${ed && ed.asignado ? String(ed.asignado) : ''}"></div>
       </div>
       <div class="go-help" id="pp_iguala" style="display:none;margin-top:2px;color:var(--ink-secondary);"></div>
-      <div class="go-help" style="margin-top:2px;">${ed ? 'Editar' : 'Crear'} presupuestos es facultad de los perfiles Administrador, Ejecutivo y Producción${jp.nombre ? (' · Jefe de producción del proyecto: <b>' + escapeHtml(jp.nombre) + '</b>') : ''}.</div>
+      <div class="go-help" style="margin-top:2px;">${ed ? 'Editar' : 'Asignar'} fondos es facultad de los perfiles Administrador, Ejecutivo y Producción${jp.nombre ? (' · Jefe de producción del proyecto: <b>' + escapeHtml(jp.nombre) + '</b>') : ''}.</div>
       <datalist id="go_dl_contactos">${contactos.map(c => '<option value="' + escapeHtml(c) + '">').join('')}</datalist>
     </div>
-    <div class="go-mf">${ed ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);margin-right:auto;" ${accionHTML('go.delPresup', ed.id)}>Eliminar presupuesto</button>` : ''}<button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.guardarPresup">${ed ? 'Guardar cambios' : 'Crear presupuesto'}</button></div></div>`);
+    <div class="go-mf">${ed ? `<button class="btn btn-ghost btn-sm" style="color:var(--accent-deep);margin-right:auto;" ${accionHTML('go.delPresup', ed.id)}>Eliminar fondo</button>` : ''}<button class="btn btn-secondary" data-accion="ui.cerrar">Cancelar</button><button class="btn btn-primary" data-accion="go.guardarPresup">${ed ? 'Guardar cambios' : 'Asignar fondo'}</button></div></div>`);
 }
 function goPpLineaChange() {
   const el = document.getElementById('pp_linea'); if (!el) return;
@@ -667,9 +727,9 @@ function goSavePresup() {
   const val = id => (document.getElementById(id) || {}).value || '';
   // V11.3.0: la clave por RUT del jefe de producción fue eliminada. La
   // autorización depende del perfil de acceso (Administrador/Ejecutivo/Producción).
-  if (!_puedeCrearPresupuestoGastos()) { showToast({ kind: 'error', title: 'Sin permiso', body: 'Crear y editar presupuestos es facultad de Administrador, Ejecutivo y Producción.' }); return; }
+  if (!_puedeCrearPresupuestoGastos()) { showToast({ kind: 'error', title: 'Sin permiso', body: 'Asignar y editar fondos es facultad de Administrador, Ejecutivo y Producción.' }); return; }
   const ed = GO_PRES_EDIT_ID ? d.presupuestos.find(p => p.id === GO_PRES_EDIT_ID) : null;
-  if (GO_PRES_EDIT_ID && !ed) { GO_PRES_EDIT_ID = null; showToast({ kind: 'error', title: 'No encontrado', body: 'Ese presupuesto ya no existe.' }); closeModal(); renderGastos(); return; }
+  if (GO_PRES_EDIT_ID && !ed) { GO_PRES_EDIT_ID = null; showToast({ kind: 'error', title: 'No encontrado', body: 'Ese fondo ya no existe.' }); closeModal(); renderGastos(); return; }
   let linea = val('pp_linea');
   if (linea === '__new__') {
     linea = (val('pp_newName') || '').trim() || 'Nueva línea';
@@ -683,7 +743,7 @@ function goSavePresup() {
     }
     if (!CHIPAX_CUENTA[linea]) CHIPAX_CUENTA[linea] = 'Gastos de Producción';
   }
-  if (!linea) { showToast({ kind: 'warning', title: 'Elige o crea una línea', body: 'Cada presupuesto se asocia a una línea del Presupuesto.' }); return; }
+  if (!linea) { showToast({ kind: 'warning', title: 'Elige o crea una línea', body: 'Cada fondo se asocia a una línea del Presupuesto.' }); return; }
   const monto = parseInt((val('pp_monto') || '0').replace(/\D/g, '')) || 0;
   const nombre = (val('pp_nombre') || '').trim() || '(sin nombre)';
   const resp = (val('pp_resp') || '').trim() || '—';
@@ -691,35 +751,35 @@ function goSavePresup() {
     ed.nombre = nombre; ed.linea = linea; ed.resp = resp; ed.asignado = monto;
     GO_PRES_EDIT_ID = null;
     markDirty(); closeModal(); renderGastos();
-    showToast({ kind: 'success', title: 'Presupuesto actualizado', body: 'Cambios guardados.' });
+    showToast({ kind: 'success', title: 'Fondo actualizado', body: 'Cambios guardados.' });
   } else {
     d.presupuestos.push({ id: goNewId('e'), nombre: nombre, linea: linea, resp: resp, asignado: monto });
     markDirty(); closeModal(); renderGastos();
-    showToast({ kind: 'success', title: 'Presupuesto creado', body: 'Asociado a la línea “' + linea + '”.' });
+    showToast({ kind: 'success', title: 'Fondo asignado', body: 'Asociado a la línea “' + linea + '”.' });
   }
 }
 /* Eliminar un presupuesto (sobre/caja). Si tiene gastos cargados no se borra:
    habría que reasignarlos o eliminarlos primero (no se orfanan registros de plata
    en silencio). Misma facultad que crear/editar. */
 function goDeletePresup(id) {
-  if (!_puedeCrearPresupuestoGastos()) { showToast({ kind: 'error', title: 'Sin permiso', body: 'Eliminar presupuestos es facultad de Administrador, Ejecutivo y Producción.' }); return; }
+  if (!_puedeCrearPresupuestoGastos()) { showToast({ kind: 'error', title: 'Sin permiso', body: 'Eliminar fondos es facultad de Administrador, Ejecutivo y Producción.' }); return; }
   const project = STATE.currentProject; if (!project) return;
   const d = goData(project);
   const e = d.presupuestos.find(p => p.id === id); if (!e) return;
   const ligados = goMovs(project).filter(m => m.pres === id);
   if (ligados.length) {
-    showToast({ kind: 'warning', title: 'Tiene gastos cargados', body: 'Este presupuesto tiene <b>' + ligados.length + '</b> gasto(s) asociado(s). Reasígnalos a otro presupuesto o elimínalos antes de borrarlo.' });
+    showToast({ kind: 'warning', title: 'Tiene gastos cargados', body: 'Este fondo tiene <b>' + ligados.length + '</b> gasto(s) asociado(s). Reasígnalos a otro fondo o elimínalos antes de borrarlo.' });
     return;
   }
   showModal({
-    title: 'Eliminar presupuesto',
-    body: '¿Estás seguro de que quieres eliminar este presupuesto?<br><br><b>' + escapeHtml(e.nombre) + '</b> · → ' + escapeHtml(e.linea) + '<br><br>No tiene gastos cargados. Esta acción no se puede deshacer.',
-    confirmLabel: 'Eliminar presupuesto', cancelLabel: 'Cancelar', danger: true,
+    title: 'Eliminar fondo',
+    body: '¿Estás seguro de que quieres eliminar este fondo?<br><br><b>' + escapeHtml(e.nombre) + '</b> · → ' + escapeHtml(e.linea) + '<br><br>No tiene gastos cargados. Esta acción no se puede deshacer.',
+    confirmLabel: 'Eliminar fondo', cancelLabel: 'Cancelar', danger: true,
     onConfirm: function () {
       const i = d.presupuestos.findIndex(p => p.id === id);
       if (i >= 0) d.presupuestos.splice(i, 1);
       markDirty(); closeModal(); renderGastos();
-      showToast({ kind: 'success', title: 'Presupuesto eliminado', body: 'Se quitó de la lista.' });
+      showToast({ kind: 'success', title: 'Fondo eliminado', body: 'Se quitó de la lista.' });
     }
   });
 }
@@ -728,7 +788,7 @@ function goDeletePresup(id) {
 function goOpenGasto(editId) {
   const project = STATE.currentProject;
   const envs = goPresList(project); const contactos = goContactos(project);
-  if (!envs.length) { showToast({ kind: 'warning', title: 'Primero crea un presupuesto', body: 'Cada gasto se carga a un presupuesto (sobre). Crea uno con “+ Crear presupuesto”.' }); return; }
+  if (!envs.length) { showToast({ kind: 'warning', title: 'Primero asigna un fondo', body: 'Cada gasto se carga a un fondo asignado. Crea uno con “+ Asignar fondo”.' }); return; }
   /* V11.x · si viene editId, precargamos el gasto para modificarlo; si no, se
      crea uno nuevo (comportamiento de siempre). El comprobante existente se
      conserva en GO_DRAFT salvo que se adjunte otro. */
@@ -747,8 +807,8 @@ function goOpenGasto(editId) {
         <div class="go-field half"><label>Fecha</label><input class="go-inp" type="date" id="f_fecha" value="${g ? escapeHtml(g.fecha) : goToday()}"></div>
         <div class="go-field half"><label>Monto (CLP)</label><input class="go-inp" id="f_monto" placeholder="0" inputmode="numeric" value="${g ? (g.monto || '') : ''}"></div>
       </div>
-      <div class="go-field"><label>Presupuesto · a qué se carga</label>
-        <select class="go-inp" id="f_pres" data-accion="go.hint" data-on="change"><option value="">— elige un presupuesto —</option>${envs.map(e => '<option value="' + e.id + '"' + sel(e.id, g ? g.pres : '') + '>' + escapeHtml(e.nombre) + ' (→ ' + escapeHtml(e.linea) + ')</option>').join('')}</select>
+      <div class="go-field"><label>Fondo · a qué se carga</label>
+        <select class="go-inp" id="f_pres" data-accion="go.hint" data-on="change"><option value="">— elige un fondo —</option>${envs.map(e => '<option value="' + e.id + '"' + sel(e.id, g ? g.pres : '') + '>' + escapeHtml(e.nombre) + ' (→ ' + escapeHtml(e.linea) + ')</option>').join('')}</select>
         <div class="go-hintbox" id="goGastoHint"></div>
       </div>
       <div class="go-frow">
@@ -904,7 +964,7 @@ function goOpenQuick() {
         <div class="go-dz" data-accion="go.dz" data-args="[&quot;q_file&quot;]"><span class="go-big">📷</span>Saca la foto a la boleta</div>
         <input type="file" id="q_file" accept="image/*" capture="environment" style="display:none" data-accion="go.fileQ" data-on="change"><div id="q_fileBox"></div></div>
       <div class="go-field"><label>Monto (CLP)</label><input class="go-inp" id="q_monto" placeholder="0" inputmode="numeric"></div>
-      <div class="go-field"><label>Presupuesto (opcional ahora)</label><select class="go-inp" id="q_pres"><option value="">— completar después —</option>${envs.map(e => '<option value="' + e.id + '">' + escapeHtml(e.nombre) + '</option>').join('')}</select></div>
+      <div class="go-field"><label>Fondo (opcional ahora)</label><select class="go-inp" id="q_pres"><option value="">— completar después —</option>${envs.map(e => '<option value="' + e.id + '">' + escapeHtml(e.nombre) + '</option>').join('')}</select></div>
       <div class="go-field"><label>Proyecto</label><input class="go-inp" value="${escapeHtml(goProjName(project))}" disabled></div>
       <div class="go-help">Lo demás (concepto, proveedor…) lo completas después. Queda <b>Pendiente</b>.</div>
     </div></div>
@@ -1176,7 +1236,7 @@ function goCfoValidacion() {
       <td style="white-space:nowrap;"><button class="btn btn-secondary btn-sm go-btn-pos" ${accionHTML('go.validar', x.id)}>Validar</button> <button class="btn btn-secondary btn-sm go-btn-warn" ${accionHTML('go.observar', x.id)}>Observar</button></td></tr>`;
   }).join('') : '<tr><td colspan="9" class="go-faint" style="padding:18px;">Nada pendiente. Todo validado ✓</td></tr>';
   return `<div class="go-card"><div class="go-card-h"><h3>Cola de validación <span class="go-faint">· solo gastos listos, de todos los proyectos (los “Pendiente” no aparecen)</span></h3></div>
-    <div class="go-card-b go-tablewrap"><table class="go-tbl"><thead><tr><th>Fecha</th><th>Proyecto</th><th>Concepto</th><th>Presupuesto</th><th>Quién gastó</th><th class="go-num">Monto</th><th>Comp.</th><th>Estado</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    <div class="go-card-b go-tablewrap"><table class="go-tbl"><thead><tr><th>Fecha</th><th>Proyecto</th><th>Concepto</th><th>Fondo</th><th>Quién gastó</th><th class="go-num">Monto</th><th>Comp.</th><th>Estado</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function goCfoReembolsos() {
   const pend = []; PROJECTS.forEach(p => goReembPend(p).forEach(m => pend.push({ project: p, m: m })));
@@ -1507,7 +1567,7 @@ function goCfoProyectos() {
         return `<tr><td class="go-sub">${escapeHtml((m.fecha || '').slice(5))}</td><td><span class="go-tag">${escapeHtml(e ? e.nombre : '—')}</span></td><td>${escapeHtml(m.concepto || '')}<div class="go-sub">${escapeHtml(m.prov || '')}</div></td><td>${escapeHtml(m.quien || '')}</td><td class="go-num">${fmtMoney(m.monto || 0)}</td><td>${comp}</td></tr>`;
       }).join('');
       tr += `<tr><td colspan="7" style="padding:0;"><div style="padding:6px 12px 14px;border-left:3px solid var(--accent);background:rgba(0,0,0,.02);"><div class="go-sub" style="margin:6px 0 8px;font-weight:600;">Gastos validados de ${escapeHtml(goProjName(p))} · descarga el comprobante o revisa el detalle sin entrar al proyecto</div>` +
-        `<table class="go-tbl"><thead><tr><th>Fecha</th><th>Presupuesto</th><th>Concepto</th><th>Quién gastó</th><th class="go-num">Monto</th><th>Comprobante</th></tr></thead><tbody>${sub}</tbody></table></div></td></tr>`;
+        `<table class="go-tbl"><thead><tr><th>Fecha</th><th>Fondo</th><th>Concepto</th><th>Quién gastó</th><th class="go-num">Monto</th><th>Comprobante</th></tr></thead><tbody>${sub}</tbody></table></div></td></tr>`;
     }
     return tr;
   }).join('') : '<tr><td colspan="7" class="go-faint" style="padding:18px;">No hay proyectos todavía.</td></tr>';
@@ -1684,7 +1744,7 @@ function goDescargarXlsx(projId) {
     if (MODULES['gastos']) {
       MODULES['gastos'].render = renderGastos;
       MODULES['gastos'].layer = 'Implementado · V8 (rastreador operativo + reconciliación)';
-      MODULES['gastos'].subtitle = 'Bitácora operativa de gastos del proyecto: presupuestos, comprobantes y reconciliación. Reemplaza a Rinde Gastos.';
+      MODULES['gastos'].subtitle = 'Bitácora operativa de gastos del proyecto: fondos asignados, comprobantes y reconciliación. Reemplaza a Rinde Gastos.';
     }
     MODULES['cfo'] = {
       title: 'Finanzas',
@@ -1720,15 +1780,14 @@ registrarAcciones('go', {
   quick: function () { goOpenQuick(); },
   nuevoGasto: function () { goOpenGasto(); },
   cajaHist: function () { goCajaHistorial(); },
-  cajaIngreso: function () { goCajaIngreso(); },
-  cajaDevolucion: function () { goCajaDevolucion(); },
+  cajaMov: function () { goCajaMov(); },
+  cmHint: function () { goCajaMovHint(); },
   sort: function (a) { goRegSortBy(a[0]); },
   listo: function (a) { goMarcarListo(a[0]); },
   revertir: function (a) { goRevertirPendiente(a[0]); },
   hilo: function (a) { goResponderHilo(a[0]); },
   editar: function (a) { goOpenGasto(a[0]); },
-  cajaIngresoOk: function () { goCajaIngresoSave(); },
-  cajaDevolucionOk: function () { goCajaDevolucionSave(); },
+  cajaMovOk: function () { goCajaMovSave(); },
   comp: function (a) { var f = { goVerComprobante: goVerComprobante, goCfoVer: goCfoVer }[a[0]]; if (f) f(a[1]); },
   reAdjuntar: function (a) { closeModal(); goOpenGasto(a[0]); },
   ppLinea: function () { goPpLineaChange(); },
